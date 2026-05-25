@@ -29,8 +29,8 @@ if ($LASTEXITCODE -eq 0) {
   & $git commit -m "Initial commit: King of Slipper beta"
 }
 
-& $git remote get-url origin *> $null
-if ($LASTEXITCODE -eq 0) {
+$remotes = & $git remote
+if ($remotes -contains "origin") {
   & $git remote remove origin
 }
 & $git remote add origin "https://github.com/$githubUser/$repoName.git"
