@@ -22,9 +22,17 @@ if (Test-Path $portableGit) {
 & $git branch -M $branch
 
 & $git add .
-& $git commit -m "Initial commit: King of Slipper beta"
+& $git diff --cached --quiet
+if ($LASTEXITCODE -eq 0) {
+  Write-Host "No staged changes to commit." -ForegroundColor Yellow
+} else {
+  & $git commit -m "Initial commit: King of Slipper beta"
+}
 
-& $git remote remove origin 2>$null
+& $git remote get-url origin *> $null
+if ($LASTEXITCODE -eq 0) {
+  & $git remote remove origin
+}
 & $git remote add origin "https://github.com/$githubUser/$repoName.git"
 
 & $git push -u origin $branch
