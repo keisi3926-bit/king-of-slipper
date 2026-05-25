@@ -1,0 +1,27 @@
+{
+  "name": "KING OF Slipper! TSG",
+  "short_name": "TSG",
+  "description": "Trading Slipper Game prototype",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101113",
+  "theme_color": "#101113",
+  "orientation": "portrait-primary",
+  "lang": "ja",
+  "categories": ["games"],
+  "icons": [
+    {
+      "src": "assets/haou-vs.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/main-slippers.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

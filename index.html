@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#101113" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="TSG" />
+    <title>KING OF Slipper TSG MVP</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="assets/haou-vs.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <section id="titleScreen" class="title-screen">
+      <div class="title-bg"></div>
+      <div class="title-menu">
+        <p class="eyebrow">Trading Slipper Game</p>
+        <h1>キング・オブ・スリッパ！寿立覇王<br /><span>～覇王伝～</span></h1>
+        <label class="difficulty-select">
+          <span>COM難易度</span>
+          <select id="cpuDifficultySelect">
+            <option value="easy">EASY</option>
+            <option value="normal">NORMAL</option>
+            <option value="hard">HARD</option>
+            <option value="veryhard">VeryHard</option>
+            <option value="lunatic">Lunatic</option>
+          </select>
+        </label>
+        <div class="title-buttons">
+          <button id="titleStartBtn" class="primary" type="button">スタート</button>
+          <button id="titleBuildBtn" type="button">エントランス構築</button>
+          <button id="titleRankingBtn" type="button">Ranking β</button>
+          <button id="titleRoomBtn" type="button">あいことば対戦</button>
+          <button id="titleFeedbackBtn" type="button">テスト感想</button>
+          <button id="titleOptionsBtn" type="button">オプション</button>
+          <button id="titleHelpBtn" type="button">ヘルプ</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="entranceBuilderScreen" class="builder-screen screen-hidden">
+      <div class="builder-shell">
+        <header class="builder-head">
+          <div>
+            <p class="eyebrow">Entrance Builder</p>
+            <h2>エントランス構築</h2>
+          </div>
+          <button id="builderBackBtn" type="button">タイトルへ戻る</button>
+        </header>
+        <div class="builder-layout">
+          <aside class="deck-list">
+            <div class="section-head">
+              <h2>保存エントランス</h2>
+              <span id="deckSlotCount">0/10</span>
+            </div>
+            <div id="savedDeckList" class="saved-deck-list"></div>
+          </aside>
+          <section class="builder-main">
+            <div class="builder-toolbar">
+              <input id="deckNameInput" type="text" maxlength="24" />
+              <button id="saveDeckBtn" class="primary" type="button">保存</button>
+              <button id="copyDeckBtn" type="button">複製</button>
+              <button id="newDeckBtn" type="button">新規</button>
+            </div>
+            <div class="builder-columns">
+              <section class="builder-box">
+                <div class="section-head">
+                  <h2>エントランス</h2>
+                  <span id="entranceCount">0/10</span>
+                </div>
+                <div id="entranceBuildList" class="build-list"></div>
+              </section>
+              <section class="builder-box">
+                <div class="section-head">
+                  <h2>伏せスリッパ</h2>
+                  <span id="trapBuildCount">0/3</span>
+                </div>
+                <div id="trapBuildList" class="build-list compact"></div>
+              </section>
+              <section class="builder-box">
+                <div class="section-head">
+                  <h2>Shoe Rack</h2>
+                  <span id="shoeRackBuildCount">0/3</span>
+                </div>
+                <div id="shoeRackBuildList" class="build-list compact"></div>
+              </section>
+            </div>
+          </section>
+          <aside class="pool-panel">
+            <div class="section-head">
+              <h2>所持スリッパ</h2>
+              <span>お試し全種</span>
+            </div>
+            <div id="ownedSlipperPool" class="owned-pool"></div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section id="characterSelectScreen" class="character-select screen-hidden">
+      <div class="select-head">
+        <p class="eyebrow">Character Select</p>
+        <h2>プレイヤーを選択</h2>
+      </div>
+      <div class="select-grid">
+        <button id="selectHaouBtn" class="select-card selected" type="button">
+          <img src="assets/haou-vs.png" alt="" />
+          <span>寿立覇王</span>
+          <small>旅館型・総合型</small>
+        </button>
+        <button class="select-card locked" type="button" disabled>
+          <img src="assets/jin-vs.png" alt="" />
+          <span>松葉迅</span>
+          <small>準備中</small>
+        </button>
+      </div>
+      <div class="commentator-select">
+        <p class="eyebrow">Commentator</p>
+        <article class="commentator-card selected">
+          <img src="assets/kai-setsuna.png" alt="" />
+          <div>
+            <strong>甲斐刹那</strong>
+            <span>実況担当 / 玄関の熱狂を拾う声</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <main id="gameApp" class="app screen-hidden">
+      <section class="arena" aria-label="TSG arena">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Trading Slipper Game</p>
+            <h1>KING OF Slipper!</h1>
+          </div>
+          <div class="top-actions">
+            <button id="startBtn" class="primary" type="button">試合開始</button>
+          </div>
+          <div class="round-panel">
+            <span id="fieldName">狭小マンション玄関</span>
+            <small id="matchLabel">Round 0/3</small>
+            <small id="officialMatchLabel">GAME 0 / BO3</small>
+            <small id="matchTimeLabel">MATCH TIME --:--</small>
+            <strong id="turnLabel">開始前</strong>
+          </div>
+        </header>
+
+        <section class="scoreboard">
+          <article class="player-card hero">
+            <div>
+              <span class="role">主人公</span>
+              <h2>寿立覇王</h2>
+              <p>旅館型・総合型</p>
+              <small id="playerRatingLabel">Rating 1600</small>
+            </div>
+            <div class="score">
+              <span id="playerScore">0</span>
+              <small>履き</small>
+            </div>
+          </article>
+
+          <div class="timer-ring" aria-live="polite">
+            <span id="timer">--</span>
+            <small id="phaseHint">待機</small>
+          </div>
+
+          <article class="player-card rival">
+            <div>
+              <span class="role">初戦相手</span>
+              <h2>松葉迅</h2>
+              <p>疾履流・高速アグロ</p>
+              <small id="cpuRatingLabel">Rating 1980</small>
+            </div>
+            <div class="score">
+              <span id="cpuScore">0</span>
+              <small>履き</small>
+            </div>
+          </article>
+        </section>
+
+        <section class="phase-panel">
+          <div>
+            <span class="phase-kicker">現在の行動</span>
+            <strong id="phaseTitle">試合開始待ち</strong>
+          </div>
+          <p id="phaseText">試合開始を押すと、手持ちスリッパが配られて45秒ターンが始まる。</p>
+        </section>
+
+        <section class="play-layout">
+          <section class="battlefield">
+            <div class="lane player-lane">
+              <div class="lane-head">
+                <span>覇王の玄関</span>
+                <strong id="playerPressure">履き心地 0 / 導線 0 / 品格 0</strong>
+              </div>
+              <div id="playerBoard" class="board"></div>
+              <div class="trap-zone">
+                <span>伏せスリッパ</span>
+                <div id="playerTraps" class="trap-slots"></div>
+              </div>
+            </div>
+
+            <div class="judges">
+              <div class="judge-title">
+                <span>スリップインサイダー</span>
+                <strong id="verdictLabel">吟味前</strong>
+              </div>
+              <div id="insiders" class="insiders"></div>
+            </div>
+
+            <div class="lane opponent-lane">
+              <div class="lane-head">
+                <span>ジンの玄関</span>
+                <strong id="cpuPressure">履き心地 0 / 導線 0 / 品格 0</strong>
+              </div>
+              <div id="cpuBoard" class="board"></div>
+              <div class="trap-zone rival-traps">
+                <span>伏せスリッパ</span>
+                <div id="cpuTraps" class="trap-slots"></div>
+              </div>
+            </div>
+          </section>
+          <ol id="log" hidden></ol>
+        </section>
+
+        <section id="handWindow" class="hand-area floating-hand">
+          <div id="handDragHandle" class="section-head hand-drag">
+            <h2>手スリッパ</h2>
+            <span id="deckCount">残り 0 / 配置 0・2</span>
+          </div>
+          <div class="hand-actions">
+            <button id="endTurnBtn" class="primary" type="button">ターンエンド</button>
+            <button id="counterBtn" type="button">湿度カウンター</button>
+            <button id="newGameBtn" type="button">再戦</button>
+          </div>
+          <div id="message" class="message hand-message">試合開始を押して、玄関に立とう。</div>
+          <div id="handDetail" class="hand-detail" hidden></div>
+          <div id="hand" class="hand"></div>
+        </section>
+      </section>
+    </main>
+
+    <div id="sideboardScreen" class="sideboard-screen" aria-hidden="true">
+      <div class="sideboard-panel">
+        <div class="sideboard-head">
+          <div>
+            <p class="eyebrow">Shoe Rack Time</p>
+            <h2>次戦への履き替え</h2>
+          </div>
+          <div class="sideboard-timer">
+            <span id="sideboardTimer">3:00</span>
+            <small id="sideboardReadyState">相手準備中</small>
+          </div>
+        </div>
+        <p id="sideboardMessage" class="help-note">Shoe Rackとエントランスを交換できます。最大3足まで交換可能です。</p>
+        <div class="sideboard-columns">
+          <section>
+            <div class="section-head">
+              <h3>エントランス</h3>
+              <span id="sideboardEntranceCount">0/10</span>
+            </div>
+            <div id="sideboardEntrance" class="swap-list"></div>
+          </section>
+          <section>
+            <div class="section-head">
+              <h3>Shoe Rack</h3>
+              <span id="sideboardRackCount">0/3</span>
+            </div>
+            <div id="sideboardRack" class="swap-list compact"></div>
+          </section>
+        </div>
+        <div class="dialog-actions">
+          <button id="sideboardDoneBtn" class="primary" type="button">交換完了</button>
+        </div>
+      </div>
+    </div>
+
+    <dialog id="helpDialog" class="help-dialog">
+      <form method="dialog">
+        <div class="help-head">
+          <div>
+            <p class="eyebrow">TSG Help</p>
+            <h2>ルール解説</h2>
+          </div>
+          <button id="closeHelpBtn" type="submit">閉じる</button>
+        </div>
+        <div class="help-grid">
+          <article>
+            <strong>履き心地</strong>
+            <p>ふわふわ感、安心感、足を入れたくなる感じ。女性、年配、温泉好きなどに効きやすい。</p>
+          </article>
+          <article>
+            <strong>導線</strong>
+            <p>玄関に入ってから自然に足が向く流れ。子供、高速勝負、狭い玄関で効きやすい。</p>
+          </article>
+          <article>
+            <strong>品格</strong>
+            <p>見た目の整い、所作、美しさ。大人、審判員、静音や旅館系の好みに効きやすい。</p>
+          </article>
+        </div>
+        <p class="help-note">
+          インサイダーごとに好みがあり、スリッパのタグと上の3要素を合わせて「履きたい」かを判定する。
+          1回の吟味で増える履きは最大2。先に5履きに届いた方が勝ち。
+        </p>
+        <div class="help-rules">
+          <p><strong>基本:</strong> 自分のターンにスリッパを最大2足まで玄関に置き、ターンエンドで吟味に入る。</p>
+          <p><strong>置き直し:</strong> 自分のターン中なら、置いたスリッパをクリックして外し、手持ちに戻せる。</p>
+          <p><strong>伏せスリッパ:</strong> 各プレイヤー3足。相手ターンの割り込みタイミングで妨害として使う。</p>
+          <p><strong>勝利条件:</strong> スリップインサイダーから合計5履きを取る。</p>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="optionsDialog" class="help-dialog">
+      <form method="dialog">
+        <div class="help-head">
+          <div>
+            <p class="eyebrow">Options</p>
+            <h2>オプション</h2>
+          </div>
+          <button type="submit">閉じる</button>
+        </div>
+        <label class="option-row">
+          <span>BGM音量</span>
+          <input id="bgmVolume" type="range" min="0" max="1" step="0.05" value="0.42" />
+        </label>
+        <label class="option-row">
+          <span>SE音量</span>
+          <input id="seVolume" type="range" min="0" max="1" step="0.05" value="1" />
+        </label>
+        <label class="option-row">
+          <span>吟味コメント速度</span>
+          <select id="thoughtSpeed">
+            <option value="700">速い</option>
+            <option value="1000" selected>標準</option>
+            <option value="1400">遅い</option>
+            <option value="1900">じっくり</option>
+          </select>
+        </label>
+        <label class="option-row">
+          <span>画面サイズ</span>
+          <select id="screenSize">
+            <option value="sd">SD</option>
+            <option value="hd" selected>HD</option>
+            <option value="hdd">HDD</option>
+            <option value="window">ウインドウ</option>
+            <option value="fullscreen">フルスクリーン</option>
+          </select>
+        </label>
+      </form>
+    </dialog>
+
+    <dialog id="builderConfirmDialog" class="help-dialog">
+      <form method="dialog">
+        <div class="help-head">
+          <div>
+            <p class="eyebrow">Build Check</p>
+            <h2 id="builderConfirmTitle">構築確認</h2>
+          </div>
+        </div>
+        <p id="builderConfirmText" class="help-note"></p>
+        <div class="dialog-actions">
+          <button id="builderCancelBtn" type="submit" value="cancel">キャンセル</button>
+          <button id="builderConfirmBtn" class="primary" type="submit" value="confirm">続行</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="cutin" class="cutin" aria-hidden="true">
+      <img id="cutinImage" class="cutin-image" alt="" />
+      <div class="cutin-slice cutin-slice-a"></div>
+      <div class="cutin-slice cutin-slice-b"></div>
+      <div class="cutin-copy">
+        <span id="cutinActor">寿立覇王</span>
+        <strong id="cutinTitle">ターン開始！</strong>
+        <p id="cutinText">玄関に立て。</p>
+      </div>
+    </div>
+
+    <div id="insiderPopup" class="insider-popup" aria-hidden="true">
+      <span id="insiderName">スリップインサイダー</span>
+      <strong id="insiderVerdict">まだ迷っている</strong>
+      <p id="insiderThought">玄関を吟味中...</p>
+    </div>
+
+    <div id="toastStack" class="commentary-stack" aria-live="polite"></div>
+    <div id="judgeTauntStack" class="judge-popup-stack" aria-live="polite"></div>
+    <div id="audienceReactionStack" class="audience-reaction-stack" aria-live="polite"></div>
+
+    <div id="vsScreen" class="vs-screen" aria-hidden="true">
+      <div class="vs-panel vs-hero">
+        <img src="assets/haou-vs.png" alt="" />
+        <span>寿立覇王</span>
+      </div>
+      <div class="vs-center">
+        <strong>VS</strong>
+        <button id="vsStartBtn" class="primary" type="button">対戦開始</button>
+      </div>
+      <div class="vs-panel vs-rival">
+        <img src="assets/jin-vs.png" alt="" />
+        <span>松葉迅</span>
+      </div>
+    </div>
+
+    <audio id="haouTheme" loop preload="auto">
+      <source src="assets/haou-theme-mobile.mp3" media="(max-width: 760px)" type="audio/mpeg" />
+      <source src="assets/haou-theme.mp3" type="audio/mpeg" />
+      <source src="assets/haou-theme.wav" type="audio/wav" />
+    </audio>
+    <audio id="haouVictoryTheme" loop preload="auto">
+      <source src="assets/haou-victory-theme-mobile.mp3" media="(max-width: 760px)" type="audio/mpeg" />
+      <source src="assets/haou-victory-theme.mp3" type="audio/mpeg" />
+      <source src="assets/haou-victory-theme.wav" type="audio/wav" />
+    </audio>
+    <audio id="jinTheme" loop preload="auto">
+      <source src="assets/jin-theme-mobile.mp3" media="(max-width: 760px)" type="audio/mpeg" />
+      <source src="assets/jin-theme.mp3" type="audio/mpeg" />
+      <source src="assets/jin-theme.wav" type="audio/wav" />
+    </audio>
+    <audio id="jinVictoryTheme" loop preload="auto">
+      <source src="assets/jin-victory-theme-mobile.mp3" media="(max-width: 760px)" type="audio/mpeg" />
+      <source src="assets/jin-victory-theme.mp3" type="audio/mpeg" />
+      <source src="assets/jin-victory-theme.wav" type="audio/wav" />
+    </audio>
+
+    <div id="victoryScreen" class="victory-screen" aria-hidden="true">
+      <img src="assets/haou-win.png" alt="" />
+      <div class="victory-copy">
+        <span>寿立覇王</span>
+        <strong>勝利！</strong>
+        <p>
+          「悪いな、松葉迅。<br />
+          　“速さ”だけじゃ――人は履かねぇ。」
+        </p>
+        <p>
+          「玄関ってのはな。<br />
+          　帰ってきた時に、“安心した”って思わせた方が勝ちなんだよ。」
+        </p>
+        <p id="victoryRatingText">Rating +0</p>
+        <button id="victoryRestartBtn" class="primary" type="button">再戦</button>
+      </div>
+    </div>
+
+    <div id="defeatScreen" class="victory-screen defeat-screen" aria-hidden="true">
+      <img src="assets/haou-lose.png" alt="" />
+      <div class="victory-copy defeat-copy">
+        <span>松葉迅</span>
+        <strong>敗北！</strong>
+        <p>
+          「……履かせるだけなら、俺の勝ちだったさ。」
+        </p>
+        <p>
+          「けどアンタの玄関には――<br />
+          　“帰ってきたくなる空気”があった。」
+        </p>
+        <p>
+          （振り返る）<br />
+          「次は……<br />
+          　絶対に勝つ！」
+        </p>
+        <p id="defeatRatingText">Rating +0</p>
+        <button id="defeatRestartBtn" class="primary" type="button">再戦</button>
+      </div>
+    </div>
+
+    <div id="drawScreen" class="victory-screen draw-screen" aria-hidden="true">
+      <div class="victory-copy defeat-copy">
+        <span>TIME UP</span>
+        <strong>MATCH DRAW</strong>
+        <p>時間切れェェェ！！ 勝負は引き分けだァ！！</p>
+        <p id="drawRatingText">Rating ±0</p>
+        <button id="drawRestartBtn" class="primary" type="button">再戦</button>
+      </div>
+    </div>
+
+    <dialog id="rankingDialog" class="menu-dialog wide-dialog">
+      <form method="dialog">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">Ranking β</p>
+            <h2>ローカルランキング</h2>
+          </div>
+          <button type="submit">閉じる</button>
+        </div>
+        <div id="rankingTable" class="ranking-table"></div>
+      </form>
+    </dialog>
+
+    <dialog id="roomDialog" class="menu-dialog wide-dialog">
+      <form method="dialog">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">Aikotoba Match Mock</p>
+            <h2>あいことば対戦</h2>
+          </div>
+          <button type="submit">閉じる</button>
+        </div>
+        <div class="room-panel">
+          <button id="createRoomBtn" class="primary" type="button">部屋を作る</button>
+          <div class="room-join">
+            <input id="roomCodeInput" type="text" maxlength="12" placeholder="6桁コード / あいことば" />
+            <button id="joinRoomBtn" type="button">部屋に入る</button>
+          </div>
+          <button id="leaveRoomBtn" type="button">退室</button>
+          <p id="roomCodeOutput" class="room-code">CODE ------</p>
+          <p id="roomState" class="help-note">ローカルモックです。通信同期は将来実装用の土台だけ用意しています。</p>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="feedbackDialog" class="menu-dialog wide-dialog">
+      <form method="dialog">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">Play Test</p>
+            <h2>テスト感想</h2>
+          </div>
+          <button type="submit">閉じる</button>
+        </div>
+        <div class="feedback-panel">
+          <label>
+            <span>遊んだ端末</span>
+            <select id="feedbackDevice">
+              <option value="iPhone">iPhone</option>
+              <option value="Android">Android</option>
+              <option value="PC">PC</option>
+              <option value="Other">その他</option>
+            </select>
+          </label>
+          <label>
+            <span>楽しかった度</span>
+            <input id="feedbackFun" type="range" min="1" max="5" value="3" />
+          </label>
+          <label>
+            <span>見やすさ</span>
+            <input id="feedbackReadability" type="range" min="1" max="5" value="3" />
+          </label>
+          <label>
+            <span>操作しやすさ</span>
+            <input id="feedbackControl" type="range" min="1" max="5" value="3" />
+          </label>
+          <label>
+            <span>ひとこと</span>
+            <textarea id="feedbackComment" rows="4" placeholder="分かりにくかった所、好きだった演出など"></textarea>
+          </label>
+          <div class="dialog-actions">
+            <button id="saveFeedbackBtn" class="primary" type="button">保存</button>
+            <button id="copyFeedbackBtn" type="button">まとめをコピー</button>
+          </div>
+          <p id="feedbackStatus" class="help-note">保存内容はこの端末のlocalStorageに残ります。</p>
+          <div id="feedbackList" class="feedback-list"></div>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="game.js"></script>
+  </body>
+</html>
