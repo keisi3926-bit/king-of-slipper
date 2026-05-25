@@ -375,10 +375,15 @@ function detectDeviceMode() {
 
 function applyDeviceMode() {
   const mode = detectDeviceMode();
+  const orientation = window.matchMedia("(orientation: landscape)").matches ? "landscape" : "portrait";
   sessionStorage.setItem("kos_device_mode", mode);
+  sessionStorage.setItem("kos_orientation_mode", orientation);
   document.body.dataset.deviceMode = mode;
+  document.body.dataset.orientationMode = orientation;
   document.body.classList.toggle("mobile-ui", mode === "mobile");
   document.body.classList.toggle("pc-ui", mode !== "mobile");
+  document.body.classList.toggle("landscape-ui", orientation === "landscape");
+  document.body.classList.toggle("portrait-ui", orientation === "portrait");
 }
 
 function formatClock(totalSeconds) {

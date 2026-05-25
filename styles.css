@@ -2528,6 +2528,216 @@ button.danger {
   .menu-dialog {
     width: calc(100vw - 16px);
   }
+
+  body.mobile-ui.landscape-ui {
+    overflow-x: hidden;
+  }
+
+  body.mobile-ui.landscape-ui .app {
+    width: 100%;
+    max-width: none;
+    padding: 8px 10px calc(118px + env(safe-area-inset-bottom));
+  }
+
+  body.mobile-ui.landscape-ui .arena {
+    gap: 8px;
+  }
+
+  body.mobile-ui.landscape-ui .topbar {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) auto;
+    align-items: center;
+    min-height: 64px;
+    padding: 8px 12px;
+  }
+
+  body.mobile-ui.landscape-ui .topbar h1 {
+    font-size: clamp(24px, 5vw, 42px);
+  }
+
+  body.mobile-ui.landscape-ui .scoreboard {
+    grid-template-columns: minmax(0, 1fr) 88px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  body.mobile-ui.landscape-ui .player-card {
+    min-height: 74px;
+    padding: 10px;
+  }
+
+  body.mobile-ui.landscape-ui .player-card h2 {
+    font-size: 18px;
+  }
+
+  body.mobile-ui.landscape-ui .score span {
+    font-size: 38px;
+  }
+
+  body.mobile-ui.landscape-ui .phase-panel {
+    min-height: 0;
+    padding: 9px 12px;
+  }
+
+  body.mobile-ui.landscape-ui .play-layout {
+    padding: 8px;
+  }
+
+  body.mobile-ui.landscape-ui .battlefield {
+    grid-template-columns: minmax(270px, 1fr) minmax(270px, 1fr);
+    gap: 8px;
+    min-height: 0;
+  }
+
+  body.mobile-ui.landscape-ui .judges {
+    grid-column: 1 / -1;
+    max-height: 92px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px;
+  }
+
+  body.mobile-ui.landscape-ui .judge-title {
+    margin-bottom: 6px;
+  }
+
+  body.mobile-ui.landscape-ui .insiders {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+  }
+
+  body.mobile-ui.landscape-ui .judge {
+    flex: 0 0 180px;
+    min-height: 54px;
+    padding: 7px;
+  }
+
+  body.mobile-ui.landscape-ui .judge p {
+    display: none;
+  }
+
+  body.mobile-ui.landscape-ui .board {
+    grid-template-columns: repeat(3, minmax(82px, 1fr));
+    grid-template-rows: repeat(2, minmax(104px, auto));
+    gap: 6px;
+    min-height: 0;
+  }
+
+  body.mobile-ui.landscape-ui .slot {
+    min-height: 104px;
+    padding: 7px;
+  }
+
+  body.mobile-ui.landscape-ui .slot .mini-card {
+    font-size: 12px;
+  }
+
+  body.mobile-ui.landscape-ui .floating-hand {
+    left: 50%;
+    right: auto;
+    bottom: max(6px, env(safe-area-inset-bottom));
+    width: min(760px, calc(100vw - 20px));
+    max-height: 30vh;
+    border-radius: 8px;
+    transform: translateX(-50%);
+    padding: 8px;
+  }
+
+  body.mobile-ui.landscape-ui .hand-drag {
+    cursor: default;
+  }
+
+  body.mobile-ui.landscape-ui .hand-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-bottom: 6px;
+  }
+
+  body.mobile-ui.landscape-ui .hand-message {
+    display: none;
+  }
+
+  body.mobile-ui.landscape-ui .hand {
+    max-height: 96px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  body.mobile-ui.landscape-ui .card {
+    flex: 0 0 86px;
+    min-height: 82px;
+    padding: 5px;
+  }
+
+  body.mobile-ui.landscape-ui .card-art {
+    width: 72px;
+  }
+
+  body.mobile-ui.landscape-ui .hand-detail {
+    max-height: 132px;
+    overflow: auto;
+    margin-bottom: 6px;
+    padding: 8px;
+  }
+
+  body.mobile-ui.landscape-ui .hand-detail-head {
+    grid-template-columns: 58px minmax(0, 1fr) auto;
+  }
+
+  body.mobile-ui.landscape-ui .detail-art {
+    width: 58px;
+  }
+
+  body.mobile-ui.landscape-ui .slot-buttons {
+    grid-template-columns: repeat(5, minmax(42px, 1fr));
+  }
+
+  body.mobile-ui.landscape-ui .commentary-stack,
+  body.mobile-ui.landscape-ui .judge-popup-stack,
+  body.mobile-ui.landscape-ui .insider-popup {
+    left: 8px;
+    width: min(420px, calc(50vw - 14px));
+  }
+
+  body.mobile-ui.landscape-ui .commentary-stack {
+    top: max(6px, env(safe-area-inset-top));
+  }
+
+  body.mobile-ui.landscape-ui .judge-popup-stack {
+    top: 96px;
+  }
+
+  body.mobile-ui.landscape-ui .insider-popup {
+    top: max(6px, env(safe-area-inset-top));
+    padding: 7px 9px;
+  }
+
+  body.mobile-ui.landscape-ui .audience-reaction-stack {
+    top: auto;
+    bottom: calc(104px + env(safe-area-inset-bottom));
+    left: 50%;
+    right: auto;
+    width: min(520px, calc(100vw - 20px));
+    transform: translateX(-50%);
+  }
+
+  body.mobile-ui.landscape-ui .sideboard-screen {
+    padding: max(8px, env(safe-area-inset-top)) 10px max(12px, env(safe-area-inset-bottom));
+  }
+
+  body.mobile-ui.landscape-ui .sideboard-panel {
+    max-height: calc(100dvh - 20px);
+    overflow: auto;
+  }
+
+  body.mobile-ui.landscape-ui .sideboard-head,
+  body.mobile-ui.landscape-ui .sideboard-columns {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 0.65fr);
+  }
+
+  body.mobile-ui.landscape-ui .swap-list {
+    max-height: 42vh;
+    overflow: auto;
+  }
 }
 
 @media (max-width: 560px) {
