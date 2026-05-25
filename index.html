@@ -502,9 +502,12 @@
             <input id="roomCodeInput" type="text" maxlength="12" placeholder="6桁コード / あいことば" />
             <button id="joinRoomBtn" type="button">部屋に入る</button>
           </div>
+          <button id="startOnlineMatchBtn" class="primary" type="button" disabled>オンライン対戦開始</button>
           <button id="leaveRoomBtn" type="button">退室</button>
           <p id="roomCodeOutput" class="room-code">CODE ------</p>
           <p id="roomState" class="help-note">ローカルモックです。通信同期は将来実装用の土台だけ用意しています。</p>
+          <p id="roomHint" class="help-note">同じ合言葉に2人が入ると開始できます。β版は公開リレー同期です。</p>
+          <div id="roomLog" class="room-log"></div>
         </div>
       </form>
     </dialog>
@@ -554,6 +557,7 @@
       </form>
     </dialog>
 
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
     <script src="game.js"></script>
   </body>
 </html>

@@ -45,7 +45,7 @@ https://keisi3926-bit.github.io/king-of-slipper/public-qr.html
 - 15分マッチタイマー
 - Shoe Rack Change 3分
 - Rating基礎とランキングβ
-- あいことば対戦モック
+- あいことば対戦β
 - 勝利 / 敗北 / VS / カットイン演出
 - BGM / SE
 - localStorageによる構築・Rating・設定保存
@@ -61,6 +61,18 @@ https://keisi3926-bit.github.io/king-of-slipper/public-qr.html
 - 詳細パネル内から配置先を選択
 - スリップインサイダー評価はフィールド下へ退避
 - 実況・ジャッジ・観客反応は別レイヤー表示
+
+## Aikotoba Match Beta
+
+タイトル画面の「あいことば対戦」から、合言葉ルームを作成・参加できます。
+
+1. 片方が「部屋を作る」を押す
+2. 表示された `CODE` を相手に伝える
+3. 相手が同じCODEを入力して「部屋に入る」
+4. 「オンライン対戦開始」を押す
+
+β版では公開GUNリレーを使って、配置・外す・ターンエンドを同期します。  
+通信環境や公開リレーの状態によって遅延や切断が起きる可能性があります。
 
 ## Audio Compression
 

@@ -127,8 +127,10 @@ const ENTRANCE_STORAGE_KEY = "kos_entrances_v1";
 const PROFILE_STORAGE_KEY = "kos_rating_profile_v1";
 const RANKING_STORAGE_KEY = "kos_ranking_beta_v1";
 const ROOM_STORAGE_KEY = "kos_room_mock_v1";
+const ROOM_SYNC_STORAGE_KEY = "kos_room_online_beta_v1";
 const CPU_DIFFICULTY_STORAGE_KEY = "kos_cpu_difficulty_v1";
 const FEEDBACK_STORAGE_KEY = "kos_feedback_v1";
+const ROOM_PEERS = ["https://relay.peer.ooo/gun"];
 const ELO_K = 64;
 const MAX_ENTRANCE_SAME_NAME = 2;
 
@@ -317,11 +319,21 @@ const state = {
   cpuTrait: null,
   coinTossWinner: "player",
   firstPlayer: "player",
+  onlineMode: false,
+  onlineRole: null,
 };
 
 let savedEntrances = loadSavedEntrances();
 let selectedEntranceId = savedEntrances[0]?.id || "sample-haou";
 let editingEntranceId = selectedEntranceId;
+const roomSync = {
+  gun: null,
+  room: null,
+  code: null,
+  role: null,
+  online: false,
+  seenActions: new Set(),
+};
 
 const byId = (id) => document.getElementById(id);
 const slipperByName = (name) => slippers.find((slipper) => slipper.name === name);
@@ -525,36 +537,179 @@ function renderRanking() {
 }
 
 function createRoom() {
-  const code = Math.random().toString(36).slice(2, 8).toUpperCase();
-  const room = { code, role: "host", status: "waiting", players: ["寿立覇王"], updatedAt: new Date().toISOString() };
-  localStorage.setItem(ROOM_STORAGE_KEY, JSON.stringify(room));
-  renderRoomState(room);
-  return room;
+  return connectRoom(generateRoomCode(), "host");
 }
 
 function joinRoom(roomCode) {
-  const code = (roomCode || "").trim().toUpperCase();
-  const room = { code, role: "guest", status: "mock-connected", players: ["HOST", "寿立覇王"], updatedAt: new Date().toISOString() };
+  const code = normalizeRoomCode(roomCode);
+  if (!code) {
+    roomLog("Enter a room code first.");
+    return null;
+  }
+  return connectRoom(code, "guest");
+}
+
+function leaveRoom() {
+  if (roomSync.room && roomSync.role) {
+    roomSync.room.get("players").get(roomSync.role).put(null);
+  }
+  roomSync.room = null;
+  roomSync.code = null;
+  roomSync.role = null;
+  roomSync.online = false;
+  state.onlineMode = false;
+  state.onlineRole = null;
+  localStorage.removeItem(ROOM_STORAGE_KEY);
+  localStorage.removeItem(ROOM_SYNC_STORAGE_KEY);
+  renderRoomState(null);
+  roomLog("Left room.");
+}
+
+function syncMatchState() {
+  if (!roomSync.room) return null;
+  const snapshot = {
+    playerScore: state.playerScore,
+    cpuScore: state.cpuScore,
+    playerBoard: state.playerBoard,
+    cpuBoard: state.cpuBoard,
+    turnNumber: state.turnNumber,
+    at: Date.now(),
+  };
+  roomSync.room.get("state").get(roomSync.role || "unknown").put(snapshot);
+  return snapshot;
+}
+
+function sendPlayerAction(action) {
+  if (!roomSync.room || !roomSync.role) return { queued: false, action };
+  const id = `${Date.now()}-${roomSync.role}-${Math.random().toString(36).slice(2, 8)}`;
+  const payload = { id, role: roomSync.role, action, at: Date.now() };
+  roomSync.seenActions.add(id);
+  roomSync.room.get("actions").get(id).put(payload);
+  return { queued: true, action };
+}
+
+async function receiveOpponentAction(message, id) {
+  if (!message || !message.action || message.role === roomSync.role) return;
+  const actionId = message.id || id;
+  if (roomSync.seenActions.has(actionId)) return;
+  roomSync.seenActions.add(actionId);
+  const { action } = message;
+  if (action.type === "start") {
+    roomLog("Opponent started the match.");
+    if (!state.started) startOnlineMatch(false);
+    return;
+  }
+  if (!isOnlineMatch()) return;
+  if (action.type === "place") {
+    state.cpuBoard[action.slotIndex] = reviveRemoteSlipper(action.slipper);
+    playSound("place");
+    announce(`ONLINE: opponent placed ${action.slipper?.name || "slipper"}`, "danger");
+    render();
+  } else if (action.type === "remove") {
+    state.cpuBoard[action.slotIndex] = null;
+    playSound("place");
+    announce("ONLINE: opponent removed a slipper", "danger");
+    render();
+  } else if (action.type === "turnEnd") {
+    state.cpuScore = Math.max(state.cpuScore, Number(action.score || 0));
+    state.cpuBoard = Array.isArray(action.board) ? action.board.map(reviveRemoteSlipper) : state.cpuBoard;
+    render();
+    if (state.cpuScore >= 5) {
+      await checkWinner();
+    } else {
+      await startPlayerTurn();
+    }
+  } else if (action.type === "counter") {
+    announce("ONLINE: opponent countered!", "danger");
+    playSound("counter");
+  }
+}
+
+function roomPlayerName(role = roomSync.role) {
+  return role === "host" ? "HOST" : role === "guest" ? "GUEST" : "PLAYER";
+}
+
+function roomLog(text) {
+  const root = byId("roomLog");
+  if (!root) return;
+  const line = document.createElement("p");
+  line.textContent = `${new Date().toLocaleTimeString()} ${text}`;
+  root.prepend(line);
+  while (root.children.length > 8) root.lastElementChild.remove();
+}
+
+function initRoomGun() {
+  if (roomSync.gun) return roomSync.gun;
+  if (!window.Gun) {
+    roomLog("GUN relay script is not loaded. Check network access.");
+    return null;
+  }
+  roomSync.gun = Gun({ peers: ROOM_PEERS });
+  return roomSync.gun;
+}
+
+function normalizeRoomCode(roomCode = "") {
+  return (roomCode || "").trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 12);
+}
+
+function generateRoomCode() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from({ length: 6 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
+}
+
+function connectRoom(code, role) {
+  const gun = initRoomGun();
+  if (!gun) {
+    const fallback = { code, role, status: "offline", players: [roomPlayerName(role)], updatedAt: new Date().toISOString() };
+    localStorage.setItem(ROOM_STORAGE_KEY, JSON.stringify(fallback));
+    renderRoomState(fallback);
+    return fallback;
+  }
+  roomSync.code = code;
+  roomSync.role = role;
+  roomSync.online = true;
+  roomSync.seenActions.clear();
+  roomSync.room = gun.get("king-of-slipper").get("rooms").get(code);
+  localStorage.setItem(ROOM_SYNC_STORAGE_KEY, JSON.stringify({ code, role, updatedAt: new Date().toISOString() }));
+  roomSync.room.get("players").get(role).put({
+    name: role === "host" ? "寿立覇王" : "挑戦者",
+    role,
+    ready: true,
+    at: Date.now(),
+  });
+  roomSync.room.get("meta").put({ code, status: "waiting", updatedAt: Date.now() });
+  roomSync.room.get("players").map().on(() => renderRoomState());
+  roomSync.room.get("meta").on(() => renderRoomState());
+  roomSync.room.get("actions").map().on((action, id) => receiveOpponentAction(action, id));
+  const room = { code, role, status: "online-waiting", players: [roomPlayerName(role)], updatedAt: new Date().toISOString() };
   localStorage.setItem(ROOM_STORAGE_KEY, JSON.stringify(room));
+  roomLog(role === "host" ? `Room created: ${code}` : `Joined room: ${code}`);
   renderRoomState(room);
   return room;
 }
 
-function leaveRoom() {
-  localStorage.removeItem(ROOM_STORAGE_KEY);
-  renderRoomState(null);
+function isOnlineMatch() {
+  return state.onlineMode && roomSync.online && roomSync.code;
 }
 
-function syncMatchState() {
-  return null;
+function reviveRemoteSlipper(slipper) {
+  if (!slipper) return null;
+  return { ...slipper, tags: Array.isArray(slipper.tags) ? [...slipper.tags] : [] };
 }
 
-function sendPlayerAction(action) {
-  return { queued: true, action };
-}
-
-function receiveOpponentAction() {
-  return null;
+async function startOnlineMatch(announceStart = true) {
+  if (!roomSync.online || !roomSync.code) {
+    roomLog("Create or join a room first.");
+    return;
+  }
+  state.onlineMode = true;
+  state.onlineRole = roomSync.role;
+  byId("roomDialog").close();
+  byId("titleScreen").classList.add("screen-hidden");
+  byId("characterSelectScreen").classList.add("screen-hidden");
+  byId("gameApp").classList.remove("screen-hidden");
+  if (announceStart) sendPlayerAction({ type: "start" });
+  await resetMatch();
 }
 
 function serializeEntranceForAsync(entrance = getSelectedEntrance()) {
@@ -578,9 +733,11 @@ function renderRoomState(room = null) {
     }
   }
   byId("roomCodeOutput").textContent = `CODE ${current?.code || "------"}`;
+  const startButton = byId("startOnlineMatchBtn");
+  if (startButton) startButton.disabled = !roomSync.online || !roomSync.code;
   byId("roomState").textContent = current
-    ? `役割: ${current.role} / 状態: ${current.status} / プレイヤー: ${current.players.join(" vs ")}`
-    : "ローカルモックです。通信同期は将来実装用の土台だけ用意しています。";
+    ? `ONLINE β / 役割: ${current.role} / 状態: ${current.status} / 合言葉: ${current.code}`
+    : "まだ部屋に入っていません。部屋を作るか、相手の合言葉を入力してください。";
 }
 
 function loadFeedbackRecords() {
@@ -935,6 +1092,7 @@ async function resetMatch() {
   }
   initAudio();
   playSound("start");
+  const online = state.onlineMode && roomSync.online;
   clearInterval(state.interval);
   clearTimeout(state.phaseTimeout);
   clearInterval(state.sideboardInterval);
@@ -979,7 +1137,9 @@ async function resetMatch() {
     cpuRatingDelta: 0,
     cpuDifficulty: settings.cpuDifficulty,
     coinTossWinner: Math.random() < 0.5 ? "player" : "cpu",
-    firstPlayer: "player",
+    firstPlayer: online && roomSync.role === "guest" ? "remote" : "player",
+    onlineMode: online,
+    onlineRole: online ? roomSync.role : null,
     sideboardSeconds: SIDEBOARD_SECONDS,
     sideboardSwaps: 0,
     playerSideboardReady: false,
@@ -1013,7 +1173,11 @@ async function resetMatch() {
   setPhase("スリッパ配置", "第1ターンの配置上限は2足。履き数は配置数ではなく、玄関全体の評価で決まる。");
   setMessage("手持ちスリッパを選んで玄関に置こう。");
   startMatchTimer();
-  if (state.firstPlayer === "cpu") {
+  if (state.firstPlayer === "remote") {
+    state.turn = "online-waiting";
+    setPhase("オンライン待機", "相手のターンです。相手の配置とターンエンドを待っています。");
+    setMessage("相手のターン待ち。合言葉対戦βで同期中です。");
+  } else if (state.firstPlayer === "cpu") {
     cpuSetupTurn();
   } else {
     startTimer();
@@ -1119,6 +1283,7 @@ function playSlipper(uid, slotIndex = firstEmptySlot(state.playerBoard)) {
   judgeTaunt(judgePlacementTaunt(slipper, slotIndex), "good");
   showAudienceReaction(slotIndex === 1 ? "中央前、勝負だ！" : slotProfiles[slotIndex].row === "back" ? "奥の配置いいぞ！" : "導線通した！", "good");
   setMessage(`${slotProfiles[slotIndex].name}に${slipper.name}を置いた。あと${Math.max(0, placementLimit - state.placementsThisTurn)}足置ける。`);
+  if (isOnlineMatch()) sendPlayerAction({ type: "place", slipper, slotIndex });
   render();
 }
 function removeSlipper(index) {
@@ -1139,6 +1304,7 @@ function removeSlipper(index) {
   announce(`実況: 「${slipper.name}」を外して導線を組み直す！`, "good");
   showAudienceReaction("そこ外すのか！", "good");
   setMessage(`${slipper.name}を外した。空いた導線に別のスリッパを置ける。`);
+  if (isOnlineMatch()) sendPlayerAction({ type: "remove", slipper, slotIndex: index });
   render();
 }
 
@@ -1158,7 +1324,16 @@ async function endPlayerTurn() {
   log("スリップインサイダーが覇王の玄関を吟味する。");
   announce("実況: インサイダー、覇王の玄関を凝視！", "good");
   await resolveJudgement("player");
-  if (!state.gameOver) state.phaseTimeout = setTimeout(cpuSetupTurn, 900);
+  if (isOnlineMatch()) {
+    sendPlayerAction({ type: "turnEnd", score: state.playerScore, board: state.playerBoard, turnNumber: state.turnNumber });
+    syncMatchState();
+    if (!state.gameOver) {
+      state.turn = "online-waiting";
+      setPhase("オンライン待機", "相手のターンです。相手の配置とターンエンドを待っています。");
+      setMessage("相手のターン待ち。相手の玄関が更新されます。");
+      render();
+    }
+  } else if (!state.gameOver) state.phaseTimeout = setTimeout(cpuSetupTurn, 900);
 }
 
 async function maybeCpuTrap() {
@@ -2551,6 +2726,7 @@ byId("sideboardDoneBtn").addEventListener("click", completeSideboard);
 byId("createRoomBtn").addEventListener("click", createRoom);
 byId("joinRoomBtn").addEventListener("click", () => joinRoom(byId("roomCodeInput").value));
 byId("leaveRoomBtn").addEventListener("click", leaveRoom);
+byId("startOnlineMatchBtn").addEventListener("click", () => startOnlineMatch(true));
 byId("saveFeedbackBtn").addEventListener("click", saveFeedback);
 byId("copyFeedbackBtn").addEventListener("click", copyFeedbackSummary);
 document.addEventListener("pointerdown", unlockAudio, { once: true });
