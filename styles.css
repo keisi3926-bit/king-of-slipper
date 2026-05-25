@@ -1972,6 +1972,65 @@ button.danger {
   min-width: 140px;
 }
 
+.important-notice {
+  position: fixed;
+  inset: 0;
+  z-index: 62;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 50% 36%, rgba(216, 181, 85, 0.16), transparent 34%),
+    rgba(0, 0, 0, 0.72);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease;
+}
+
+.important-notice.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.important-notice-panel {
+  width: min(720px, 92vw);
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  padding: clamp(18px, 3vw, 30px);
+  background:
+    linear-gradient(135deg, rgba(27, 30, 36, 0.98), rgba(12, 13, 16, 0.98)),
+    var(--panel);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.7), 0 0 34px rgba(216, 181, 85, 0.18);
+}
+
+.important-notice-panel span {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 1000;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.important-notice-panel strong {
+  display: block;
+  color: var(--text);
+  font-size: clamp(28px, 5vw, 54px);
+  line-height: 1.05;
+}
+
+.important-notice-panel p {
+  margin: 14px 0 20px;
+  color: var(--muted);
+  font-size: clamp(16px, 2.2vw, 22px);
+  line-height: 1.55;
+}
+
+.important-notice-panel button {
+  min-width: 128px;
+}
+
 .cutin {
   position: fixed;
   inset: 0;
@@ -2896,5 +2955,22 @@ button.danger {
   body.mobile-ui .judge-taunt img {
     width: 70px;
     height: 56px;
+  }
+
+  body.mobile-ui .important-notice {
+    padding: max(14px, env(safe-area-inset-top)) 14px max(18px, env(safe-area-inset-bottom));
+  }
+
+  body.mobile-ui .important-notice-panel {
+    width: min(620px, 94vw);
+    padding: 18px;
+  }
+
+  body.mobile-ui .important-notice-panel strong {
+    font-size: clamp(24px, 8vw, 42px);
+  }
+
+  body.mobile-ui.landscape-ui .important-notice-panel {
+    width: min(680px, 76vw);
   }
 }

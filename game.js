@@ -1375,6 +1375,7 @@ async function maybeCpuTrap() {
     target.tags.push("逆置き被弾");
     log(`ジンの伏せスリッパ！ 「${target.name}」の導線が乱された。`);
     announce(`実況: ジンの妨害！ 「${target.name}」が逆置き被弾！`, "danger");
+    await showImportantCommentary("伏せスリッパ公開", `松葉迅の妨害が発動。「${target.name}」の導線と品格が下がった。`, "danger");
     showAudienceReaction("湿度読みか！？", "danger");
     setMessage("ジンの妨害工作。こちらの導線と品格が少し下がった。");
     render();
@@ -1465,6 +1466,7 @@ async function useCounter() {
     target.tags.push("湿度被弾");
     log(`湿度カウンター発動！ 「${target.name}」の高速導線が湿気で鈍る。`);
     announce(`実況: 湿度カウンター命中！ 「${target.name}」の導線が鈍った！`, "good");
+    await showImportantCommentary("効果発動", `湿度カウンター成功。「${target.name}」の導線を下げた。`, "good");
     showAudienceReaction("カウンター通ったァ！", "good");
     setMessage("湿度カウンター成功。ジンの導線を下げた。");
   } else {
@@ -1500,12 +1502,14 @@ async function resolveJudgement(side) {
     if (hits > 0) playSound("score");
     announce(`実況: 配置${placedThisTurn.length}足、しかし玄関全体で${hits}履き獲得！`, "good");
     judgeTaunt(judgeResultTaunt(side, hits), hits > 0 ? "good" : "danger");
+    if (hits > 0) await showImportantCommentary("履き判定", `覇王が${hits}履き獲得。現在 ${state.playerScore} - ${state.cpuScore}`, "good");
   } else {
     state.cpuScore = Math.min(5, state.cpuScore + hits);
     log(`ジン配置:${placedThisTurn.length}足 / 履き:${hits}人。${reasonSummary || "インサイダーはまだ迷っている。"}`);
     if (hits > 0) playSound("score");
     announce(`実況: ジン、配置${placedThisTurn.length}足から${hits}履き発生！`, "danger");
     judgeTaunt(judgeResultTaunt(side, hits), hits > 0 ? "danger" : "good");
+    if (hits > 0) await showImportantCommentary("履き判定", `松葉迅が${hits}履き獲得。現在 ${state.playerScore} - ${state.cpuScore}`, "danger");
   }
   renderInsiders(verdicts);
   await checkWinner();
@@ -1699,6 +1703,7 @@ async function checkWinner() {
     else state.cpuRoundWins += 1;
     state.firstPlayer = win ? "cpu" : "player";
     render();
+    await showImportantCommentary("試合終了", `${win ? "覇王" : "松葉迅"}がこのゲームを獲得。GAME ${state.playerRoundWins}-${state.cpuRoundWins}`, win ? "good" : "danger");
     if (state.playerRoundWins >= MATCH_WIN_TARGET) {
       await showCutin("寿立覇王", `GAME WIN ${state.playerRoundWins}-${state.cpuRoundWins}`, "2本先取、マッチを制した。");
       await finishMatch("win", "score");
@@ -1707,7 +1712,7 @@ async function checkWinner() {
       await finishMatch("loss", "score");
     } else {
       await showCutin(win ? "寿立覇王" : "松葉迅", `GAME WIN ${state.playerRoundWins}-${state.cpuRoundWins}`, win ? "この玄関、まずは取った。" : "疾風流、まず一勝。");
-      openSideboardTime();
+      await openSideboardTime();
     }
   }
 }
@@ -1727,6 +1732,11 @@ async function finishMatch(result, reason = "score") {
   const jinRatingText = `松葉迅 ${state.cpuRatingBefore} → ${state.cpuRatingAfter}`;
   const ratingText = `Rating ${ratingResult.delta >= 0 ? "+" : ""}${ratingResult.delta} / ${ratingResult.before} → ${ratingResult.after} / ${jinRatingText}`;
   log(`MATCH ${result.toUpperCase()} / 勝ち点 ${state.matchPoints} / ${ratingText}`);
+  await showImportantCommentary(
+    result === "draw" ? "MATCH DRAW" : result === "win" ? "MATCH WIN" : "MATCH LOSS",
+    ratingText,
+    result === "win" ? "good" : "danger",
+  );
   if (result === "win") {
     byId("victoryRatingText").textContent = `MATCH WIN / 勝ち点 ${state.matchPoints} / ${ratingText}`;
     byId("victoryRestartBtn").textContent = "再戦";
@@ -1797,7 +1807,7 @@ async function beginNextRound() {
   render();
 }
 
-function openSideboardTime() {
+async function openSideboardTime() {
   state.sideboardSeconds = SIDEBOARD_SECONDS;
   state.sideboardSwaps = 0;
   state.playerSideboardReady = false;
@@ -1811,6 +1821,7 @@ function openSideboardTime() {
   byId("sideboardDoneBtn").disabled = false;
   byId("sideboardReadyState").textContent = "相手準備中";
   announce("Shoe Rack Change開始ィィィ！！", "good");
+  await showImportantCommentary("Shoe Rack Change", "3分以内にShoe Rackから交換。完了すると次ゲームへ進みます。", "good");
   showJudgePopup("制限時間は3分。構築変更を開始してください。", "warn");
   renderSideboard();
   clearInterval(state.sideboardInterval);
@@ -2163,6 +2174,54 @@ function log(text) {
 }
 
 let lastCommentaryAt = 0;
+const infoLayer = {
+  IMPORTANT: "important",
+  STANDARD: "standard",
+  AMBIENT: "ambient",
+};
+const importantQueue = [];
+let importantNoticeActive = false;
+
+function stripSpeaker(text) {
+  const raw = String(text || "").trim();
+  return raw.replace(/^[^:：]{1,16}[:：]\s*/, "").replace(/^JUDGE\s*/i, "").trim();
+}
+
+function logTyped(kind, text) {
+  if (text) log(`[${kind}] ${text}`);
+}
+
+function showImportantCommentary(title, text, tone = "") {
+  return new Promise((resolve) => {
+    importantQueue.push({ title, text, tone, resolve });
+    runImportantNoticeQueue();
+  });
+}
+
+function runImportantNoticeQueue() {
+  if (importantNoticeActive || !importantQueue.length) return;
+  const item = importantQueue.shift();
+  importantNoticeActive = true;
+  state.cutinActive = true;
+  render();
+  const notice = byId("importantNotice");
+  byId("importantNoticeType").textContent = item.tone === "danger" ? "CRITICAL" : "IMPORTANT";
+  byId("importantNoticeTitle").textContent = item.title || "重要情報";
+  byId("importantNoticeText").textContent = item.text || "";
+  notice.className = `important-notice show ${item.tone || ""}`.trim();
+  notice.setAttribute("aria-hidden", "false");
+  const finish = () => {
+    byId("importantNoticeBtn").removeEventListener("click", finish);
+    notice.classList.remove("show");
+    notice.setAttribute("aria-hidden", "true");
+    importantNoticeActive = false;
+    state.cutinActive = false;
+    render();
+    item.resolve();
+    runImportantNoticeQueue();
+  };
+  byId("importantNoticeBtn").addEventListener("click", finish);
+}
 const audienceLines = [
   "ざわ……",
   "今の配置攻めすぎだろ！",
@@ -2180,17 +2239,18 @@ function showCommentaryPopup(text, tone = "") {
   const cleanText = text.replace(/^実況[:：]\s*/, "").replace(/^螳滓ｳ[:：]\s*/, "");
   toast.innerHTML = `<span>${cleanText}</span><img src="assets/kai-setsuna.png" alt="" />`;
   byId("toastStack").prepend(toast);
-  setTimeout(() => toast.remove(), 2800);
+  setTimeout(() => toast.remove(), document.body.classList.contains("mobile-ui") ? 3400 : 3800);
 }
 function showJudgePopup(text, tone = "") {
   if (!text) return;
+  logTyped("JUDGE", stripSpeaker(text));
   const delay = Date.now() - lastCommentaryAt < 900 ? 650 : 0;
   setTimeout(() => {
     const taunt = document.createElement("div");
     taunt.className = `judge-taunt ${tone}`.trim();
     taunt.innerHTML = `<img src="assets/judge-tsg.png" alt="" /><strong>JUDGE</strong><span>${text.replace(/^ジャッジ[:：]\s*/, "")}</span>`;
     byId("judgeTauntStack").prepend(taunt);
-    setTimeout(() => taunt.remove(), 3000);
+    setTimeout(() => taunt.remove(), document.body.classList.contains("mobile-ui") ? 3200 : 3800);
   }, delay);
 }
 
@@ -2199,12 +2259,24 @@ function showAudienceReaction(text = "", tone = "") {
   reaction.className = `audience-reaction ${tone}`.trim();
   reaction.textContent = text || audienceLines[Math.floor(Math.random() * audienceLines.length)];
   byId("audienceReactionStack").prepend(reaction);
-  setTimeout(() => reaction.remove(), document.body.classList.contains("mobile-ui") ? 1450 : 2000);
+  setTimeout(() => reaction.remove(), document.body.classList.contains("mobile-ui") ? 1100 : 1450);
 }
 
-function announce(text, tone = "") {
+function announce(text, tone = "", options = {}) {
+  const layer = options.layer || infoLayer.STANDARD;
+  const cleanText = stripSpeaker(text);
+  if (layer === infoLayer.IMPORTANT) {
+    logTyped("IMPORTANT", cleanText);
+    return showImportantCommentary(options.title || "重要実況", cleanText, tone);
+  }
+  if (layer === infoLayer.AMBIENT) {
+    showAudienceReaction(cleanText, tone);
+    return Promise.resolve();
+  }
+  logTyped("実況", cleanText);
   showCommentaryPopup(text, tone);
   if (Math.random() < 0.72) showAudienceReaction();
+  return Promise.resolve();
 }
 
 function judgeTaunt(text, tone = "") {
@@ -2217,6 +2289,7 @@ async function showInsiderThoughts(verdicts, side) {
     byId("insiderName").textContent = verdict.insider.name;
     byId("insiderVerdict").textContent = verdict.won ? "履きたい...！" : "まだ迷う...";
     byId("insiderThought").textContent = thought;
+    logTyped("INSIDER", thought);
     const popup = byId("insiderPopup");
     popup.classList.remove("show");
     void popup.offsetWidth;
