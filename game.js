@@ -366,6 +366,21 @@ function slipperArt(slipperOrName, className = "") {
   return `<span class="slipper-art ${className}" style="--px:${x}%;--py:${y}%" aria-hidden="true"></span>`;
 }
 
+function detectDeviceMode() {
+  const touch = navigator.maxTouchPoints > 0 || window.matchMedia("(pointer: coarse)").matches;
+  const narrow = window.matchMedia("(max-width: 820px)").matches;
+  const mobileAgent = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  return touch && (narrow || mobileAgent) ? "mobile" : "pc";
+}
+
+function applyDeviceMode() {
+  const mode = detectDeviceMode();
+  sessionStorage.setItem("kos_device_mode", mode);
+  document.body.dataset.deviceMode = mode;
+  document.body.classList.toggle("mobile-ui", mode === "mobile");
+  document.body.classList.toggle("pc-ui", mode !== "mobile");
+}
+
 function formatClock(totalSeconds) {
   const safeSeconds = Math.max(0, Math.floor(totalSeconds || 0));
   const minutes = String(Math.floor(safeSeconds / 60)).padStart(2, "0");
@@ -2179,7 +2194,7 @@ function showAudienceReaction(text = "", tone = "") {
   reaction.className = `audience-reaction ${tone}`.trim();
   reaction.textContent = text || audienceLines[Math.floor(Math.random() * audienceLines.length)];
   byId("audienceReactionStack").prepend(reaction);
-  setTimeout(() => reaction.remove(), 2000);
+  setTimeout(() => reaction.remove(), document.body.classList.contains("mobile-ui") ? 1450 : 2000);
 }
 
 function announce(text, tone = "") {
@@ -2201,7 +2216,7 @@ async function showInsiderThoughts(verdicts, side) {
     popup.classList.remove("show");
     void popup.offsetWidth;
     popup.classList.add("show");
-    await wait(settings.thoughtDelay);
+    await wait(document.body.classList.contains("mobile-ui") ? Math.min(settings.thoughtDelay, 820) : settings.thoughtDelay);
     popup.classList.remove("show");
     await wait(130);
   }
@@ -2730,11 +2745,14 @@ byId("startOnlineMatchBtn").addEventListener("click", () => startOnlineMatch(tru
 byId("saveFeedbackBtn").addEventListener("click", saveFeedback);
 byId("copyFeedbackBtn").addEventListener("click", copyFeedbackSummary);
 document.addEventListener("pointerdown", unlockAudio, { once: true });
+window.addEventListener("resize", applyDeviceMode);
+window.addEventListener("orientationchange", () => setTimeout(applyDeviceMode, 150));
 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 
+applyDeviceMode();
 initHandDrag();
 setCpuDifficulty(settings.cpuDifficulty);
 showIdle();
