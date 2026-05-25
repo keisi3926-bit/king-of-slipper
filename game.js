@@ -1972,6 +1972,10 @@ function render() {
   const profile = loadPlayerProfile();
   byId("playerRatingLabel").textContent = `Rating ${profile.rating}${isRatingExpired(profile.lastMatchAt) ? " / 失効" : ""}`;
   byId("cpuRatingLabel").textContent = `Rating ${state.cpuRatingBefore || 1980}`;
+  byId("matchInfoTime").textContent = `MATCH TIME ${formatClock(state.matchSeconds || MATCH_SECONDS)}`;
+  byId("matchInfoGame").textContent = `GAME ${state.matchRound || 0} / BO3`;
+  byId("matchInfoScore").textContent = `履き ${state.playerScore} - ${state.cpuScore} / Match ${state.playerRoundWins}-${state.cpuRoundWins}`;
+  byId("matchInfoRatings").textContent = `Rating ${profile.rating} / ${state.cpuRatingBefore || 1980}`;
   byId("deckCount").textContent = `残り ${state.playerDeck.length} / 配置 ${state.placementsThisTurn}・${maxPlacementsPerTurn()}`;
   byId("turnLabel").textContent = getTurnLabel();
   byId("phaseHint").textContent = getPhaseHint();
@@ -2171,6 +2175,7 @@ function log(text) {
   const item = document.createElement("li");
   item.textContent = text;
   byId("log").prepend(item);
+  while (byId("log").children.length > 80) byId("log").lastElementChild.remove();
 }
 
 let lastCommentaryAt = 0;

@@ -193,6 +193,13 @@
         </section>
 
         <section class="play-layout">
+          <aside class="match-info-panel" aria-label="Match information">
+            <p class="eyebrow">Match Status</p>
+            <strong id="matchInfoTime">MATCH TIME --:--</strong>
+            <span id="matchInfoGame">GAME 0 / BO3</span>
+            <span id="matchInfoScore">0 - 0</span>
+            <span id="matchInfoRatings">Rating 1600 / 1980</span>
+          </aside>
           <section class="battlefield">
             <div class="lane player-lane">
               <div class="lane-head">
@@ -226,7 +233,16 @@
               </div>
             </div>
           </section>
-          <ol id="log" hidden></ol>
+          <aside class="log-panel" aria-label="TSG log">
+            <div class="log-head">
+              <div>
+                <p class="eyebrow">Live Review</p>
+                <h2>実況ログ</h2>
+              </div>
+              <span>保存中</span>
+            </div>
+            <ol id="log" class="match-log"></ol>
+          </aside>
         </section>
 
         <section id="handWindow" class="hand-area floating-hand">
