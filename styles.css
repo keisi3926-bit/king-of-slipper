@@ -984,7 +984,7 @@ h1 {
   width: 100%;
   aspect-ratio: 1.2;
   border-radius: 8px;
-  background-image: url("assets/main-slippers.png");
+  background-image: var(--sprite, url("assets/main-slippers.png"));
   background-size: 300% 300%;
   background-position: var(--px) var(--py);
   filter: drop-shadow(0 12px 14px rgba(0, 0, 0, 0.42));

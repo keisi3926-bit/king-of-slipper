@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.05.26-pc-placement-v1";
+const APP_VERSION = "2026.05.27-new-slippers-v1";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -103,6 +103,141 @@ const slippers = [
     text: "玄関は急いだ奴から乱れる。全体を美しく整える。",
     burst: true,
   },
+  {
+    name: "闇潜りスリッパ",
+    style: "伏せスリッパ系",
+    comfort: 2,
+    flow: 1,
+    dignity: 2,
+    attack: 2,
+    defense: 2,
+    speed: 1,
+    tags: ["伏せ", "フィニッシャー", "奇襲"],
+    text: "伏せ解除時、次の履き判定を押し上げ、相手の履き数を1削る。",
+    effectId: "dark_lurker",
+    visualSet: "new",
+    visualIndex: 0,
+  },
+  {
+    name: "トレードバースト",
+    style: "サイド交換系",
+    comfort: 2,
+    flow: 2,
+    dignity: 2,
+    attack: 2,
+    defense: 2,
+    speed: 2,
+    tags: ["Shoe Rack", "交換", "攻撃"],
+    text: "Shoe Rackから入ると次戦開始時に相手を1削り、自分の履き数を1進める。",
+    effectId: "trade_burst",
+    visualSet: "new",
+    visualIndex: 1,
+  },
+  {
+    name: "スキャニングアイ",
+    style: "伏せ対策系",
+    comfort: 1,
+    flow: 3,
+    dignity: 2,
+    attack: 1,
+    defense: 2,
+    speed: 3,
+    tags: ["伏せ対策", "情報", "速度"],
+    text: "配置時、相手の伏せスリッパ1足を一時確認する。このターンは攻撃性能が少し下がる。",
+    effectId: "scanning_eye",
+    visualSet: "new",
+    visualIndex: 2,
+  },
+  {
+    name: "ブラフマスター",
+    style: "伏せスリッパ系",
+    comfort: 1,
+    flow: 2,
+    dignity: 2,
+    attack: 1,
+    defense: 2,
+    speed: 2,
+    tags: ["伏せ", "ブラフ", "心理戦"],
+    text: "伏せ確認の対象になりやすい。読み合いを歪ませるブラフの中核。",
+    effectId: "bluff_master",
+    visualSet: "new",
+    visualIndex: 3,
+  },
+  {
+    name: "リザーブガード",
+    style: "サイド交換系",
+    comfort: 1,
+    flow: 1,
+    dignity: 3,
+    attack: 1,
+    defense: 3,
+    speed: 1,
+    tags: ["Shoe Rack", "防御", "控え"],
+    text: "Shoe Rackにいる間、自分の玄関全体に防御寄りの品格+2を与える。",
+    effectId: "reserve_guard",
+    visualSet: "new",
+    visualIndex: 4,
+  },
+  {
+    name: "リベンジトラップ",
+    style: "伏せトラップ系",
+    comfort: 1,
+    flow: 1,
+    dignity: 2,
+    attack: 1,
+    defense: 2,
+    speed: 1,
+    tags: ["伏せ", "罠", "反撃"],
+    text: "攻撃または確認された時、相手の履き数を1削る。",
+    effectId: "revenge_trap",
+    visualSet: "new",
+    visualIndex: 5,
+  },
+  {
+    name: "ロックチェンジャー",
+    style: "サイド交換メタ系",
+    comfort: 1,
+    flow: 1,
+    dignity: 2,
+    attack: 1,
+    defense: 2,
+    speed: 1,
+    tags: ["Shoe Rack", "ロック", "交換封じ"],
+    text: "場にいる間、相手のShoe Rack交換判断を鈍らせる交換メタ。",
+    effectId: "lock_changer",
+    visualSet: "new",
+    visualIndex: 6,
+  },
+  {
+    name: "シャドウリンク",
+    style: "伏せシナジー系",
+    comfort: 1,
+    flow: 2,
+    dignity: 1,
+    attack: 1,
+    defense: 1,
+    speed: 2,
+    tags: ["伏せ", "シナジー", "成長"],
+    text: "自分の残り伏せスリッパ数だけ、履き心地と品格が上がる。",
+    effectId: "shadow_link",
+    visualSet: "new",
+    visualIndex: 7,
+  },
+  {
+    name: "デュアルフェイス",
+    style: "可変型",
+    comfort: 1,
+    flow: 2,
+    dignity: 1,
+    attack: 1,
+    defense: 1,
+    speed: 2,
+    tags: ["伏せ", "可変", "二面性"],
+    text: "表なら攻撃寄りに履き心地+2。伏せなら防御寄りに品格+2。",
+    effectId: "dual_face",
+    visualSet: "new",
+    visualIndex: 8,
+  },
 ];
 
 const cpuDeckNames = [
@@ -186,13 +321,15 @@ const sampleEntrances = [
       "学校用上履きコンバート",
       "健康サンダル",
     ],
-    traps: ["湿度カウンター", "湿度カウンター", "湿度カウンター"],
+    traps: ["湿度カウンター", "闇潜りスリッパ", "リベンジトラップ"],
+    shoeRack: ["トレードバースト", "リザーブガード", "ロックチェンジャー"],
   },
   {
     id: "sample-jin",
     name: "松葉迅サンプル",
     entrance: [...cpuDeckNames],
     traps: ["瞬間逆置き", "瞬間逆置き", "瞬間逆置き"],
+    shoeRack: ["トレードバースト", "ブラフマスター", "シャドウリンク"],
   },
 ];
 
@@ -289,6 +426,10 @@ const state = {
   cpuTrapReady: true,
   playerTrapCount: 3,
   cpuTrapCount: 3,
+  playerTraps: [],
+  cpuTraps: [],
+  pendingJudgementBonus: { player: 0, cpu: 0 },
+  pendingRoundStartEffects: [],
   turnNumber: 0,
   placementsThisTurn: 0,
   activeHandUid: null,
@@ -356,19 +497,24 @@ const slipperVisualMap = {
   "一手整列": 1,
   "竹踏みリカバリー": 6,
 };
+const NEW_SLIPPER_SPRITE = "assets/new-slippers.png";
 
 function slipperVisualIndex(slipperOrName) {
-  const name = typeof slipperOrName === "string" ? slipperOrName : slipperOrName?.name;
+  const slipper = typeof slipperOrName === "string" ? slipperByName(slipperOrName) : slipperOrName;
+  const name = slipper?.name || slipperOrName;
+  if (Number.isInteger(slipper?.visualIndex)) return slipper.visualIndex;
   if (Number.isInteger(slipperVisualMap[name])) return slipperVisualMap[name];
   const index = slipperVisualNames.indexOf(name);
   return index >= 0 ? index % 9 : 0;
 }
 
 function slipperArt(slipperOrName, className = "") {
+  const slipper = typeof slipperOrName === "string" ? slipperByName(slipperOrName) : slipperOrName;
   const index = slipperVisualIndex(slipperOrName);
   const x = (index % 3) * 50;
   const y = Math.floor(index / 3) * 50;
-  return `<span class="slipper-art ${className}" style="--px:${x}%;--py:${y}%" aria-hidden="true"></span>`;
+  const sprite = slipper?.visualSet === "new" ? `--sprite:url('${NEW_SLIPPER_SPRITE}');` : "";
+  return `<span class="slipper-art ${className}" style="${sprite}--px:${x}%;--py:${y}%" aria-hidden="true"></span>`;
 }
 
 function detectDeviceMode() {
@@ -1034,6 +1180,153 @@ function traitForSide(side) {
   return traitId ? playerTraits[traitId] : null;
 }
 
+function trapListForSide(side) {
+  return side === "player" ? state.playerTraps : state.cpuTraps;
+}
+
+function setTrapListForSide(side, traps) {
+  if (side === "player") {
+    state.playerTraps = traps;
+    state.playerTrapCount = traps.length;
+    state.counterReady = traps.length > 0;
+  } else {
+    state.cpuTraps = traps;
+    state.cpuTrapCount = traps.length;
+    state.cpuTrapReady = traps.length > 0;
+  }
+}
+
+function drawTrapForSide(side) {
+  const traps = [...trapListForSide(side)];
+  const trapName = traps.shift();
+  setTrapListForSide(side, traps);
+  return trapName ? cloneSlipper(slipperByName(trapName) || { name: trapName, style: "伏せ", tags: [], text: "" }) : null;
+}
+
+function pickTrapForInspection(side) {
+  const traps = trapListForSide(side);
+  if (!traps.length) return null;
+  const bluffIndex = traps.findIndex((name) => slipperByName(name)?.effectId === "bluff_master");
+  const index = bluffIndex >= 0 && Math.random() < 0.65 ? bluffIndex : Math.floor(Math.random() * traps.length);
+  return cloneSlipper(slipperByName(traps[index]) || { name: traps[index], style: "伏せ", tags: [], text: "" });
+}
+
+function opponentSide(side) {
+  return side === "player" ? "cpu" : "player";
+}
+
+function sideLabel(side) {
+  return side === "player" ? "寿立覇王" : "松葉迅";
+}
+
+function applyScoreDamage(sourceSide, amount, sourceName) {
+  const target = opponentSide(sourceSide);
+  if (target === "player") state.playerScore = Math.max(0, state.playerScore - amount);
+  else state.cpuScore = Math.max(0, state.cpuScore - amount);
+  log(`${sourceName}の効果。${sideLabel(target)}の履き数を${amount}削った。`);
+  announce(`実況: ${sourceName}が刺さった！ ${sideLabel(target)}の履き数-${amount}！`, sourceSide === "player" ? "good" : "danger");
+  showAudienceReaction("罠が通った！", sourceSide === "player" ? "good" : "danger");
+}
+
+function applyScoreHeal(side, amount, sourceName) {
+  if (side === "player") state.playerScore = Math.min(5, state.playerScore + amount);
+  else state.cpuScore = Math.min(5, state.cpuScore + amount);
+  log(`${sourceName}の効果。${sideLabel(side)}の履き数を${amount}進めた。`);
+}
+
+function effectiveSlipperStats(slipper, board, side) {
+  const stats = {
+    comfort: slipper.comfort || 0,
+    flow: slipper.flow || 0,
+    dignity: slipper.dignity || 0,
+    attack: slipper.attack ?? slipper.comfort ?? 0,
+    defense: slipper.defense ?? slipper.dignity ?? 0,
+    speed: slipper.speed ?? slipper.flow ?? 0,
+  };
+  if (slipper.effectId === "shadow_link") {
+    const hiddenCount = trapListForSide(side).length;
+    stats.comfort += hiddenCount;
+    stats.dignity += hiddenCount;
+    stats.attack += hiddenCount;
+    stats.defense += hiddenCount;
+  }
+  if (slipper.effectId === "dual_face") {
+    if (board?.includes(slipper)) {
+      stats.comfort += 2;
+      stats.attack += 2;
+    } else {
+      stats.dignity += 2;
+      stats.defense += 2;
+    }
+  }
+  if (slipper.attackSuppressedTurn === state.turnNumber) {
+    stats.comfort = Math.max(0, stats.comfort - 1);
+    stats.attack = Math.max(0, stats.attack - 1);
+  }
+  return stats;
+}
+
+function reservePassiveBonus(side) {
+  if (side !== "player") return 0;
+  return state.matchShoeRack.some((name) => slipperByName(name)?.effectId === "reserve_guard") ? 2 : 0;
+}
+
+function triggerSlipperEvent(eventName, context) {
+  const slipper = context.slipper;
+  if (!slipper?.effectId) return;
+  if (eventName === "onEnterField") {
+    if (slipper.effectId === "scanning_eye") {
+      const inspected = pickTrapForInspection(opponentSide(context.side));
+      slipper.attackSuppressedTurn = state.turnNumber;
+      if (inspected) {
+        log(`スキャニングアイ発動。${sideLabel(opponentSide(context.side))}の伏せ「${inspected.name}」を一時確認した。`);
+        announce(`実況: 伏せ情報を読んだ！ 見えたのは「${inspected.name}」！`, context.side === "player" ? "good" : "danger");
+        triggerSlipperEvent("onInspected", { side: opponentSide(context.side), inspectorSide: context.side, slipper: inspected });
+      } else {
+        log("スキャニングアイ発動。確認できる伏せスリッパはなかった。");
+      }
+    }
+    if (slipper.effectId === "lock_changer") {
+      log(`ロックチェンジャー発動。${sideLabel(opponentSide(context.side))}のShoe Rack判断に圧がかかった。`);
+      judgeTaunt("裁定。交換圧力、発生しています。", context.side === "player" ? "good" : "danger");
+    }
+  }
+  if (eventName === "onSideSwapIn" && slipper.effectId === "trade_burst") {
+    state.pendingRoundStartEffects.push({ effectId: "trade_burst", side: context.side, sourceName: slipper.name });
+    log(`トレードバースト予約。次戦開始時、交換が攻撃に変わる。`);
+  }
+  if (eventName === "onReveal") {
+    if (slipper.effectId === "dark_lurker") {
+      state.pendingJudgementBonus[context.side] = (state.pendingJudgementBonus[context.side] || 0) + 1;
+      applyScoreDamage(context.side, 1, slipper.name);
+      log("闇潜りスリッパの伏せ解除。次の履き判定に奇襲ボーナス+1。");
+    }
+    if (slipper.effectId === "revenge_trap") {
+      applyScoreDamage(context.side, 1, slipper.name);
+    }
+    if (slipper.effectId === "dual_face") {
+      state.pendingJudgementBonus[context.side] = (state.pendingJudgementBonus[context.side] || 0) + 1;
+      log("デュアルフェイスは伏せの顔を見せた。防御から攻めへ切り替わる。");
+    }
+  }
+  if (eventName === "onInspected" && slipper.effectId === "revenge_trap") {
+    applyScoreDamage(context.side, 1, slipper.name);
+    log("リベンジトラップは確認行動に反応した。");
+  }
+}
+
+function applyPendingRoundStartEffects() {
+  const effects = [...state.pendingRoundStartEffects];
+  state.pendingRoundStartEffects = [];
+  effects.forEach((effect) => {
+    if (effect.effectId === "trade_burst") {
+      applyScoreDamage(effect.side, 1, effect.sourceName);
+      applyScoreHeal(effect.side, 1, effect.sourceName);
+      showImportantCommentary("Shoe Rack効果", `${effect.sourceName}発動。交換が攻撃に変わった。`, effect.side === "player" ? "good" : "danger");
+    }
+  });
+}
+
 function traitForCharacter(name) {
   return playerTraits[characterTraits[name]] || null;
 }
@@ -1249,6 +1542,10 @@ async function resetMatch() {
     cpuTrapReady: true,
     playerTrapCount: Math.min(MAX_TRAP_SIZE, selectedEntrance.traps.length),
     cpuTrapCount: 3,
+    playerTraps: selectedEntrance.traps.slice(0, MAX_TRAP_SIZE),
+    cpuTraps: ["瞬間逆置き", "瞬間逆置き", "瞬間逆置き"],
+    pendingJudgementBonus: { player: 0, cpu: 0 },
+    pendingRoundStartEffects: [],
     turnNumber: 1,
     placementsThisTurn: 0,
     phaseTimeout: null,
@@ -1416,6 +1713,7 @@ function playSlipper(uid, slotIndex = firstEmptySlot(state.playerBoard)) {
   } else {
     state.placementsThisTurn += 1;
   }
+  triggerSlipperEvent("onEnterField", { side: "player", slipper, slotIndex });
   playSound("place");
   const bonus = slipper.burst ? " 一手整列で、玄関全体の品格が締まった。" : "";
   const reaction = slotReaction(slipper, slotIndex);
@@ -1483,12 +1781,18 @@ async function maybeCpuTrap() {
   const trapChance = profile.trapChance + (hasGoodTarget ? 0.08 : -0.08);
   const shouldTrap = state.cpuTrapCount > 0 && boardCount(state.playerBoard) >= 2 && Math.random() < trapChance;
   if (!shouldTrap) return;
-  state.cpuTrapCount -= 1;
-  state.cpuTrapReady = state.cpuTrapCount > 0;
-  await showCutin("松葉迅", "伏せスリッパオープン！", "瞬間逆置き、導線を断つ！", {
+  const trap = drawTrapForSide("cpu");
+  await showCutin("松葉迅", "伏せスリッパオープン！", `${trap?.name || "瞬間逆置き"}、導線を断つ！`, {
     image: JIN_COUNTER_IMAGE,
   });
   playSound("trap");
+  triggerSlipperEvent("onReveal", { side: "cpu", slipper: trap });
+  if (trap?.effectId) {
+    log(`ジンの伏せスリッパ！ 「${trap.name}」が公開された。`);
+    await showImportantCommentary("伏せスリッパ公開", `松葉迅の${trap.name}が発動。${trap.text || "読み合いが動いた。"}`, "danger");
+    render();
+    return;
+  }
   const target = filledBoard(state.playerBoard).find((slipper) => slipper.flow >= 3) || filledBoard(state.playerBoard).at(-1);
   if (target) {
     target.flow = Math.max(0, target.flow - 2);
@@ -1522,6 +1826,7 @@ async function cpuSetupTurn() {
       slipper.placedTurn = state.turnNumber;
       slipper.slotIndex = slotIndex;
       state.cpuBoard[slotIndex] = slipper;
+      triggerSlipperEvent("onEnterField", { side: "cpu", slipper, slotIndex });
     }
   }
   log(`ジンは疾履流で${plays}足を一気に置いた。`);
@@ -1537,8 +1842,8 @@ function openCounterWindow() {
   if (state.gameOver) return;
   state.turn = "counter-window";
   byId("timer").textContent = "割込";
-  setPhase("伏せスリッパ確認", "ログを見ながら妨害工作を選べる。湿度カウンターを使うなら今。");
-  setMessage(state.playerTrapCount > 0 ? "伏せスリッパを開ける。湿度カウンター使用可能。" : "伏せスリッパは使い切った。ジンの吟味へ進む。");
+  setPhase("伏せスリッパ確認", "ログを見ながら伏せスリッパを開けるか判断できる。");
+  setMessage(state.playerTrapCount > 0 ? `伏せスリッパ使用可能。残り${state.playerTrapCount}足。` : "伏せスリッパは使い切った。ジンの吟味へ進む。");
   render();
   state.phaseTimeout = setTimeout(resolveCpuTurn, 5000);
 }
@@ -1574,12 +1879,19 @@ async function startPlayerTurn() {
 async function useCounter() {
   if (state.gameOver || state.playerTrapCount <= 0 || state.turn !== "counter-window" || state.cutinActive) return;
   clearTimeout(state.phaseTimeout);
-  state.playerTrapCount -= 1;
-  state.counterReady = state.playerTrapCount > 0;
-  await showCutin("寿立覇王", "伏せスリッパオープン！", "湿度カウンター！", {
+  const trap = drawTrapForSide("player");
+  await showCutin("寿立覇王", "伏せスリッパオープン！", `${trap?.name || "湿度カウンター"}！`, {
     image: HAOU_COUNTER_IMAGE,
   });
   playSound("counter");
+  triggerSlipperEvent("onReveal", { side: "player", slipper: trap });
+  if (trap?.effectId && trap.effectId !== "humidity_counter") {
+    log(`伏せスリッパ「${trap.name}」を公開した。`);
+    await showImportantCommentary("伏せスリッパ公開", `${trap.name}発動。${trap.text || "読み合いが動いた。"}`, "good");
+    render();
+    state.phaseTimeout = setTimeout(resolveCpuTurn, 1100);
+    return;
+  }
   const target = filledBoard(state.cpuBoard).find((slipper) => slipper.tags.includes("EVA")) || filledBoard(state.cpuBoard).at(-1);
   if (target) {
     target.flow = Math.max(0, target.flow - 3);
@@ -1609,7 +1921,9 @@ async function resolveJudgement(side) {
     turnNumber: state.turnNumber,
   });
   const verdicts = wearResults.results;
-  const hits = wearResults.count;
+  const bonusHits = state.pendingJudgementBonus[side] || 0;
+  state.pendingJudgementBonus[side] = 0;
+  const hits = Math.min(5, wearResults.count + bonusHits);
   const reasonSummary = verdicts
     .filter((verdict) => verdict.won)
     .map((verdict) => `${verdict.insider.name}: ${verdict.reasonText}`)
@@ -1619,14 +1933,14 @@ async function resolveJudgement(side) {
 
   if (side === "player") {
     state.playerScore = Math.min(5, state.playerScore + hits);
-    log(`配置:${placedThisTurn.length}足 / 履き:${hits}人。${reasonSummary || "まだ玄関全体の決め手が足りない。"}`);
+    log(`配置:${placedThisTurn.length}足 / 履き:${hits}人。${bonusHits ? `伏せ効果ボーナス+${bonusHits}。` : ""}${reasonSummary || "まだ玄関全体の決め手が足りない。"}`);
     if (hits > 0) playSound("score");
     announce(`実況: 配置${placedThisTurn.length}足、しかし玄関全体で${hits}履き獲得！`, "good");
     judgeTaunt(judgeResultTaunt(side, hits), hits > 0 ? "good" : "danger");
     if (hits > 0) await showImportantCommentary("履き判定", `覇王が${hits}履き獲得。現在 ${state.playerScore} - ${state.cpuScore}`, "good");
   } else {
     state.cpuScore = Math.min(5, state.cpuScore + hits);
-    log(`ジン配置:${placedThisTurn.length}足 / 履き:${hits}人。${reasonSummary || "インサイダーはまだ迷っている。"}`);
+    log(`ジン配置:${placedThisTurn.length}足 / 履き:${hits}人。${bonusHits ? `伏せ効果ボーナス+${bonusHits}。` : ""}${reasonSummary || "インサイダーはまだ迷っている。"}`);
     if (hits > 0) playSound("score");
     announce(`実況: ジン、配置${placedThisTurn.length}足から${hits}履き発生！`, "danger");
     judgeTaunt(judgeResultTaunt(side, hits), hits > 0 ? "danger" : "good");
@@ -1637,18 +1951,20 @@ async function resolveJudgement(side) {
   render();
 }
 
-function calcPressure(board) {
+function calcPressure(board, side = "player") {
   const base = board.reduce(
     (sum, slipper) => {
       if (!slipper) return sum;
       const bonus = slotBonusFor(slipper, slipper.slotIndex ?? 0);
-      sum.comfort += slipper.comfort + bonus.comfort;
-      sum.flow += slipper.flow + field.flowBonus + bonus.flow;
-      sum.dignity += slipper.dignity + bonus.dignity;
+      const stats = effectiveSlipperStats(slipper, board, side);
+      sum.comfort += stats.comfort + bonus.comfort;
+      sum.flow += stats.flow + field.flowBonus + bonus.flow;
+      sum.dignity += stats.dignity + bonus.dignity;
       return sum;
     },
     { comfort: 0, flow: 0, dignity: 0 },
   );
+  base.dignity += reservePassiveBonus(side);
   if (filledBoard(board).some((slipper) => slipper.burst)) {
     base.comfort += 2;
     base.dignity += 2;
@@ -1656,19 +1972,20 @@ function calcPressure(board) {
   return base;
 }
 
-function calcInsiderScore(board, insider, pressure) {
+function calcInsiderScore(board, insider, pressure, side = "player") {
   const placed = filledBoard(board);
   if (!placed.length) return 0;
   const tagHits = placed.flatMap((slipper) => slipper.tags).filter((tag) => insider.wants.includes(tag)).length;
   const slotScore = placed.reduce((sum, slipper) => {
     const slot = slotProfiles[slipper.slotIndex ?? 0];
     const bonus = slotBonusFor(slipper, slipper.slotIndex ?? 0);
+    const stats = effectiveSlipperStats(slipper, board, side);
     let score = bonus.tagScore + Math.floor((bonus.attention || 0) / 2);
     if (slot.row === "front" && insider.bias === "flow") score += 2;
     if (slot.row === "front" && insider.wants.includes("子供")) score += 1;
     if (slot.row === "back" && insider.wants.includes("年配")) score += 2;
     if (slot.row === "back" && insider.wants.includes("おもてなし")) score += 2;
-    if ((slipper.slotIndex ?? 0) === 1 && insider.bias === "dignity") score += slipper.dignity >= 4 ? 2 : -1;
+    if ((slipper.slotIndex ?? 0) === 1 && insider.bias === "dignity") score += stats.dignity >= 4 ? 2 : -1;
     return sum + score;
   }, 0);
   const biasScore = Math.floor((pressure[insider.bias] || 0) / 2);
@@ -1676,7 +1993,7 @@ function calcInsiderScore(board, insider, pressure) {
 }
 
 function evaluateSlipInsiders({ entranceState, placedThisTurn, player, opponentState, turnNumber }) {
-  const pressure = calcPressure(entranceState);
+  const pressure = calcPressure(entranceState, player?.side || "player");
   const results = insiders.map((insider) => {
     const evaluation = evaluateSingleInsider({
       entranceState,
@@ -1703,7 +2020,7 @@ function evaluateSlipInsiders({ entranceState, placedThisTurn, player, opponentS
 }
 
 function evaluateSingleInsider({ entranceState, placedThisTurn, player, turnNumber, insider, pressure }) {
-  const baseScore = calcInsiderScore(entranceState, insider, pressure);
+  const baseScore = calcInsiderScore(entranceState, insider, pressure, player?.side || "player");
   const reasons = wearReasonCandidates({ entranceState, placedThisTurn, player, turnNumber, insider, pressure });
   const bestReason = reasons.sort((a, b) => b.bonus - a.bonus)[0] || {
     reason: "single_slipper_appeal",
@@ -1732,11 +2049,14 @@ function wearReasonCandidates({ entranceState, placedThisTurn, player, turnNumbe
   const hasLeftRightFront = slots.includes(0) && slots.includes(2);
   const quietOrJapanese = placedThisTurn.filter((slipper) => slipper.tags.includes("静音") || slipper.style.includes("旅館") || slipper.name.includes("畳"));
   const bestSingle = placed
-    .map((slipper) => ({
-      slipper,
-      hits: slipper.tags.filter((tag) => insider.wants.includes(tag)).length,
-      stat: slipper[insider.bias] || 0,
-    }))
+    .map((slipper) => {
+      const stats = effectiveSlipperStats(slipper, entranceState, player?.side || "player");
+      return {
+        slipper,
+        hits: slipper.tags.filter((tag) => insider.wants.includes(tag)).length,
+        stat: stats[insider.bias] || 0,
+      };
+    })
     .sort((a, b) => b.hits * 3 + b.stat - (a.hits * 3 + a.stat))[0];
   const reasons = [];
   if (bestSingle && (bestSingle.hits > 0 || bestSingle.stat >= 4)) {
@@ -1800,6 +2120,22 @@ function wearReasonCandidates({ entranceState, placedThisTurn, player, turnNumbe
       reason: "special_effect",
       source: "一手整列",
       text: "特殊効果で玄関全体が整った",
+      bonus: 2,
+    });
+  }
+  if (placed.some((slipper) => slipper.effectId === "shadow_link") && trapListForSide(player?.side || "player").length > 0) {
+    reasons.push({
+      reason: "special_effect",
+      source: "シャドウリンク",
+      text: "残る伏せスリッパが影の圧力になった",
+      bonus: Math.min(3, trapListForSide(player?.side || "player").length),
+    });
+  }
+  if (reservePassiveBonus(player?.side || "player") > 0) {
+    reasons.push({
+      reason: "special_effect",
+      source: "リザーブガード",
+      text: "控えの守りが玄関の品格を支えた",
       bonus: 2,
     });
   }
@@ -1900,6 +2236,9 @@ function setupRound() {
     cpuTrapReady: true,
     playerTrapCount: Math.min(MAX_TRAP_SIZE, getSelectedEntrance().traps.length),
     cpuTrapCount: 3,
+    playerTraps: getSelectedEntrance().traps.slice(0, MAX_TRAP_SIZE),
+    cpuTraps: ["瞬間逆置き", "瞬間逆置き", "瞬間逆置き"],
+    pendingJudgementBonus: { player: 0, cpu: 0 },
     turnNumber: 1,
     placementsThisTurn: 0,
     phaseTimeout: null,
@@ -1916,6 +2255,7 @@ async function beginNextRound() {
   byId("sideboardScreen").setAttribute("aria-hidden", "true");
   state.matchRound += 1;
   setupRound();
+  applyPendingRoundStartEffects();
   await showVsScreen({ auto: true, delay: 1200 });
   await showCutin("寿立覇王", `Round ${state.matchRound} 開始！`, "履き替えたなら、もう一度玄関へ。");
   setPhase("スリッパ配置", `配置上限は${maxPlacementsPerTurn()}足。Shoe Rack後の玄関全体で履きを取りに行く。`);
@@ -2062,6 +2402,7 @@ function selectSideboardItem(source, index) {
   state.matchEntrance = nextEntrance;
   state.matchShoeRack = nextRack;
   state.sideboardSwaps += 1;
+  triggerSlipperEvent("onSideSwapIn", { side: "player", slipper: slipperByName(rackName), entranceIndex });
   pendingSideboardPick = null;
   playSound("place");
   const message = `交換完了: ${entranceName} ⇔ ${rackName}。次戦のエントランスに反映されます。`;
@@ -2107,8 +2448,8 @@ function render() {
   byId("endTurnBtn").disabled = state.turn !== "player" || state.gameOver || state.cutinActive;
   byId("newGameBtn").disabled = !state.started || state.cutinActive;
   byId("startBtn").disabled = state.cutinActive;
-  byId("playerPressure").textContent = `履き ${state.playerScore} / ${pressureLabel(calcPressure(state.playerBoard))}`;
-  byId("cpuPressure").textContent = `履き ${state.cpuScore} / ${pressureLabel(calcPressure(state.cpuBoard))}`;
+  byId("playerPressure").textContent = `履き ${state.playerScore} / ${pressureLabel(calcPressure(state.playerBoard, "player"))}`;
+  byId("cpuPressure").textContent = `履き ${state.cpuScore} / ${pressureLabel(calcPressure(state.cpuBoard, "cpu"))}`;
   renderBoard("playerBoard", state.playerBoard);
   renderBoard("cpuBoard", state.cpuBoard);
   renderTraps("playerTraps", state.playerTrapCount);
