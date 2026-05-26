@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.05.26-mobile-battle-v2";
+const APP_VERSION = "2026.05.26-mobile-battle-v3";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -400,6 +400,8 @@ function applyDeviceMode() {
   document.body.classList.toggle("portrait-ui", orientation === "portrait");
   document.body.classList.toggle("mobile-compact", mode === "mobile" && (width < 820 || height < 410 || dpr >= 3));
   document.body.classList.toggle("mobile-tiny", mode === "mobile" && (width < 720 || height < 370));
+  document.body.classList.toggle("mobile-short", mode === "mobile" && orientation === "landscape" && height < 395);
+  document.body.classList.toggle("mobile-narrow", mode === "mobile" && orientation === "landscape" && width < 780);
 }
 
 function requestPlayFullscreen() {
@@ -2309,11 +2311,12 @@ function renderMobileBattle() {
   byId("mobileGameLabel").textContent = `GAME ${state.matchRound || 0}/BO3 ${state.playerRoundWins}-${state.cpuRoundWins}`;
   byId("mobileTurnLabel").textContent = getTurnLabel();
   byId("mobileTimeLabel").textContent = formatClock(state.matchSeconds || MATCH_SECONDS);
-  byId("mobileStartBtn").hidden = state.started && !state.matchFinished;
-  byId("mobileStartBtn").disabled = state.cutinActive || (state.started && !state.matchFinished);
+  byId("mobileStartBtn").hidden = state.started;
+  byId("mobileStartBtn").disabled = state.cutinActive || state.started;
   byId("mobileEndTurnBtn").disabled = state.turn !== "player" || state.gameOver || state.cutinActive;
   byId("mobileCounterBtn").disabled = state.turn !== "counter-window" || state.playerTrapCount <= 0 || state.gameOver || state.cutinActive;
   byId("mobileCounterBtn").textContent = `伏${state.playerTrapCount}`;
+  byId("mobileRematchBtn").hidden = !state.started;
   byId("mobileRematchBtn").disabled = !state.started || state.cutinActive;
   renderMobileBoard("mobileCpuBoard", state.cpuBoard, "cpu");
   renderMobileBoard("mobilePlayerBoard", state.playerBoard, "player");
@@ -2529,7 +2532,7 @@ async function showInsiderThoughts(verdicts, side) {
     popup.classList.remove("show");
     void popup.offsetWidth;
     popup.classList.add("show");
-    const mobileThoughtDelay = verdict.won ? 2500 : 1900;
+    const mobileThoughtDelay = verdict.won ? 3000 : 2200;
     await wait(document.body.classList.contains("mobile-ui") ? mobileThoughtDelay : settings.thoughtDelay);
     popup.classList.remove("show");
     await wait(130);
@@ -2605,7 +2608,7 @@ function showCoinTossScreen(options = {}) {
       flipped = true;
       button.removeEventListener("click", flip);
       const winner = Math.random() < 0.5 ? "player" : "cpu";
-      const duration = 520 + Math.floor(Math.random() * 360);
+      const duration = 420 + Math.floor(Math.random() * 260);
       const rareHit = Math.random() < 0.08;
 
       screen.classList.add("flipping", "shake");
@@ -2627,7 +2630,7 @@ function showCoinTossScreen(options = {}) {
           state.cutinActive = false;
           render();
           resolve(winner);
-        }, 520);
+        }, 420);
       }, duration);
     };
 

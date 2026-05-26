@@ -4053,6 +4053,10 @@ body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle {
   display: none;
 }
 
+.mobile-actions:has(button[hidden]) {
+  align-content: center;
+}
+
 .mobile-hand-detail {
   position: fixed;
   left: max(8px, env(safe-area-inset-left));
@@ -4314,4 +4318,40 @@ body.mobile-ui.landscape-ui.mobile-tiny .mobile-actions button {
 body.mobile-ui.landscape-ui.mobile-tiny .mobile-hand-detail {
   right: 52px;
   bottom: 62px;
+}
+
+body.mobile-ui.landscape-ui.mobile-narrow #gameApp:not(.screen-hidden) .mobile-battle {
+  grid-template-columns: minmax(0, 1fr) clamp(42px, 7vw, 56px);
+}
+
+body.mobile-ui.landscape-ui.mobile-narrow .mobile-hud {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+body.mobile-ui.landscape-ui.mobile-narrow .mobile-hud small {
+  display: none;
+}
+
+body.mobile-ui.landscape-ui.mobile-narrow .mobile-board {
+  border-radius: 12px;
+}
+
+body.mobile-ui.landscape-ui.mobile-narrow .mobile-hand-card {
+  flex-basis: 0;
+}
+
+body.mobile-ui.landscape-ui.mobile-short #gameApp:not(.screen-hidden) .mobile-battle {
+  grid-template-rows: 34px minmax(42px, 1fr) 26px minmax(50px, 1.08fr) 34px 58px;
+}
+
+body.mobile-ui.landscape-ui.mobile-short .mobile-center {
+  padding-block: 2px;
+}
+
+body.mobile-ui.landscape-ui.mobile-short .mobile-hand {
+  padding-block: 3px;
+}
+
+body.mobile-ui.landscape-ui.mobile-short .mobile-actions button {
+  min-height: 34px;
 }
