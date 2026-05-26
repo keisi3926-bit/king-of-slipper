@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.05.26-landscape-v2";
+const APP_VERSION = "2026.05.26-mobile-battle-v1";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -2101,6 +2101,7 @@ function render() {
   renderTraps("playerTraps", state.playerTrapCount);
   renderTraps("cpuTraps", state.cpuTrapCount);
   renderHand();
+  renderMobileBattle();
 }
 
 function getTurnLabel() {
@@ -2284,6 +2285,115 @@ function log(text) {
   item.textContent = text;
   byId("log").prepend(item);
   while (byId("log").children.length > 80) byId("log").lastElementChild.remove();
+}
+
+function renderMobileBattle() {
+  const mobileRoot = byId("mobileBattle");
+  if (!mobileRoot) return;
+  const profile = loadPlayerProfile();
+  byId("mobilePlayerScore").textContent = state.playerScore;
+  byId("mobileCpuScore").textContent = state.cpuScore;
+  byId("mobilePlayerMeta").textContent = `Rating ${profile.rating}`;
+  byId("mobileCpuMeta").textContent = `Rating ${state.cpuRatingBefore || 1980}`;
+  byId("mobileGameLabel").textContent = `GAME ${state.matchRound || 0}/BO3 ${state.playerRoundWins}-${state.cpuRoundWins}`;
+  byId("mobileTurnLabel").textContent = getTurnLabel();
+  byId("mobileTimeLabel").textContent = formatClock(state.matchSeconds || MATCH_SECONDS);
+  byId("mobileStartBtn").disabled = state.cutinActive;
+  byId("mobileEndTurnBtn").disabled = state.turn !== "player" || state.gameOver || state.cutinActive;
+  byId("mobileCounterBtn").disabled = state.turn !== "counter-window" || state.playerTrapCount <= 0 || state.gameOver || state.cutinActive;
+  byId("mobileCounterBtn").textContent = `伏${state.playerTrapCount}`;
+  byId("mobileRematchBtn").disabled = !state.started || state.cutinActive;
+  renderMobileBoard("mobileCpuBoard", state.cpuBoard, "cpu");
+  renderMobileBoard("mobilePlayerBoard", state.playerBoard, "player");
+  renderMobileHand();
+  renderMobileHandDetail();
+}
+
+function renderMobileBoard(id, board, side) {
+  const root = byId(id);
+  root.innerHTML = "";
+  const canOperate = side === "player" && state.turn === "player" && !state.gameOver && !state.cutinActive;
+  const hasActive = Boolean(state.activeHandUid);
+  for (let i = 0; i < field.maxBoard; i += 1) {
+    const slipper = board[i];
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `mobile-slot ${slipper ? "filled" : ""} ${canOperate && !slipper && hasActive ? "targetable" : ""} ${canOperate && slipper ? "removable" : ""}`;
+    button.disabled = side !== "player" || (!slipper && (!canOperate || !hasActive)) || Boolean(slipper && !canOperate);
+    if (slipper) {
+      button.innerHTML = `
+        <span>${slotProfiles[i].name}</span>
+        ${slipperArt(slipper, "mobile-slot-art")}
+        <strong>${shortSlipperName(slipper.name)}</strong>
+      `;
+      if (canOperate) button.addEventListener("click", () => removeSlipper(i));
+    } else {
+      button.innerHTML = `<span>${slotProfiles[i].name}</span><i></i>`;
+      if (canOperate && hasActive) button.addEventListener("click", () => playSlipper(state.activeHandUid, i));
+    }
+    root.append(button);
+  }
+}
+
+function shortSlipperName(name = "") {
+  return name.length > 7 ? `${name.slice(0, 7)}…` : name;
+}
+
+function renderMobileHand() {
+  const root = byId("mobileHand");
+  root.innerHTML = "";
+  const actionLocked = state.turn !== "player" || state.gameOver || state.cutinActive;
+  state.hand.forEach((slipper) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `mobile-hand-card ${state.activeHandUid === slipper.uid ? "selected" : ""}`;
+    button.disabled = actionLocked;
+    button.innerHTML = `
+      ${slipperArt(slipper, "mobile-card-art")}
+      <strong>${shortSlipperName(slipper.name)}</strong>
+      <span>${slipper.comfort}/${slipper.flow}/${slipper.dignity}</span>
+    `;
+    button.addEventListener("click", () => {
+      if (actionLocked) return;
+      state.activeHandUid = state.activeHandUid === slipper.uid ? null : slipper.uid;
+      render();
+    });
+    root.append(button);
+  });
+}
+
+function renderMobileHandDetail() {
+  const root = byId("mobileHandDetail");
+  const slipper = state.hand.find((item) => item.uid === state.activeHandUid);
+  if (!slipper) {
+    root.hidden = true;
+    root.innerHTML = "";
+    return;
+  }
+  const actionLocked = state.turn !== "player" || state.gameOver || state.cutinActive;
+  const slotButtons = slotProfiles
+    .map((slot, index) => `<button type="button" data-mobile-slot="${index}" ${state.playerBoard[index] || actionLocked ? "disabled" : ""}>${slot.name}</button>`)
+    .join("");
+  root.hidden = false;
+  root.innerHTML = `
+    <div class="mobile-detail-main">
+      ${slipperArt(slipper, "mobile-detail-art")}
+      <div>
+        <strong>${slipper.name}</strong>
+        <span>${slipper.style} / 履 ${slipper.comfort} 導 ${slipper.flow} 品 ${slipper.dignity}</span>
+        <p>${slipper.text}</p>
+      </div>
+      <button type="button" data-mobile-close>×</button>
+    </div>
+    <div class="mobile-slot-buttons">${slotButtons}</div>
+  `;
+  root.querySelector("[data-mobile-close]")?.addEventListener("click", () => {
+    state.activeHandUid = null;
+    render();
+  });
+  root.querySelectorAll("[data-mobile-slot]").forEach((button) => {
+    button.addEventListener("click", () => playSlipper(slipper.uid, Number(button.dataset.mobileSlot)));
+  });
 }
 
 let lastCommentaryAt = 0;
@@ -2999,6 +3109,10 @@ byId("defeatRestartBtn").addEventListener("click", startMatchFromButton);
 byId("drawRestartBtn").addEventListener("click", startMatchFromButton);
 byId("endTurnBtn").addEventListener("click", endPlayerTurn);
 byId("counterBtn").addEventListener("click", useCounter);
+byId("mobileStartBtn").addEventListener("click", startMatchFromButton);
+byId("mobileEndTurnBtn").addEventListener("click", endPlayerTurn);
+byId("mobileCounterBtn").addEventListener("click", useCounter);
+byId("mobileRematchBtn").addEventListener("click", startMatchFromButton);
 byId("sideboardDoneBtn").addEventListener("click", completeSideboard);
 byId("createRoomBtn").addEventListener("click", createRoom);
 byId("joinRoomBtn").addEventListener("click", () => joinRoom(byId("roomCodeInput").value));

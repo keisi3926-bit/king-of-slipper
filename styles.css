@@ -3760,3 +3760,369 @@ button.danger {
     width: min(680px, 76vw);
   }
 }
+
+.mobile-battle {
+  display: none;
+}
+
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) {
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 48%, rgba(216, 182, 90, 0.16), transparent 44%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.78), rgba(57, 39, 22, 0.72), rgba(0, 0, 0, 0.78));
+}
+
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .arena,
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .floating-hand {
+  display: none !important;
+}
+
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle {
+  position: fixed;
+  inset: 0;
+  z-index: 18;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(50px, 8vw, 72px);
+  grid-template-rows:
+    clamp(42px, 10dvh, 58px)
+    minmax(58px, 1fr)
+    clamp(34px, 8dvh, 48px)
+    minmax(66px, 1.15fr)
+    clamp(42px, 9dvh, 54px)
+    clamp(72px, 19dvh, 104px);
+  gap: 4px;
+  padding:
+    max(4px, env(safe-area-inset-top))
+    max(4px, env(safe-area-inset-right))
+    max(4px, env(safe-area-inset-bottom))
+    max(4px, env(safe-area-inset-left));
+  overflow: hidden;
+}
+
+.mobile-hud {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  border: 1px solid rgba(216, 182, 90, 0.3);
+  border-radius: 12px;
+  padding: 6px 10px;
+  background: rgba(11, 12, 15, 0.82);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.mobile-hud-rival {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.mobile-hud-player {
+  grid-column: 1;
+  grid-row: 5;
+}
+
+.mobile-hud span,
+.mobile-hud small {
+  color: var(--muted);
+  font-size: clamp(9px, 2vw, 11px);
+  font-weight: 800;
+}
+
+.mobile-hud strong {
+  display: block;
+  color: #fff;
+  font-size: clamp(13px, 3.4vw, 20px);
+  line-height: 1;
+}
+
+.mobile-hud b {
+  display: grid;
+  place-items: center;
+  width: clamp(34px, 7vw, 48px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 38% 26%, rgba(255, 255, 255, 0.2), transparent 24%),
+    linear-gradient(145deg, #5a421c, #d8b65a 52%, #55350f);
+  color: #111;
+  font-size: clamp(22px, 5vw, 32px);
+  font-weight: 1000;
+}
+
+.mobile-board {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+  min-height: 0;
+  border: 1px solid rgba(216, 182, 90, 0.22);
+  border-radius: 16px;
+  padding: 5px;
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(216, 182, 90, 0.15), transparent 62%),
+    linear-gradient(180deg, rgba(36, 26, 17, 0.88), rgba(9, 10, 12, 0.84));
+}
+
+.rival-board {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.player-board {
+  grid-column: 1;
+  grid-row: 4;
+  border-color: rgba(42, 157, 143, 0.48);
+}
+
+.mobile-slot {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  align-items: center;
+  justify-items: center;
+  min-width: 0;
+  min-height: 0;
+  border: 1px dashed rgba(216, 182, 90, 0.42);
+  border-radius: 12px;
+  padding: 3px;
+  background: rgba(54, 40, 25, 0.56);
+  color: var(--ink);
+}
+
+.mobile-slot:disabled {
+  opacity: 1;
+}
+
+.mobile-slot span {
+  align-self: start;
+  border-radius: 999px;
+  padding: 1px 5px;
+  background: rgba(216, 182, 90, 0.18);
+  color: var(--gold);
+  font-size: clamp(8px, 1.7vw, 10px);
+  font-weight: 900;
+}
+
+.mobile-slot i {
+  width: min(42px, 65%);
+  height: 15px;
+  border: 1px dashed rgba(245, 241, 232, 0.28);
+  border-radius: 50%;
+}
+
+.mobile-slot.filled {
+  border-style: solid;
+  border-color: rgba(216, 182, 90, 0.72);
+  background:
+    linear-gradient(180deg, rgba(216, 182, 90, 0.12), rgba(0, 0, 0, 0.28)),
+    rgba(18, 19, 23, 0.82);
+}
+
+.mobile-slot.targetable {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 2px rgba(42, 157, 143, 0.2), 0 0 22px rgba(42, 157, 143, 0.28);
+}
+
+.mobile-slot.removable {
+  border-color: rgba(93, 169, 233, 0.74);
+}
+
+.mobile-slot-art {
+  width: min(62px, 88%);
+  margin: 0;
+}
+
+.mobile-slot strong {
+  overflow: hidden;
+  max-width: 100%;
+  color: #fff;
+  font-size: clamp(8px, 2vw, 11px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-center {
+  grid-column: 1;
+  grid-row: 3;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid rgba(216, 182, 90, 0.24);
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: rgba(0, 0, 0, 0.54);
+}
+
+.mobile-center span {
+  color: var(--gold);
+  font-size: clamp(9px, 2vw, 12px);
+  font-weight: 900;
+}
+
+.mobile-center strong {
+  overflow: hidden;
+  color: #fff;
+  font-size: clamp(12px, 3vw, 18px);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-hand {
+  grid-column: 1;
+  grid-row: 6;
+  display: flex;
+  gap: 5px;
+  align-items: end;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(216, 182, 90, 0.26);
+  border-radius: 18px 18px 8px 8px;
+  padding: 5px 6px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.28)),
+    rgba(13, 15, 18, 0.9);
+}
+
+.mobile-hand-card {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  border: 1px solid rgba(216, 182, 90, 0.32);
+  border-radius: 12px;
+  padding: 3px;
+  background: rgba(31, 34, 40, 0.92);
+  color: var(--ink);
+}
+
+.mobile-hand-card.selected {
+  border-color: var(--gold);
+  transform: translateY(-7px);
+  box-shadow: 0 0 0 2px rgba(216, 182, 90, 0.22), 0 14px 28px rgba(0, 0, 0, 0.38);
+}
+
+.mobile-card-art {
+  width: min(48px, 90%);
+  margin: 0 auto -2px;
+}
+
+.mobile-hand-card strong,
+.mobile-hand-card span {
+  display: block;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-hand-card strong {
+  font-size: clamp(7px, 1.7vw, 10px);
+}
+
+.mobile-hand-card span {
+  color: var(--gold);
+  font-size: clamp(7px, 1.6vw, 9px);
+  font-weight: 900;
+}
+
+.mobile-actions {
+  grid-column: 2;
+  grid-row: 1 / 7;
+  display: grid;
+  gap: 5px;
+  align-content: center;
+}
+
+.mobile-actions button {
+  width: 100%;
+  min-height: clamp(42px, 16dvh, 66px);
+  border-radius: 14px;
+  padding: 0 3px;
+  font-size: clamp(9px, 2vw, 12px);
+  line-height: 1.05;
+}
+
+.mobile-hand-detail {
+  position: fixed;
+  left: max(8px, env(safe-area-inset-left));
+  right: calc(clamp(58px, 9vw, 78px) + max(8px, env(safe-area-inset-right)));
+  bottom: calc(clamp(78px, 20dvh, 110px) + max(8px, env(safe-area-inset-bottom)));
+  z-index: 44;
+  border: 1px solid rgba(216, 182, 90, 0.58);
+  border-radius: 14px;
+  padding: 8px;
+  background: rgba(15, 17, 21, 0.96);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.54);
+}
+
+.mobile-detail-main {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) 34px;
+  gap: 8px;
+  align-items: start;
+}
+
+.mobile-detail-art {
+  width: 58px;
+}
+
+.mobile-detail-main strong,
+.mobile-detail-main span {
+  display: block;
+}
+
+.mobile-detail-main strong {
+  font-size: 14px;
+}
+
+.mobile-detail-main span,
+.mobile-detail-main p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.mobile-detail-main p {
+  max-height: 2.6em;
+  overflow: hidden;
+}
+
+.mobile-slot-buttons {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 7px;
+}
+
+.mobile-slot-buttons button {
+  min-height: 32px;
+  padding: 0 3px;
+  font-size: 9px;
+}
+
+@media (max-height: 410px) and (orientation: landscape) {
+  body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle {
+    grid-template-rows: 38px minmax(48px, 1fr) 28px minmax(56px, 1.1fr) 38px 66px;
+    gap: 3px;
+  }
+
+  .mobile-slot-art {
+    width: min(48px, 84%);
+  }
+
+  .mobile-card-art {
+    width: min(40px, 88%);
+  }
+
+  .mobile-hand-detail {
+    bottom: 72px;
+  }
+}

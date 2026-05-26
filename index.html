@@ -143,6 +143,45 @@
         <p>対戦画面は横持ち専用です。横向きになると自動で盤面を表示します。</p>
         <small>ホーム画面に追加すると、よりゲーム機っぽく遊べます。</small>
       </aside>
+      <section id="mobileBattle" class="mobile-battle" aria-label="Mobile TSG battle">
+        <div class="mobile-hud mobile-hud-rival">
+          <div>
+            <span>相手</span>
+            <strong>松葉迅</strong>
+          </div>
+          <b id="mobileCpuScore">0</b>
+          <small id="mobileCpuMeta">Rating 1980</small>
+        </div>
+
+        <div id="mobileCpuBoard" class="mobile-board rival-board"></div>
+
+        <div class="mobile-center">
+          <span id="mobileGameLabel">GAME 0 / BO3</span>
+          <strong id="mobileTurnLabel">開始前</strong>
+          <span id="mobileTimeLabel">15:00</span>
+        </div>
+
+        <div id="mobilePlayerBoard" class="mobile-board player-board"></div>
+
+        <div class="mobile-hud mobile-hud-player">
+          <div>
+            <span>自分</span>
+            <strong>寿立覇王</strong>
+          </div>
+          <b id="mobilePlayerScore">0</b>
+          <small id="mobilePlayerMeta">Rating 1600</small>
+        </div>
+
+        <div id="mobileHandDetail" class="mobile-hand-detail" hidden></div>
+        <div id="mobileHand" class="mobile-hand"></div>
+
+        <div class="mobile-actions">
+          <button id="mobileStartBtn" class="primary" type="button">開始</button>
+          <button id="mobileEndTurnBtn" class="primary" type="button">END</button>
+          <button id="mobileCounterBtn" type="button">伏</button>
+          <button id="mobileRematchBtn" type="button">再</button>
+        </div>
+      </section>
       <section class="arena" aria-label="TSG arena">
         <header class="topbar">
           <div>
