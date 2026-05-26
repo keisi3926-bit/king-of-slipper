@@ -336,6 +336,8 @@ const roomSync = {
 };
 
 const byId = (id) => document.getElementById(id);
+let serviceWorkerRegistration = null;
+let updateReloadPending = false;
 const slipperByName = (name) => slippers.find((slipper) => slipper.name === name);
 const slipperVisualNames = slippers.filter((slipper) => !slipper.counter).map((slipper) => slipper.name);
 const slipperVisualMap = {
@@ -384,6 +386,50 @@ function applyDeviceMode() {
   document.body.classList.toggle("pc-ui", mode !== "mobile");
   document.body.classList.toggle("landscape-ui", orientation === "landscape");
   document.body.classList.toggle("portrait-ui", orientation === "portrait");
+}
+
+function requestPlayFullscreen() {
+  if (!document.body.classList.contains("mobile-ui")) return;
+  if (document.fullscreenElement) return;
+  const target = document.documentElement;
+  if (target.requestFullscreen) {
+    target.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
+  }
+}
+
+function waitForServiceWorkerInstalled(worker) {
+  if (!worker) return Promise.resolve();
+  if (worker.state === "installed") return Promise.resolve();
+  return new Promise((resolve) => {
+    worker.addEventListener(
+      "statechange",
+      () => {
+        if (worker.state === "installed") resolve();
+      },
+      { once: true },
+    );
+    setTimeout(resolve, 1400);
+  });
+}
+
+async function ensureFreshBuildBeforePlay() {
+  if (!("serviceWorker" in navigator) || !location.protocol.startsWith("http")) return false;
+  const registration = serviceWorkerRegistration || (await navigator.serviceWorker.getRegistration());
+  if (!registration) return false;
+  try {
+    await registration.update();
+    if (registration.installing) await waitForServiceWorkerInstalled(registration.installing);
+  } catch {
+    return false;
+  }
+  const waitingWorker = registration.waiting;
+  if (!waitingWorker || updateReloadPending) return false;
+  updateReloadPending = true;
+  sessionStorage.setItem("kos_update_reload", "1");
+  navigator.serviceWorker.addEventListener("controllerchange", () => window.location.reload(), { once: true });
+  waitingWorker.postMessage({ type: "SKIP_WAITING" });
+  setTimeout(() => window.location.reload(), 900);
+  return true;
 }
 
 function formatClock(totalSeconds) {
@@ -1996,8 +2042,8 @@ function render() {
   byId("endTurnBtn").disabled = state.turn !== "player" || state.gameOver || state.cutinActive;
   byId("newGameBtn").disabled = !state.started || state.cutinActive;
   byId("startBtn").disabled = state.cutinActive;
-  byId("playerPressure").textContent = pressureLabel(calcPressure(state.playerBoard));
-  byId("cpuPressure").textContent = pressureLabel(calcPressure(state.cpuBoard));
+  byId("playerPressure").textContent = `履き ${state.playerScore} / ${pressureLabel(calcPressure(state.playerBoard))}`;
+  byId("cpuPressure").textContent = `履き ${state.cpuScore} / ${pressureLabel(calcPressure(state.cpuBoard))}`;
   renderBoard("playerBoard", state.playerBoard);
   renderBoard("cpuBoard", state.cpuBoard);
   renderTraps("playerTraps", state.playerTrapCount);
@@ -2609,7 +2655,9 @@ function showCutin(actor, title, text, options = {}) {
   });
 }
 
-function showCharacterSelect() {
+async function showCharacterSelect() {
+  requestPlayFullscreen();
+  if (await ensureFreshBuildBeforePlay()) return;
   byId("titleScreen").classList.add("screen-hidden");
   byId("characterSelectScreen").classList.remove("screen-hidden");
 }
@@ -2647,9 +2695,16 @@ async function returnToTitleFromBuilder() {
 }
 
 function enterMainScreen() {
+  requestPlayFullscreen();
   byId("characterSelectScreen").classList.add("screen-hidden");
   byId("gameApp").classList.remove("screen-hidden");
   showIdle();
+}
+
+async function startMatchFromButton() {
+  requestPlayFullscreen();
+  if (await ensureFreshBuildBeforePlay()) return;
+  await resetMatch();
 }
 
 function renderEntranceBuilder() {
@@ -2885,11 +2940,11 @@ byId("seVolume").addEventListener("input", (event) => {
 });
 byId("thoughtSpeed").addEventListener("change", (event) => updateThoughtSpeed(event.target.value));
 byId("screenSize").addEventListener("change", (event) => updateScreenSize(event.target.value));
-byId("startBtn").addEventListener("click", resetMatch);
-byId("newGameBtn").addEventListener("click", resetMatch);
-byId("victoryRestartBtn").addEventListener("click", resetMatch);
-byId("defeatRestartBtn").addEventListener("click", resetMatch);
-byId("drawRestartBtn").addEventListener("click", resetMatch);
+byId("startBtn").addEventListener("click", startMatchFromButton);
+byId("newGameBtn").addEventListener("click", startMatchFromButton);
+byId("victoryRestartBtn").addEventListener("click", startMatchFromButton);
+byId("defeatRestartBtn").addEventListener("click", startMatchFromButton);
+byId("drawRestartBtn").addEventListener("click", startMatchFromButton);
 byId("endTurnBtn").addEventListener("click", endPlayerTurn);
 byId("counterBtn").addEventListener("click", useCounter);
 byId("sideboardDoneBtn").addEventListener("click", completeSideboard);
@@ -2904,7 +2959,9 @@ window.addEventListener("resize", applyDeviceMode);
 window.addEventListener("orientationchange", () => setTimeout(applyDeviceMode, 150));
 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
+  navigator.serviceWorker.register("sw.js").then((registration) => {
+    serviceWorkerRegistration = registration;
+  }).catch(() => {});
 }
 
 applyDeviceMode();

@@ -2830,6 +2830,24 @@ button.danger {
     min-height: 44px;
   }
 
+  body.mobile-ui:has(#gameApp:not(.screen-hidden)) {
+    overflow: hidden;
+  }
+
+  body.mobile-ui.portrait-ui #gameApp:not(.screen-hidden) {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  body.mobile-ui.portrait-ui #gameApp:not(.screen-hidden) .arena,
+  body.mobile-ui.portrait-ui #gameApp:not(.screen-hidden) .floating-hand {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
   body.mobile-ui .coin-toss-screen {
     grid-template-rows: auto minmax(0, 1fr) auto auto;
     padding: max(12px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
@@ -2862,34 +2880,45 @@ button.danger {
   }
 
   body.mobile-ui.portrait-ui .orientation-notice {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
     display: grid;
-    gap: 4px;
-    margin-bottom: 10px;
+    place-content: center;
+    gap: 10px;
+    margin: 0;
+    padding: max(24px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
     border: 1px solid rgba(216, 182, 90, 0.52);
-    border-left: 5px solid var(--gold);
-    border-radius: 8px;
-    padding: 10px 12px;
+    border-radius: 0;
     background:
-      linear-gradient(135deg, rgba(216, 182, 90, 0.16), rgba(0, 0, 0, 0.16)),
-      rgba(17, 19, 24, 0.92);
+      radial-gradient(circle at 50% 42%, rgba(216, 182, 90, 0.22), transparent 34%),
+      linear-gradient(135deg, rgba(216, 182, 90, 0.16), rgba(0, 0, 0, 0.28)),
+      rgba(17, 19, 24, 0.98);
     box-shadow: 0 12px 34px rgba(0, 0, 0, 0.34);
+    text-align: center;
   }
 
   body.mobile-ui.portrait-ui .orientation-notice span {
     color: var(--gold);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 900;
   }
 
   body.mobile-ui.portrait-ui .orientation-notice strong {
-    font-size: 18px;
+    font-size: clamp(26px, 8vw, 46px);
+    line-height: 1.1;
   }
 
   body.mobile-ui.portrait-ui .orientation-notice p {
     margin: 0;
     color: var(--muted);
-    font-size: 13px;
-    line-height: 1.45;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  body.mobile-ui.portrait-ui .orientation-notice small {
+    color: rgba(245, 241, 232, 0.82);
+    font-weight: 800;
   }
 
   body.mobile-ui.portrait-ui .play-layout {
@@ -3055,21 +3084,24 @@ button.danger {
   }
 
   body.mobile-ui.landscape-ui {
+    width: 100vw;
+    height: 100dvh;
     overflow: hidden;
+    overscroll-behavior: none;
   }
 
   body.mobile-ui.landscape-ui .app {
     width: 100%;
     max-width: none;
     height: 100dvh;
-    padding: 6px calc(82px + env(safe-area-inset-right)) calc(100px + env(safe-area-inset-bottom)) 70px;
+    padding: 4px calc(70px + env(safe-area-inset-right)) calc(82px + env(safe-area-inset-bottom)) calc(54px + env(safe-area-inset-left));
     overflow: hidden;
   }
 
   body.mobile-ui.landscape-ui .arena {
     display: grid;
     grid-template-rows: auto 1fr;
-    gap: 6px;
+    gap: 4px;
     height: 100%;
     min-height: 0;
   }
@@ -3078,12 +3110,12 @@ button.danger {
     display: grid;
     grid-template-columns: minmax(120px, 0.8fr) minmax(140px, auto);
     align-items: center;
-    min-height: 42px;
-    padding: 5px 8px;
+    min-height: 34px;
+    padding: 4px 7px;
   }
 
   body.mobile-ui.landscape-ui .topbar h1 {
-    font-size: clamp(18px, 3.5vw, 30px);
+    font-size: clamp(16px, 3vw, 24px);
   }
 
   body.mobile-ui.landscape-ui .topbar .eyebrow,
@@ -3101,7 +3133,7 @@ button.danger {
 
   body.mobile-ui.landscape-ui .round-panel small,
   body.mobile-ui.landscape-ui .round-panel strong {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   body.mobile-ui.landscape-ui .scoreboard {
@@ -3138,12 +3170,12 @@ button.danger {
     position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(92px, 1fr) auto minmax(100px, 1fr);
-    gap: 6px;
+    grid-template-rows: minmax(72px, 1fr) minmax(38px, auto) minmax(78px, 1fr);
+    gap: 4px;
     min-height: 0;
     height: 100%;
-    padding: 6px;
-    border-radius: 14px;
+    padding: 5px;
+    border-radius: 12px;
     background:
       radial-gradient(ellipse at center, rgba(216, 182, 90, 0.2), transparent 55%),
       linear-gradient(90deg, rgba(0, 0, 0, 0.44), rgba(216, 182, 90, 0.1), rgba(0, 0, 0, 0.44)),
@@ -3156,8 +3188,8 @@ button.danger {
     position: fixed;
     left: max(6px, env(safe-area-inset-left));
     z-index: 35;
-    width: 62px;
-    padding: 8px;
+    width: 48px;
+    padding: 5px;
     border-radius: 10px;
     background: rgba(10, 10, 12, 0.78);
     backdrop-filter: blur(10px);
@@ -3169,15 +3201,16 @@ button.danger {
   }
 
   body.mobile-ui.landscape-ui .log-panel {
-    top: 134px;
-    bottom: calc(118px + env(safe-area-inset-bottom));
+    top: 104px;
+    bottom: calc(92px + env(safe-area-inset-bottom));
     grid-template-rows: auto minmax(0, 1fr);
   }
 
   body.mobile-ui.landscape-ui .lane,
   body.mobile-ui.landscape-ui .judges {
-    padding: 7px;
-    border-radius: 12px;
+    min-height: 0;
+    padding: 5px;
+    border-radius: 10px;
     background: rgba(34, 30, 24, 0.52);
     box-shadow: inset 0 0 0 1px rgba(216, 182, 90, 0.08);
   }
@@ -3189,7 +3222,7 @@ button.danger {
   body.mobile-ui.landscape-ui .judges {
     order: 2;
     grid-column: auto;
-    max-height: 58px;
+    max-height: 46px;
     overflow-x: auto;
     overflow-y: hidden;
   }
@@ -3201,7 +3234,6 @@ button.danger {
   body.mobile-ui.landscape-ui .match-info-panel .eyebrow,
   body.mobile-ui.landscape-ui .log-head h2,
   body.mobile-ui.landscape-ui .log-head span,
-  body.mobile-ui.landscape-ui .lane-head strong,
   body.mobile-ui.landscape-ui .trap-zone span {
     display: none;
   }
@@ -3230,10 +3262,10 @@ button.danger {
   }
 
   body.mobile-ui.landscape-ui .match-log li {
-    max-height: 44px;
+    max-height: 34px;
     overflow: hidden;
-    padding: 4px 5px;
-    font-size: 9px;
+    padding: 3px 4px;
+    font-size: 8px;
     line-height: 1.2;
   }
 
@@ -3248,9 +3280,9 @@ button.danger {
   }
 
   body.mobile-ui.landscape-ui .judge {
-    flex: 0 0 128px;
-    min-height: 42px;
-    padding: 5px;
+    flex: 0 0 116px;
+    min-height: 34px;
+    padding: 4px;
   }
 
   body.mobile-ui.landscape-ui .judge p {
@@ -3259,30 +3291,44 @@ button.danger {
 
   body.mobile-ui.landscape-ui .judge strong {
     margin: 0;
-    font-size: 11px;
+    font-size: 10px;
   }
 
   body.mobile-ui.landscape-ui .lane-head {
-    margin-bottom: 5px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 5px;
+    align-items: center;
+    margin-bottom: 3px;
   }
 
   body.mobile-ui.landscape-ui .lane-head span {
     color: var(--gold);
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 1000;
   }
 
+  body.mobile-ui.landscape-ui .lane-head strong {
+    display: block;
+    overflow: hidden;
+    color: #fff;
+    font-size: 10px;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   body.mobile-ui.landscape-ui .board {
-    grid-template-columns: repeat(3, minmax(82px, 1fr));
-    grid-template-rows: repeat(2, minmax(66px, 1fr));
-    gap: 6px;
+    grid-template-columns: repeat(5, minmax(46px, 1fr));
+    grid-template-rows: minmax(56px, 1fr);
+    gap: 4px;
     min-height: 0;
   }
 
   body.mobile-ui.landscape-ui .slot {
     min-height: 0;
-    padding: 5px;
-    border-radius: 12px;
+    padding: 4px;
+    border-radius: 10px;
     background:
       linear-gradient(180deg, rgba(216, 182, 90, 0.11), rgba(0, 0, 0, 0.26)),
       rgba(80, 57, 35, 0.42);
@@ -3296,8 +3342,8 @@ button.danger {
 
   body.mobile-ui.landscape-ui .slot-name {
     margin-bottom: 2px;
-    padding: 1px 5px;
-    font-size: 9px;
+    padding: 1px 4px;
+    font-size: 8px;
   }
 
   body.mobile-ui.landscape-ui .slot.filled .slot-name {
@@ -3321,23 +3367,23 @@ button.danger {
   }
 
   body.mobile-ui.landscape-ui .slot:not(.filled) .slot-name {
-    font-size: 10px;
+    font-size: 9px;
   }
 
   body.mobile-ui.landscape-ui .slot:not(.filled)::after {
     content: "";
     display: block;
-    width: 46px;
-    height: 18px;
-    margin: 4px auto 0;
+    width: 34px;
+    height: 12px;
+    margin: 3px auto 0;
     border-radius: 50%;
     border: 1px dashed rgba(216, 182, 90, 0.5);
     background: rgba(0, 0, 0, 0.16);
   }
 
   body.mobile-ui.landscape-ui .slot-art {
-    width: min(76px, 82%);
-    margin: 4px auto 18px;
+    width: min(58px, 78%);
+    margin: 2px auto 14px;
   }
 
   body.mobile-ui.landscape-ui .mini-stats {
@@ -3347,7 +3393,7 @@ button.danger {
 
   body.mobile-ui.landscape-ui .stat-pill {
     min-height: 0;
-    padding: 3px 4px;
+    padding: 2px 3px;
   }
 
   body.mobile-ui.landscape-ui .stat-pill b {
@@ -3355,18 +3401,18 @@ button.danger {
   }
 
   body.mobile-ui.landscape-ui .stat-pill i {
-    font-size: 12px;
+    font-size: 10px;
   }
 
   body.mobile-ui.landscape-ui .trap-zone {
-    margin-top: 4px;
-    padding-top: 4px;
+    margin-top: 2px;
+    padding-top: 2px;
   }
 
   body.mobile-ui.landscape-ui .trap-card {
-    width: 22px;
-    height: 28px;
-    font-size: 10px;
+    width: 18px;
+    height: 22px;
+    font-size: 9px;
   }
 
   body.mobile-ui.landscape-ui .slot .mini-card {
@@ -3376,12 +3422,12 @@ button.danger {
   body.mobile-ui.landscape-ui .floating-hand {
     left: 50%;
     right: auto;
-    bottom: max(4px, env(safe-area-inset-bottom));
-    width: min(720px, calc(100vw - 164px - env(safe-area-inset-left) - env(safe-area-inset-right)));
-    max-height: 94px;
-    border-radius: 14px;
+    bottom: max(3px, env(safe-area-inset-bottom));
+    width: min(740px, calc(100vw - 136px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+    max-height: 76px;
+    border-radius: 12px;
     transform: translateX(-50%);
-    padding: 6px;
+    padding: 5px;
   }
 
   body.mobile-ui.landscape-ui .hand-drag {
@@ -3390,7 +3436,7 @@ button.danger {
 
   body.mobile-ui.landscape-ui .hand-drag h2,
   body.mobile-ui.landscape-ui .hand-drag span {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   body.mobile-ui.landscape-ui .section-head {
@@ -3404,7 +3450,7 @@ button.danger {
     z-index: 42;
     display: grid;
     grid-template-columns: 1fr;
-    width: 72px;
+    width: 62px;
     margin: 0;
     padding: 0;
     background: transparent;
@@ -3412,9 +3458,9 @@ button.danger {
   }
 
   body.mobile-ui.landscape-ui .hand-actions button {
-    min-height: 52px;
-    padding: 0 4px;
-    font-size: 10px;
+    min-height: 46px;
+    padding: 0 3px;
+    font-size: 9px;
     line-height: 1.1;
   }
 
@@ -3423,19 +3469,19 @@ button.danger {
   }
 
   body.mobile-ui.landscape-ui .hand {
-    max-height: 66px;
+    max-height: 48px;
     overflow-x: auto;
     overflow-y: hidden;
   }
 
   body.mobile-ui.landscape-ui .card {
-    flex: 0 0 64px;
-    min-height: 62px;
-    padding: 4px;
+    flex: 0 0 52px;
+    min-height: 46px;
+    padding: 3px;
   }
 
   body.mobile-ui.landscape-ui .card-art {
-    width: 56px;
+    width: 44px;
   }
 
   body.mobile-ui.landscape-ui .card.open {
@@ -3446,10 +3492,10 @@ button.danger {
   body.mobile-ui.landscape-ui .hand-detail {
     position: fixed;
     left: 50%;
-    bottom: calc(108px + env(safe-area-inset-bottom));
+    bottom: calc(82px + env(safe-area-inset-bottom));
     z-index: 45;
-    width: min(520px, calc(100vw - 174px));
-    max-height: 34vh;
+    width: min(520px, calc(100vw - 148px));
+    max-height: 38vh;
     overflow: auto;
     padding: 8px;
     transform: translateX(-50%);
