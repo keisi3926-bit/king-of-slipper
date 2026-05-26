@@ -1,3 +1,6 @@
+const APP_VERSION = "2026.05.26-landscape-v2";
+const VERSION_URL = "version.json";
+
 const slippers = [
   {
     name: "来客用レザー",
@@ -430,6 +433,55 @@ async function ensureFreshBuildBeforePlay() {
   waitingWorker.postMessage({ type: "SKIP_WAITING" });
   setTimeout(() => window.location.reload(), 900);
   return true;
+}
+
+function setBootStatus(text) {
+  const bootStatus = byId("bootStatus");
+  if (bootStatus) bootStatus.textContent = text;
+  const bootVersion = byId("bootVersion");
+  if (bootVersion) bootVersion.textContent = `現在の版: ${APP_VERSION}`;
+}
+
+function revealTitleScreen() {
+  byId("bootScreen")?.classList.add("screen-hidden");
+  byId("titleScreen").classList.remove("screen-hidden");
+}
+
+function reloadForFreshVersion(version) {
+  const next = new URL(window.location.href);
+  next.searchParams.set("tsg_v", version || Date.now().toString());
+  window.location.replace(next.toString());
+}
+
+async function checkBuildVersionOnBoot() {
+  setBootStatus("最新版を確認しています。");
+  if (!location.protocol.startsWith("http")) {
+    setBootStatus("ローカル版で起動中です。");
+    await wait(250);
+    revealTitleScreen();
+    return;
+  }
+
+  try {
+    const response = await fetch(`${VERSION_URL}?t=${Date.now()}`, {
+      cache: "no-store",
+      headers: { "Cache-Control": "no-cache" },
+    });
+    const remote = response.ok ? await response.json() : null;
+    if (remote?.version && remote.version !== APP_VERSION) {
+      setBootStatus("新しい版を検出。更新してから起動します。");
+      sessionStorage.setItem("kos_seen_remote_version", remote.version);
+      const updatedByWorker = await ensureFreshBuildBeforePlay();
+      if (!updatedByWorker) setTimeout(() => reloadForFreshVersion(remote.version), 450);
+      return;
+    }
+    setBootStatus("最新版です。起動します。");
+  } catch {
+    setBootStatus("通信確認に失敗。保存済み版で起動します。");
+  }
+
+  await wait(350);
+  revealTitleScreen();
 }
 
 function formatClock(totalSeconds) {
@@ -2968,3 +3020,4 @@ applyDeviceMode();
 initHandDrag();
 setCpuDifficulty(settings.cpuDifficulty);
 showIdle();
+checkBuildVersionOnBoot();

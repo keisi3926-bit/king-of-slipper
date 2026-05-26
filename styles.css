@@ -72,6 +72,46 @@ button:disabled {
   display: none;
 }
 
+.boot-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: max(20px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  background:
+    radial-gradient(circle at 50% 42%, rgba(216, 182, 90, 0.22), transparent 34%),
+    linear-gradient(135deg, rgba(0, 0, 0, 0.94), rgba(66, 45, 24, 0.86), rgba(0, 0, 0, 0.96));
+}
+
+.boot-panel {
+  width: min(520px, 92vw);
+  border: 1px solid rgba(216, 182, 90, 0.46);
+  border-radius: 12px;
+  padding: 22px;
+  background: rgba(16, 17, 19, 0.9);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.52);
+  text-align: center;
+}
+
+.boot-panel h1 {
+  margin: 8px 0 10px;
+  color: var(--ink);
+  font-size: clamp(30px, 8vw, 54px);
+  line-height: 1;
+}
+
+.boot-panel p {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.boot-panel small {
+  color: var(--gold);
+  font-weight: 900;
+}
+
 body[data-screen-size="sd"] .app {
   width: min(960px, 100%);
   font-size: 14px;

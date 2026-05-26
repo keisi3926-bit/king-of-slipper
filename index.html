@@ -12,7 +12,16 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <section id="titleScreen" class="title-screen">
+    <section id="bootScreen" class="boot-screen" aria-live="polite">
+      <div class="boot-panel">
+        <p class="eyebrow">KING OF Slipper β</p>
+        <h1>バージョン確認中</h1>
+        <p id="bootStatus">最新版を確認しています。</p>
+        <small id="bootVersion">--</small>
+      </div>
+    </section>
+
+    <section id="titleScreen" class="title-screen screen-hidden">
       <div class="title-bg"></div>
       <div class="title-menu">
         <p class="eyebrow">Trading Slipper Game</p>

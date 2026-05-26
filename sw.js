@@ -1,4 +1,4 @@
-const CACHE_NAME = "king-of-slipper-tsg-v5";
+const CACHE_NAME = "king-of-slipper-tsg-v6";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -6,6 +6,7 @@ const CORE_ASSETS = [
   "./game.js",
   "./mobile-qr.html",
   "./public-qr.html",
+  "./version.json",
   "./manifest.webmanifest",
   "./assets/main-slippers.png",
   "./assets/haou-vs.png",
@@ -37,6 +38,10 @@ self.addEventListener("message", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  if (new URL(event.request.url).pathname.endsWith("/version.json")) {
+    event.respondWith(fetch(event.request, { cache: "no-store" }).catch(() => caches.match(event.request)));
+    return;
+  }
   if (event.request.mode === "navigate") {
     event.respondWith(
       fetch(event.request)
