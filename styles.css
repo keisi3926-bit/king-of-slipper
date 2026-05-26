@@ -1238,6 +1238,49 @@ button:not(:disabled):active {
   box-shadow: 0 14px 38px rgba(0, 0, 0, 0.42);
 }
 
+body.pc-ui .floating-hand:has(.hand-detail:not([hidden])) {
+  z-index: 92;
+}
+
+body.pc-ui .hand-detail:not([hidden]) {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 93;
+  width: min(760px, calc(100vw - 48px));
+  max-height: min(76vh, calc(100dvh - 72px));
+  margin: 0;
+  padding: 14px;
+  overflow: auto;
+  background:
+    radial-gradient(circle at 14% 10%, rgba(216, 182, 90, 0.2), transparent 34%),
+    rgba(16, 17, 19, 0.98);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.72);
+  transform: translate(-50%, -50%);
+}
+
+body.pc-ui .hand-detail:not([hidden]) .slot-buttons {
+  position: sticky;
+  bottom: -14px;
+  grid-template-columns: repeat(5, minmax(104px, 1fr));
+  gap: 10px;
+  margin: 12px -4px -4px;
+  padding: 10px 4px 4px;
+  background: linear-gradient(180deg, rgba(16, 17, 19, 0), rgba(16, 17, 19, 0.98) 28%);
+}
+
+body.pc-ui .hand-detail:not([hidden]) .slot-buttons button {
+  min-height: 58px;
+  border-color: rgba(216, 182, 90, 0.55);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+body.pc-ui .hand-detail:not([hidden]) .slot-buttons button:not(:disabled) {
+  background: linear-gradient(180deg, rgba(216, 182, 90, 0.28), rgba(216, 182, 90, 0.12));
+  color: var(--ink);
+}
+
 .hand-detail[hidden] {
   display: none !important;
 }
@@ -1259,6 +1302,13 @@ button:not(:disabled):active {
   margin: 0 0 8px;
   color: var(--muted);
   line-height: 1.45;
+}
+
+.placement-help {
+  margin: 10px 0 0;
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .hand-detail .power {

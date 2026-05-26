@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.05.26-mobile-battle-v3";
+const APP_VERSION = "2026.05.26-pc-placement-v1";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -2232,6 +2232,7 @@ function renderHandDetail() {
     <p>${slipper.text}</p>
     <div class="mini-stats">${statPill("履き心地", slipper.comfort)}${statPill("導線", slipper.flow)}${statPill("品格", slipper.dignity)}</div>
     <div class="tags">${slipper.tags.map((tag) => `<span class="tag">${tag}</span>`).join("")}</div>
+    <p class="placement-help">配置先を選択：左前 / 中央前 / 右前 / 左奥 / 右奥</p>
     <div class="slot-buttons">${slotButtons}</div>
   `;
   root.querySelector("[data-close-detail]").addEventListener("click", () => {
