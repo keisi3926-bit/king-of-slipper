@@ -433,6 +433,24 @@
       </div>
     </div>
 
+    <div id="coinTossScreen" class="coin-toss-screen" aria-hidden="true">
+      <div class="coin-toss-bg"></div>
+      <div class="coin-toss-names">
+        <span>寿立覇王</span>
+        <strong>先攻決定</strong>
+        <span>松葉迅</span>
+      </div>
+      <button id="coinFlipBtn" class="coin-stage" type="button" aria-label="コイントス">
+        <span id="slipperCoin" class="slipper-coin">
+          <span class="coin-face coin-front"><b>覇</b><i>HEADS</i></span>
+          <span class="coin-face coin-back"><b>履</b><i>TAILS</i></span>
+        </span>
+      </button>
+      <p id="coinPrompt" class="coin-prompt">TAP TO FLIP</p>
+      <strong id="coinResult" class="coin-result">FIRST PLAYER</strong>
+      <p id="coinRareText" class="coin-rare-text"></p>
+    </div>
+
     <audio id="haouTheme" loop preload="auto">
       <source src="assets/haou-theme-mobile.mp3" media="(max-width: 760px)" type="audio/mpeg" />
       <source src="assets/haou-theme.mp3" type="audio/mpeg" />

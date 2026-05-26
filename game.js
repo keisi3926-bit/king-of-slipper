@@ -1156,7 +1156,7 @@ async function resetMatch() {
     ratingDelta: 0,
     cpuRatingDelta: 0,
     cpuDifficulty: settings.cpuDifficulty,
-    coinTossWinner: Math.random() < 0.5 ? "player" : "cpu",
+    coinTossWinner: null,
     firstPlayer: online && roomSync.role === "guest" ? "remote" : "player",
     onlineMode: online,
     onlineRole: online ? roomSync.role : null,
@@ -1186,10 +1186,16 @@ async function resetMatch() {
   renderInsiders();
   render();
   await showVsScreen();
+  if (!online) {
+    const first = await showCoinTossScreen();
+    state.coinTossWinner = first;
+    state.firstPlayer = first;
+  } else {
+    state.coinTossWinner = state.firstPlayer === "remote" ? "cpu" : "player";
+  }
   log("試合開始！ 狭小マンション玄関で、覇王とマッハのジンが向かい合う。");
-  log(`コイントス: ${state.coinTossWinner === "player" ? "寿立覇王" : "松葉迅"}が選択権を獲得。MVPでは寿立覇王が先攻。`);
+  log(`コイントス: ${state.coinTossWinner === "player" ? "寿立覇王" : "松葉迅"}が先攻。`);
   log(`COM難易度: ${cpuProfile().label}`);
-  await showCutin("寿立覇王", "ターン開始！", "玄関は急いだ奴から乱れる。");
   setPhase("スリッパ配置", "第1ターンの配置上限は2足。履き数は配置数ではなく、玄関全体の評価で決まる。");
   setMessage("手持ちスリッパを選んで玄関に置こう。");
   startMatchTimer();
@@ -1198,8 +1204,12 @@ async function resetMatch() {
     setPhase("オンライン待機", "相手のターンです。相手の配置とターンエンドを待っています。");
     setMessage("相手のターン待ち。合言葉対戦βで同期中です。");
   } else if (state.firstPlayer === "cpu") {
+    setPhase("松葉迅の先攻", "コイントスで松葉迅が先に玄関を動かす。");
+    setMessage("松葉迅のターン。高速導線の配置を見極めよう。");
+    await showCutin("松葉迅", "ENEMY FIRST", "疾履流、先に仕掛ける。");
     cpuSetupTurn();
   } else {
+    await showCutin("寿立覇王", "YOU FIRST", "玄関は、先に整えた方が強い。");
     startTimer();
   }
   render();
@@ -2345,6 +2355,66 @@ function showVsScreen(options = {}) {
   });
 }
 
+function showCoinTossScreen(options = {}) {
+  const screen = byId("coinTossScreen");
+  const button = byId("coinFlipBtn");
+  const prompt = byId("coinPrompt");
+  const result = byId("coinResult");
+  const rareText = byId("coinRareText");
+  const rareLines = [
+    "審議中……いや、合法です！",
+    "コインが少し玄関を飛び出したァ！",
+    "不正疑惑！？ ただのスリッパ愛です。",
+    "実況席、いまの回転数を見失いました！",
+  ];
+
+  screen.classList.remove("result-player", "result-cpu", "flipping", "shake");
+  screen.classList.add("show");
+  screen.setAttribute("aria-hidden", "false");
+  prompt.textContent = options.auto ? "FLIPPING..." : "TAP TO FLIP";
+  result.textContent = "FIRST PLAYER";
+  rareText.textContent = "";
+  state.cutinActive = true;
+  render();
+
+  return new Promise((resolve) => {
+    let flipped = false;
+    const flip = () => {
+      if (flipped) return;
+      flipped = true;
+      button.removeEventListener("click", flip);
+      const winner = Math.random() < 0.5 ? "player" : "cpu";
+      const duration = 800 + Math.floor(Math.random() * 700);
+      const rareHit = Math.random() < 0.08;
+
+      screen.classList.add("flipping", "shake");
+      prompt.textContent = "FLIPPING...";
+      result.textContent = "";
+      if (rareHit) rareText.textContent = rareLines[Math.floor(Math.random() * rareLines.length)];
+      playSound("flip");
+
+      setTimeout(() => {
+        screen.classList.remove("flipping", "shake");
+        screen.classList.add(winner === "player" ? "result-player" : "result-cpu");
+        result.textContent = winner === "player" ? "YOU FIRST" : "ENEMY FIRST";
+        prompt.textContent = winner === "player" ? "寿立覇王 先攻" : "松葉迅 先攻";
+        playSound("result");
+
+        setTimeout(() => {
+          screen.classList.remove("show", "result-player", "result-cpu");
+          screen.setAttribute("aria-hidden", "true");
+          state.cutinActive = false;
+          render();
+          resolve(winner);
+        }, 950);
+      }, duration);
+    };
+
+    button.addEventListener("click", flip);
+    if (options.auto) setTimeout(flip, 420);
+  });
+}
+
 function showVictory() {
   const victory = byId("victoryScreen");
   victory.classList.add("show");
@@ -2430,6 +2500,8 @@ function playSound(kind) {
     counter: [260, 520, 1040],
     score: [660, 880],
     win: [440, 660, 880, 1320],
+    flip: [300, 520, 780, 1040, 1320],
+    result: [880, 1320, 1760],
   };
   const freqs = patterns[kind] || patterns.place;
   freqs.forEach((freq, i) => {
