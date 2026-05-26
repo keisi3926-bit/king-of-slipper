@@ -148,6 +148,7 @@ body[data-screen-size="hdd"] .card {
 }
 
 .title-screen,
+.tutorial-screen,
 .character-select {
   min-height: 100vh;
   position: relative;
@@ -416,6 +417,198 @@ body[data-screen-size="hdd"] .card {
   color: var(--ink);
   font-size: 16px;
   font-weight: 900;
+}
+
+.tutorial-screen {
+  min-height: 100dvh;
+  padding: 28px;
+  background:
+    linear-gradient(90deg, rgba(8, 8, 10, 0.94), rgba(18, 15, 12, 0.86)),
+    url("assets/haou-vs.png") center / cover;
+  overflow: auto;
+}
+
+.tutorial-shell {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 16px;
+  width: min(1180px, calc(100vw - 28px));
+  min-height: calc(100dvh - 56px);
+  margin: 0 auto;
+}
+
+.tutorial-head,
+.tutorial-stage,
+.tutorial-actions {
+  border: 1px solid rgba(216, 182, 90, 0.24);
+  border-radius: 8px;
+  background: rgba(16, 17, 19, 0.9);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.35);
+}
+
+.tutorial-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+}
+
+.tutorial-head h2 {
+  margin: 0;
+  font-size: clamp(34px, 5vw, 64px);
+}
+
+.tutorial-stage {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr) minmax(120px, 180px);
+  align-items: stretch;
+  gap: 14px;
+  padding: 18px;
+  min-height: 420px;
+}
+
+.tutorial-guide {
+  display: grid;
+  align-content: end;
+  gap: 10px;
+  min-height: 280px;
+  border-radius: 8px;
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(216, 182, 90, 0.12), rgba(16, 17, 19, 0.48));
+  overflow: hidden;
+}
+
+.tutorial-guide img {
+  width: 100%;
+  max-height: 290px;
+  object-fit: cover;
+  border-radius: 8px;
+  filter: drop-shadow(0 20px 22px rgba(0, 0, 0, 0.42));
+}
+
+.tutorial-guide strong {
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: rgba(0, 0, 0, 0.58);
+  color: var(--gold);
+  text-align: center;
+}
+
+.tutorial-dialogue {
+  display: grid;
+  align-content: center;
+  gap: 16px;
+  min-height: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: clamp(18px, 4vw, 38px);
+  background:
+    radial-gradient(circle at 12% 20%, rgba(216, 182, 90, 0.16), transparent 38%),
+    rgba(11, 12, 14, 0.82);
+}
+
+.tutorial-step-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--gold);
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.tutorial-speaker {
+  margin: 0;
+  color: var(--muted);
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 900;
+}
+
+.tutorial-text {
+  min-height: 4.8em;
+  max-height: 34vh;
+  margin: 0;
+  overflow: auto;
+  color: var(--ink);
+  font-size: clamp(22px, 3.1vw, 38px);
+  font-weight: 900;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.tutorial-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px;
+}
+
+.tutorial-actions button {
+  min-height: 48px;
+  min-width: 132px;
+}
+
+@media (max-width: 760px) {
+  .tutorial-screen {
+    padding: max(12px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  }
+
+  .tutorial-shell {
+    width: 100%;
+    min-height: calc(100dvh - 24px);
+  }
+
+  .tutorial-head {
+    align-items: flex-start;
+    padding: 12px;
+  }
+
+  .tutorial-head h2 {
+    font-size: 34px;
+  }
+
+  .tutorial-stage {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .tutorial-guide {
+    display: none;
+  }
+
+  .tutorial-dialogue {
+    min-height: 52dvh;
+    padding: 18px;
+  }
+
+  .tutorial-step-line {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .tutorial-text {
+    max-height: 48dvh;
+    font-size: clamp(22px, 7vw, 30px);
+  }
+
+  .tutorial-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 10px;
+  }
+
+  .tutorial-actions button {
+    min-width: 0;
+    min-height: 52px;
+  }
+
+  #tutorialStartGameBtn {
+    grid-column: 1 / -1;
+  }
 }
 
 .character-select {

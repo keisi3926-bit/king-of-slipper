@@ -38,6 +38,7 @@
         </label>
         <div class="title-buttons">
           <button id="titleStartBtn" class="primary" type="button">スタート</button>
+          <button id="titleTutorialBtn" type="button">チュートリアル</button>
           <button id="titleBuildBtn" type="button">エントランス構築</button>
           <button id="titleRankingBtn" type="button">Ranking β</button>
           <button id="titleRoomBtn" type="button">あいことば対戦</button>
@@ -45,6 +46,41 @@
           <button id="titleOptionsBtn" type="button">オプション</button>
           <button id="titleHelpBtn" type="button">ヘルプ</button>
         </div>
+      </div>
+    </section>
+
+    <section id="tutorialScreen" class="tutorial-screen screen-hidden">
+      <div class="tutorial-shell">
+        <header class="tutorial-head">
+          <div>
+            <p class="eyebrow">TSG Tutorial</p>
+            <h2>チュートリアル</h2>
+          </div>
+          <button id="tutorialBackBtn" type="button">メニューへ戻る</button>
+        </header>
+        <div class="tutorial-stage">
+          <aside class="tutorial-guide handa">
+            <img src="assets/judge-tsg.png" alt="" />
+            <strong>半田さん</strong>
+          </aside>
+          <section class="tutorial-dialogue" aria-live="polite">
+            <div class="tutorial-step-line">
+              <span id="tutorialStepLabel">STEP 1 / 7</span>
+              <span id="tutorialTopic">ゲームの目的</span>
+            </div>
+            <p id="tutorialSpeaker" class="tutorial-speaker">半田さん</p>
+            <p id="tutorialText" class="tutorial-text"></p>
+          </section>
+          <aside class="tutorial-guide setsuna">
+            <img src="assets/kai-setsuna.png" alt="" />
+            <strong>甲斐刹那</strong>
+          </aside>
+        </div>
+        <footer class="tutorial-actions">
+          <button id="tutorialPrevBtn" type="button">戻る</button>
+          <button id="tutorialNextBtn" class="primary" type="button">次へ</button>
+          <button id="tutorialStartGameBtn" type="button">ゲーム開始へ</button>
+        </footer>
       </div>
     </section>
 

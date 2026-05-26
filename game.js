@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.05.27-new-slippers-v1";
+const APP_VERSION = "2026.05.27-tutorial-v1";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -305,6 +305,104 @@ const officialPlayers = [
   { name: "寿立覇王", rating: 1600, status: "挑戦者" },
 ];
 
+const tutorialSteps = [
+  {
+    topic: "ゲームの目的",
+    speaker: "半田さん",
+    text: "ようこそ、キング・オブ・スリッパの世界へ。ここでは基本ルールを説明するよ。",
+  },
+  {
+    topic: "ゲームの目的",
+    speaker: "甲斐刹那",
+    text: "スリッパで戦うって時点で、もう基本がわからないんだけど！？",
+  },
+  {
+    topic: "ゲームの目的",
+    speaker: "半田さん",
+    text: "大丈夫。これはTSG、Trading Slipper Game。スリッパを選び、戦わせ、玄関の覇道を決める競技だ。",
+  },
+  {
+    topic: "ゲームの目的",
+    speaker: "甲斐刹那",
+    text: "玄関の覇道……言葉の圧だけはすごいな。",
+  },
+  {
+    topic: "基本操作",
+    speaker: "半田さん",
+    text: "まずは自分のスリッパを確認しよう。攻撃、防御、速度……今の画面では履き心地、導線、品格として表現される力が勝敗に関わる。",
+  },
+  {
+    topic: "基本操作",
+    speaker: "甲斐刹那",
+    text: "つまり、スリッパを選んで、置きたい位置を決めて、ターンを進めればいいわけだな。",
+  },
+  {
+    topic: "勝敗の基本",
+    speaker: "半田さん",
+    text: "勝敗は、玄関を見たスリップインサイダーが何人『履きたい』と思うかで決まる。先に5履きを取った方が1ゲームを取る。",
+  },
+  {
+    topic: "勝敗の基本",
+    speaker: "甲斐刹那",
+    text: "攻撃が高いと刺さる、防御が高いと崩されにくい、速度が高いと先に動きやすい。ここはわかりやすいな。",
+  },
+  {
+    topic: "サイド交換",
+    speaker: "半田さん",
+    text: "次にShoe Rack Change、いわゆるサイド交換だ。場に使うエントランスと控えのShoe Rackを入れ替えて、次のゲームへ備える。",
+  },
+  {
+    topic: "サイド交換",
+    speaker: "甲斐刹那",
+    text: "つまり、相性が悪い時に逃げたり、ここぞって時に切り札を出したりできるわけか。",
+  },
+  {
+    topic: "サイド交換",
+    speaker: "半田さん",
+    text: "その通り。トレードバーストのように、サイド交換した時に効果を予約するスリッパもいる。",
+  },
+  {
+    topic: "伏せスリッパ",
+    speaker: "半田さん",
+    text: "そして重要なのが伏せスリッパだ。スリッパを伏せることで、相手に情報を隠せる。",
+  },
+  {
+    topic: "伏せスリッパ",
+    speaker: "甲斐刹那",
+    text: "伏せスリッパ……つまり、相手に何を仕込んだかわからなくするってことか。",
+  },
+  {
+    topic: "伏せスリッパ",
+    speaker: "半田さん",
+    text: "そうだ。闇潜りスリッパやリベンジトラップのように、伏せ状態から表になった時に強い効果を発動する足もいる。",
+  },
+  {
+    topic: "実戦のコツ",
+    speaker: "甲斐刹那",
+    text: "強いスリッパを隠すのか、弱そうな足でブラフをかけるのか……一気に読み合いっぽくなってきたな。",
+  },
+  {
+    topic: "実戦のコツ",
+    speaker: "半田さん",
+    text: "最後に覚えておいてほしい。スリッパバトルは攻撃だけでは勝てない。交換、伏せ、配置、読み合いが重要だ。",
+  },
+  {
+    topic: "チュートリアル終了",
+    speaker: "甲斐刹那",
+    text: "ただの履物かと思ったら、普通に戦略ゲームだった。",
+  },
+  {
+    topic: "チュートリアル終了",
+    speaker: "半田さん",
+    text: "これで基本説明は完了だ。実戦で試してみよう。スリッパはただの履物ではない。覇道である。",
+  },
+  {
+    topic: "チュートリアル終了",
+    speaker: "甲斐刹那",
+    text: "よし、玄関に立つぞ！",
+  },
+];
+
 const sampleEntrances = [
   {
     id: "sample-haou",
@@ -482,6 +580,7 @@ const roomSync = {
 const byId = (id) => document.getElementById(id);
 let serviceWorkerRegistration = null;
 let updateReloadPending = false;
+let tutorialIndex = 0;
 const slipperByName = (name) => slippers.find((slipper) => slipper.name === name);
 const slipperVisualNames = slippers.filter((slipper) => !slipper.counter).map((slipper) => slipper.name);
 const slipperVisualMap = {
@@ -3179,11 +3278,52 @@ async function showCharacterSelect() {
   requestPlayFullscreen();
   if (await ensureFreshBuildBeforePlay()) return;
   byId("titleScreen").classList.add("screen-hidden");
+  byId("tutorialScreen").classList.add("screen-hidden");
   byId("characterSelectScreen").classList.remove("screen-hidden");
+}
+
+function renderTutorial() {
+  const step = tutorialSteps[tutorialIndex] || tutorialSteps[0];
+  byId("tutorialStepLabel").textContent = `STEP ${tutorialIndex + 1} / ${tutorialSteps.length}`;
+  byId("tutorialTopic").textContent = step.topic;
+  byId("tutorialSpeaker").textContent = step.speaker;
+  byId("tutorialText").textContent = step.text;
+  byId("tutorialPrevBtn").disabled = tutorialIndex <= 0;
+  byId("tutorialNextBtn").textContent = tutorialIndex >= tutorialSteps.length - 1 ? "完了" : "次へ";
+}
+
+function showTutorial() {
+  tutorialIndex = 0;
+  byId("titleScreen").classList.add("screen-hidden");
+  byId("characterSelectScreen").classList.add("screen-hidden");
+  byId("gameApp").classList.add("screen-hidden");
+  byId("entranceBuilderScreen").classList.add("screen-hidden");
+  byId("tutorialScreen").classList.remove("screen-hidden");
+  renderTutorial();
+}
+
+function returnToTitleFromTutorial() {
+  byId("tutorialScreen").classList.add("screen-hidden");
+  byId("titleScreen").classList.remove("screen-hidden");
+}
+
+function nextTutorialStep() {
+  if (tutorialIndex >= tutorialSteps.length - 1) {
+    returnToTitleFromTutorial();
+    return;
+  }
+  tutorialIndex += 1;
+  renderTutorial();
+}
+
+function prevTutorialStep() {
+  tutorialIndex = Math.max(0, tutorialIndex - 1);
+  renderTutorial();
 }
 
 function showEntranceBuilder() {
   byId("titleScreen").classList.add("screen-hidden");
+  byId("tutorialScreen").classList.add("screen-hidden");
   byId("entranceBuilderScreen").classList.remove("screen-hidden");
   editingEntranceId = selectedEntranceId;
   renderEntranceBuilder();
@@ -3436,6 +3576,7 @@ function initHandDrag() {
 }
 
 byId("titleStartBtn").addEventListener("click", showCharacterSelect);
+byId("titleTutorialBtn").addEventListener("click", showTutorial);
 byId("titleBuildBtn").addEventListener("click", showEntranceBuilder);
 byId("titleRankingBtn").addEventListener("click", () => {
   renderRanking();
@@ -3448,6 +3589,10 @@ byId("titleRoomBtn").addEventListener("click", () => {
 byId("titleFeedbackBtn").addEventListener("click", openFeedback);
 byId("titleOptionsBtn").addEventListener("click", openOptions);
 byId("titleHelpBtn").addEventListener("click", () => byId("helpDialog").showModal());
+byId("tutorialBackBtn").addEventListener("click", returnToTitleFromTutorial);
+byId("tutorialPrevBtn").addEventListener("click", prevTutorialStep);
+byId("tutorialNextBtn").addEventListener("click", nextTutorialStep);
+byId("tutorialStartGameBtn").addEventListener("click", showCharacterSelect);
 byId("cpuDifficultySelect").addEventListener("change", (event) => setCpuDifficulty(event.target.value));
 byId("builderBackBtn").addEventListener("click", returnToTitleFromBuilder);
 byId("saveDeckBtn").addEventListener("click", saveEditingEntrance);
