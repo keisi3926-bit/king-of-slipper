@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.05.26-mobile-battle-v1";
+const APP_VERSION = "2026.05.26-mobile-battle-v2";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -381,14 +381,25 @@ function detectDeviceMode() {
 function applyDeviceMode() {
   const mode = detectDeviceMode();
   const orientation = window.matchMedia("(orientation: landscape)").matches ? "landscape" : "portrait";
+  const width = window.innerWidth || document.documentElement.clientWidth || 0;
+  const height = window.innerHeight || document.documentElement.clientHeight || 0;
+  const dpr = window.devicePixelRatio || 1;
   sessionStorage.setItem("kos_device_mode", mode);
   sessionStorage.setItem("kos_orientation_mode", orientation);
   document.body.dataset.deviceMode = mode;
   document.body.dataset.orientationMode = orientation;
+  document.body.dataset.viewportWidth = String(width);
+  document.body.dataset.viewportHeight = String(height);
+  document.body.dataset.devicePixelRatio = String(Math.round(dpr * 100) / 100);
+  document.documentElement.style.setProperty("--mobile-vw", `${width}px`);
+  document.documentElement.style.setProperty("--mobile-vh", `${height}px`);
+  document.documentElement.style.setProperty("--mobile-dpr", `${dpr}`);
   document.body.classList.toggle("mobile-ui", mode === "mobile");
   document.body.classList.toggle("pc-ui", mode !== "mobile");
   document.body.classList.toggle("landscape-ui", orientation === "landscape");
   document.body.classList.toggle("portrait-ui", orientation === "portrait");
+  document.body.classList.toggle("mobile-compact", mode === "mobile" && (width < 820 || height < 410 || dpr >= 3));
+  document.body.classList.toggle("mobile-tiny", mode === "mobile" && (width < 720 || height < 370));
 }
 
 function requestPlayFullscreen() {
@@ -2298,7 +2309,8 @@ function renderMobileBattle() {
   byId("mobileGameLabel").textContent = `GAME ${state.matchRound || 0}/BO3 ${state.playerRoundWins}-${state.cpuRoundWins}`;
   byId("mobileTurnLabel").textContent = getTurnLabel();
   byId("mobileTimeLabel").textContent = formatClock(state.matchSeconds || MATCH_SECONDS);
-  byId("mobileStartBtn").disabled = state.cutinActive;
+  byId("mobileStartBtn").hidden = state.started && !state.matchFinished;
+  byId("mobileStartBtn").disabled = state.cutinActive || (state.started && !state.matchFinished);
   byId("mobileEndTurnBtn").disabled = state.turn !== "player" || state.gameOver || state.cutinActive;
   byId("mobileCounterBtn").disabled = state.turn !== "counter-window" || state.playerTrapCount <= 0 || state.gameOver || state.cutinActive;
   byId("mobileCounterBtn").textContent = `伏${state.playerTrapCount}`;
@@ -2517,7 +2529,8 @@ async function showInsiderThoughts(verdicts, side) {
     popup.classList.remove("show");
     void popup.offsetWidth;
     popup.classList.add("show");
-    await wait(document.body.classList.contains("mobile-ui") ? Math.min(settings.thoughtDelay, 820) : settings.thoughtDelay);
+    const mobileThoughtDelay = verdict.won ? 2500 : 1900;
+    await wait(document.body.classList.contains("mobile-ui") ? mobileThoughtDelay : settings.thoughtDelay);
     popup.classList.remove("show");
     await wait(130);
   }
@@ -2579,8 +2592,8 @@ function showCoinTossScreen(options = {}) {
   screen.classList.remove("result-player", "result-cpu", "flipping", "shake");
   screen.classList.add("show");
   screen.setAttribute("aria-hidden", "false");
-  prompt.textContent = options.auto ? "FLIPPING..." : "TAP TO FLIP";
-  result.textContent = "FIRST PLAYER";
+  prompt.textContent = options.auto ? "コイントス！" : "TAP TO FLIP";
+  result.textContent = "コイントス！";
   rareText.textContent = "";
   state.cutinActive = true;
   render();
@@ -2592,11 +2605,11 @@ function showCoinTossScreen(options = {}) {
       flipped = true;
       button.removeEventListener("click", flip);
       const winner = Math.random() < 0.5 ? "player" : "cpu";
-      const duration = 800 + Math.floor(Math.random() * 700);
+      const duration = 520 + Math.floor(Math.random() * 360);
       const rareHit = Math.random() < 0.08;
 
       screen.classList.add("flipping", "shake");
-      prompt.textContent = "FLIPPING...";
+      prompt.textContent = "コイントス！";
       result.textContent = "";
       if (rareHit) rareText.textContent = rareLines[Math.floor(Math.random() * rareLines.length)];
       playSound("flip");
@@ -2604,8 +2617,8 @@ function showCoinTossScreen(options = {}) {
       setTimeout(() => {
         screen.classList.remove("flipping", "shake");
         screen.classList.add(winner === "player" ? "result-player" : "result-cpu");
-        result.textContent = winner === "player" ? "YOU FIRST" : "ENEMY FIRST";
-        prompt.textContent = winner === "player" ? "寿立覇王 先攻" : "松葉迅 先攻";
+        result.textContent = winner === "player" ? "スリッパ！ YOU FIRST" : "靴！ ENEMY FIRST";
+        prompt.textContent = winner === "player" ? "寿立覇王が先攻を選択" : "松葉迅が先攻を選択";
         playSound("result");
 
         setTimeout(() => {
@@ -2614,7 +2627,7 @@ function showCoinTossScreen(options = {}) {
           state.cutinActive = false;
           render();
           resolve(winner);
-        }, 950);
+        }, 520);
       }, duration);
     };
 
