@@ -2368,7 +2368,7 @@ button.danger {
 }
 
 .coin-toss-screen.flipping .slipper-coin {
-  animation: coinFlip 0.78s cubic-bezier(0.16, 0.84, 0.28, 1) both;
+  animation: coinFlip 1.05s cubic-bezier(0.16, 0.84, 0.28, 1) both;
 }
 
 .coin-toss-screen.result-player .slipper-coin {
@@ -2384,19 +2384,24 @@ button.danger {
   inset: 0;
   display: grid;
   place-items: center;
-  border: 9px solid #c7962f;
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 40% 34%, rgba(255, 244, 180, 0.32), transparent 24%),
-    radial-gradient(circle, #403428 0 48%, #191719 49% 62%, #d8b65a 63% 71%, #3b2415 72%);
+  background: center / contain no-repeat;
   box-shadow:
-    inset 0 0 0 7px rgba(255, 224, 120, 0.22),
-    inset 0 0 30px rgba(0, 0, 0, 0.74),
+    inset 0 0 30px rgba(0, 0, 0, 0.42),
     0 22px 42px rgba(0, 0, 0, 0.46);
   backface-visibility: hidden;
 }
 
+.coin-front {
+  background-image: url("assets/coin-front.png");
+}
+
+.coin-back {
+  background-image: url("assets/coin-back.png");
+}
+
 .coin-face b {
+  display: none;
   color: #f7d778;
   font-size: clamp(54px, 13vw, 92px);
   line-height: 1;
@@ -2404,6 +2409,7 @@ button.danger {
 }
 
 .coin-face i {
+  display: none;
   position: absolute;
   bottom: 18%;
   color: rgba(255, 245, 210, 0.8);
@@ -2414,7 +2420,6 @@ button.danger {
 
 .coin-back {
   transform: rotateY(180deg);
-  filter: sepia(0.35) saturate(0.9);
 }
 
 .coin-back::after {
@@ -3272,6 +3277,11 @@ button.danger {
     box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.34);
   }
 
+  body.mobile-ui #sideboardTitleBtn {
+    width: 100%;
+    min-height: 48px;
+  }
+
   body.mobile-ui .audience-reaction-stack {
     top: max(8px, env(safe-area-inset-top));
     bottom: auto;
@@ -3856,9 +3866,14 @@ button.danger {
   body.mobile-ui.landscape-ui #sideboardDoneBtn {
     grid-column: 1 / -1;
     justify-self: stretch;
-    position: sticky;
-    bottom: max(8px, env(safe-area-inset-bottom));
+    position: static;
     min-height: 54px;
+  }
+
+  body.mobile-ui.landscape-ui .sideboard-panel .dialog-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
+    gap: 8px;
   }
 
   body.mobile-ui.landscape-ui .swap-list {
@@ -4078,10 +4093,20 @@ body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle {
 }
 
 .mobile-hud strong {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: #fff;
   font-size: clamp(13px, 3.4vw, 20px);
   line-height: 1;
+}
+
+.mobile-hud strong img {
+  width: clamp(20px, 4.6vw, 32px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(216, 182, 90, 0.45);
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .mobile-hud b {
@@ -4100,7 +4125,8 @@ body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle {
 
 .mobile-board {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: 4px;
   min-height: 0;
   border: 1px solid rgba(216, 182, 90, 0.22);
@@ -4109,6 +4135,26 @@ body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle {
   background:
     radial-gradient(ellipse at 50% 50%, rgba(216, 182, 90, 0.15), transparent 62%),
     linear-gradient(180deg, rgba(36, 26, 17, 0.88), rgba(9, 10, 12, 0.84));
+}
+
+.mobile-slot:nth-child(1) {
+  grid-column: 1 / span 2;
+}
+
+.mobile-slot:nth-child(2) {
+  grid-column: 3 / span 2;
+}
+
+.mobile-slot:nth-child(3) {
+  grid-column: 5 / span 2;
+}
+
+.mobile-slot:nth-child(4) {
+  grid-column: 2 / span 2;
+}
+
+.mobile-slot:nth-child(5) {
+  grid-column: 4 / span 2;
 }
 
 .rival-board {
@@ -4176,7 +4222,8 @@ body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle {
 }
 
 .mobile-slot-art {
-  width: min(62px, 88%);
+  width: min(54px, 78%);
+  min-height: 34px;
   margin: 0;
 }
 
@@ -4253,6 +4300,7 @@ body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle {
 
 .mobile-card-art {
   width: min(48px, 90%);
+  min-height: 30px;
   margin: 0 auto -2px;
 }
 

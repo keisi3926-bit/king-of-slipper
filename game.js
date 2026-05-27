@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.05.27-tutorial-v1";
+const APP_VERSION = "2026.05.27-mobile-fix-v1";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -530,6 +530,8 @@ const state = {
   pendingRoundStartEffects: [],
   turnNumber: 0,
   placementsThisTurn: 0,
+  playerTurnsTaken: 0,
+  cpuTurnsTaken: 0,
   activeHandUid: null,
   phaseTimeout: null,
   cutinActive: false,
@@ -1266,8 +1268,11 @@ function filledBoard(board) {
   return board.filter(Boolean);
 }
 
-function maxPlacementsPerTurn(turnNumber = state.turnNumber) {
-  return turnNumber <= 1 ? 2 : 3;
+function maxPlacementsPerTurn(side = state.turn === "cpu-placing" ? "cpu" : "player") {
+  const taken = side === "cpu" ? state.cpuTurnsTaken : state.playerTurnsTaken;
+  if (taken === 0 && state.firstPlayer !== side) return 3;
+  if (taken === 0) return 2;
+  return 3;
 }
 
 function placedThisTurnFor(board, turnNumber = state.turnNumber) {
@@ -1647,6 +1652,8 @@ async function resetMatch() {
     pendingRoundStartEffects: [],
     turnNumber: 1,
     placementsThisTurn: 0,
+    playerTurnsTaken: 0,
+    cpuTurnsTaken: 0,
     phaseTimeout: null,
     cutinActive: false,
     matchRound: 1,
@@ -1797,7 +1804,7 @@ function playSlipper(uid, slotIndex = firstEmptySlot(state.playerBoard)) {
   const index = state.hand.findIndex((slipper) => slipper.uid === uid);
   if (index < 0) return;
   const isReposition = Boolean(state.hand[index].repositionFree);
-  const placementLimit = maxPlacementsPerTurn();
+  const placementLimit = maxPlacementsPerTurn("player");
   if (!isReposition && state.placementsThisTurn >= placementLimit) {
     setMessage(`このターンに新しく置けるのは${placementLimit}足まで。外したスリッパの位置調整はまだできる。`);
     return;
@@ -1856,6 +1863,7 @@ async function endPlayerTurn() {
   playSound("turn");
   render();
   await showCutin("寿立覇王", "ターンエンド！", "さあ、履くか履かぬか。");
+  state.playerTurnsTaken += 1;
   await maybeCpuTrap();
   if (state.gameOver) return;
   setPhase("覇王の吟味", "インサイダーが覇王の玄関を見る。1回の吟味で得られる履きは最大2。");
@@ -1916,7 +1924,7 @@ async function cpuSetupTurn() {
   await showCutin("松葉迅", "ターン開始！", "疾履流、玄関を置き去りにする！");
   if (state.gameOver) return;
 
-  const placementLimit = maxPlacementsPerTurn();
+  const placementLimit = maxPlacementsPerTurn("cpu");
   const plays = Math.min(placementLimit, field.maxBoard - boardCount(state.cpuBoard), state.cpuDeck.length);
   for (let i = 0; i < plays; i += 1) {
     const slipper = state.cpuDeck.shift();
@@ -1929,6 +1937,7 @@ async function cpuSetupTurn() {
     }
   }
   log(`ジンは疾履流で${plays}足を一気に置いた。`);
+  state.cpuTurnsTaken += 1;
   playSound("place");
   announce(`実況: ジン、${plays}足を高速配置！`, "danger");
   setPhase("ジンの配置", "ログを確認して、妨害するなら次の割り込み時間で動ける。");
@@ -2340,6 +2349,8 @@ function setupRound() {
     pendingJudgementBonus: { player: 0, cpu: 0 },
     turnNumber: 1,
     placementsThisTurn: 0,
+    playerTurnsTaken: 0,
+    cpuTurnsTaken: 0,
     phaseTimeout: null,
     cutinActive: false,
   });
@@ -2522,6 +2533,26 @@ function completeSideboard() {
     clearInterval(state.sideboardInterval);
     beginNextRound();
   }
+}
+
+function returnToTitleFromSideboard() {
+  clearInterval(state.sideboardInterval);
+  clearInterval(state.interval);
+  clearTimeout(state.phaseTimeout);
+  stopHaouTheme();
+  stopJinTheme();
+  state.started = false;
+  state.gameOver = true;
+  state.turn = "idle";
+  state.playerSideboardReady = false;
+  state.cpuSideboardReady = false;
+  pendingSideboardPick = null;
+  byId("sideboardScreen").classList.remove("show");
+  byId("sideboardScreen").setAttribute("aria-hidden", "true");
+  byId("gameApp").classList.add("screen-hidden");
+  byId("characterSelectScreen").classList.add("screen-hidden");
+  byId("titleScreen").classList.remove("screen-hidden");
+  render();
 }
 
 function render() {
@@ -2757,8 +2788,9 @@ function renderMobileBattle() {
   byId("mobileEndTurnBtn").disabled = state.turn !== "player" || state.gameOver || state.cutinActive;
   byId("mobileCounterBtn").disabled = state.turn !== "counter-window" || state.playerTrapCount <= 0 || state.gameOver || state.cutinActive;
   byId("mobileCounterBtn").textContent = `伏${state.playerTrapCount}`;
-  byId("mobileRematchBtn").hidden = !state.started;
-  byId("mobileRematchBtn").disabled = !state.started || state.cutinActive;
+  const canShowMobileRematch = state.gameOver || state.matchFinished;
+  byId("mobileRematchBtn").hidden = !canShowMobileRematch;
+  byId("mobileRematchBtn").disabled = !canShowMobileRematch || state.cutinActive;
   renderMobileBoard("mobileCpuBoard", state.cpuBoard, "cpu");
   renderMobileBoard("mobilePlayerBoard", state.playerBoard, "player");
   renderMobileHand();
@@ -3049,7 +3081,7 @@ function showCoinTossScreen(options = {}) {
       flipped = true;
       button.removeEventListener("click", flip);
       const winner = Math.random() < 0.5 ? "player" : "cpu";
-      const duration = 420 + Math.floor(Math.random() * 260);
+      const duration = 1050 + Math.floor(Math.random() * 320);
       const rareHit = Math.random() < 0.08;
 
       screen.classList.add("flipping", "shake");
@@ -3616,6 +3648,7 @@ byId("mobileStartBtn").addEventListener("click", startMatchFromButton);
 byId("mobileEndTurnBtn").addEventListener("click", endPlayerTurn);
 byId("mobileCounterBtn").addEventListener("click", useCounter);
 byId("mobileRematchBtn").addEventListener("click", startMatchFromButton);
+byId("sideboardTitleBtn").addEventListener("click", returnToTitleFromSideboard);
 byId("sideboardDoneBtn").addEventListener("click", completeSideboard);
 byId("createRoomBtn").addEventListener("click", createRoom);
 byId("joinRoomBtn").addEventListener("click", () => joinRoom(byId("roomCodeInput").value));
