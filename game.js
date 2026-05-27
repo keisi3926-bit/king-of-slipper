@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.05.27-mobile-field-readability-v2";
+const APP_VERSION = "2026.05.28-web-battle-refresh-v1";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -2558,6 +2558,9 @@ function returnToTitleFromSideboard() {
 }
 
 function render() {
+  const gameApp = byId("gameApp");
+  gameApp.classList.toggle("player-turn", state.started && state.turn === "player" && !state.gameOver);
+  gameApp.classList.toggle("rival-turn", state.started && ["cpu-placing", "judge-cpu"].includes(state.turn) && !state.gameOver);
   byId("playerScore").textContent = state.playerScore;
   byId("cpuScore").textContent = state.cpuScore;
   byId("matchLabel").textContent = `Round ${state.matchRound || 0}/${MATCH_ROUNDS}  勝敗 ${state.playerRoundWins}-${state.cpuRoundWins}`;

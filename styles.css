@@ -1017,30 +1017,122 @@ h1 {
 
 .battlefield {
   display: grid;
-  grid-template-columns: minmax(360px, 1fr) minmax(360px, 1fr);
-  gap: 12px;
-  min-height: 330px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(210px, auto) auto minmax(210px, auto);
+  gap: 10px;
+  min-height: 0;
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(216, 182, 90, 0.1), transparent 58%),
+    rgba(15, 16, 19, 0.72);
 }
 
 .player-lane {
-  order: 1;
+  order: 3;
 }
 
 .opponent-lane {
-  order: 2;
+  order: 1;
 }
 
 .judges {
-  order: 3;
+  order: 2;
   grid-column: 1 / -1;
 }
 
 .lane,
 .judges {
-  border-radius: 8px;
-  background: rgba(34, 37, 43, 0.86);
+  position: relative;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent),
+    rgba(18, 20, 24, 0.88);
   border: 1px solid var(--line);
   padding: 12px;
+  overflow: hidden;
+}
+
+.lane::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 4px;
+  pointer-events: none;
+}
+
+.lane::after {
+  position: absolute;
+  left: 16px;
+  bottom: 14px;
+  z-index: 3;
+  display: grid;
+  place-items: end center;
+  width: clamp(56px, 6vw, 82px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(216, 182, 90, 0.52);
+  border-radius: 50%;
+  background-image: var(--lane-icon);
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.42);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 1000;
+  pointer-events: none;
+}
+
+.opponent-lane {
+  --lane-icon: url("assets/jin-vs.png");
+  border-color: rgba(255, 74, 54, 0.58);
+  box-shadow: inset 0 0 0 1px rgba(255, 74, 54, 0.08);
+}
+
+.opponent-lane::after {
+  content: "OPP";
+  outline: 3px solid rgba(105, 28, 22, 0.72);
+}
+
+.opponent-lane::before {
+  background: linear-gradient(90deg, rgba(255, 74, 54, 0.9), rgba(255, 117, 82, 0.28), transparent 72%);
+}
+
+.player-lane {
+  --lane-icon: url("assets/haou-vs.png");
+  border-color: rgba(58, 176, 255, 0.58);
+  box-shadow: inset 0 0 0 1px rgba(58, 176, 255, 0.08);
+}
+
+.player-lane::after {
+  content: "YOU";
+  outline: 3px solid rgba(18, 58, 90, 0.72);
+}
+
+.player-lane::before {
+  background: linear-gradient(90deg, rgba(58, 176, 255, 0.9), rgba(93, 169, 233, 0.28), transparent 72%);
+}
+
+#gameApp.player-turn .player-lane {
+  border-color: rgba(216, 182, 90, 0.74);
+  box-shadow:
+    0 0 0 2px rgba(216, 182, 90, 0.16),
+    0 0 30px rgba(58, 176, 255, 0.2),
+    inset 0 0 20px rgba(255, 255, 255, 0.04);
+}
+
+#gameApp.rival-turn .opponent-lane {
+  border-color: rgba(216, 182, 90, 0.74);
+  box-shadow:
+    0 0 0 2px rgba(216, 182, 90, 0.16),
+    0 0 30px rgba(255, 74, 54, 0.2),
+    inset 0 0 20px rgba(255, 255, 255, 0.04);
+}
+
+.player-lane,
+.opponent-lane {
+  transition:
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
 }
 
 .lane-head,
@@ -1060,29 +1152,45 @@ h1 {
 }
 
 .board {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(3, minmax(112px, 1fr));
-  grid-template-rows: repeat(2, minmax(150px, auto));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(96px, 1fr));
   gap: 10px;
-  min-height: 250px;
+  min-height: 218px;
+  padding-left: clamp(74px, 8vw, 104px);
+}
+
+.board .slot:nth-child(1) {
+  grid-column: 1 / span 2;
+}
+
+.board .slot:nth-child(2) {
+  grid-column: 3 / span 2;
+}
+
+.board .slot:nth-child(3) {
+  grid-column: 5 / span 2;
 }
 
 .board .slot:nth-child(4) {
-  grid-column: 1 / 2;
+  grid-column: 2 / span 2;
 }
 
 .board .slot:nth-child(5) {
-  grid-column: 3 / 4;
+  grid-column: 4 / span 2;
 }
 
 .slot {
   position: relative;
   display: grid;
-  align-content: start;
-  min-height: 150px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  align-items: center;
+  justify-items: center;
+  min-height: 96px;
   border: 1px dashed #555b66;
-  border-radius: 8px;
-  padding: 10px;
+  border-radius: 12px;
+  padding: 7px;
   overflow: hidden;
   background:
     linear-gradient(180deg, rgba(216, 182, 90, 0.05), rgba(16, 17, 19, 0.62)),
@@ -1090,14 +1198,118 @@ h1 {
 }
 
 .slot-name {
-  display: inline-block;
-  margin-bottom: 6px;
-  border-radius: 6px;
+  display: inline-grid;
+  grid-auto-flow: column;
+  gap: 6px;
+  align-items: center;
+  align-self: start;
+  justify-self: start;
+  overflow: hidden;
+  max-width: 100%;
+  border-radius: 999px;
+  padding: 0 6px 0 0;
+  background: rgba(216, 182, 90, 0.14);
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slot-name::before {
+  content: "";
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 1000;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 5px 14px rgba(0, 0, 0, 0.36);
+}
+
+.slot:nth-child(1) .slot-name::before {
+  content: "LF";
+}
+
+.slot:nth-child(2) .slot-name::before {
+  content: "CF";
+}
+
+.slot:nth-child(3) .slot-name::before {
+  content: "RF";
+}
+
+.slot:nth-child(4) .slot-name::before {
+  content: "LB";
+}
+
+.slot:nth-child(5) .slot-name::before {
+  content: "RB";
+}
+
+.opponent-lane .slot-name::before {
+  border: 1px solid rgba(255, 117, 82, 0.7);
+  background:
+    radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.28), transparent 25%),
+    linear-gradient(145deg, #a53225, #511611);
+}
+
+.player-lane .slot-name::before {
+  border: 1px solid rgba(93, 169, 233, 0.7);
+  background:
+    radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.28), transparent 25%),
+    linear-gradient(145deg, #2f9ada, #143d62);
+}
+
+.slot-badge {
+  display: inline-grid;
+  grid-auto-flow: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.slot-badge b {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 1000;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 5px 14px rgba(0, 0, 0, 0.36);
+}
+
+.slot-badge.opp b {
+  border: 1px solid rgba(255, 117, 82, 0.7);
+  background:
+    radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.28), transparent 25%),
+    linear-gradient(145deg, #a53225, #511611);
+}
+
+.slot-badge.you b {
+  border: 1px solid rgba(93, 169, 233, 0.7);
+  background:
+    radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.28), transparent 25%),
+    linear-gradient(145deg, #2f9ada, #143d62);
+}
+
+.slot-badge small {
+  overflow: hidden;
+  border-radius: 999px;
   padding: 2px 7px;
   background: rgba(216, 182, 90, 0.16);
   color: var(--gold);
   font-size: 11px;
   font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .slot.filled {
@@ -1107,6 +1319,72 @@ h1 {
     linear-gradient(145deg, rgba(216, 182, 90, 0.2), rgba(0, 0, 0, 0.1)),
     #26221b;
   box-shadow: inset 0 0 0 1px rgba(255, 230, 150, 0.08);
+}
+
+.opponent-lane .slot.filled {
+  border-color: rgba(255, 117, 82, 0.68);
+}
+
+.player-lane .slot.filled {
+  border-color: rgba(93, 169, 233, 0.7);
+}
+
+.field-identity {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 4;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  width: clamp(52px, 6vw, 78px);
+  pointer-events: none;
+}
+
+.field-identity img {
+  width: clamp(46px, 5vw, 66px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(216, 182, 90, 0.5);
+  border-radius: 50%;
+  object-fit: cover;
+  background: #050607;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42);
+}
+
+.field-identity div {
+  width: clamp(84px, 8vw, 118px);
+  border-radius: 999px;
+  padding: 4px 8px;
+  text-align: center;
+}
+
+.field-identity strong,
+.field-identity small {
+  display: block;
+  overflow: hidden;
+  color: #fff;
+  font-size: clamp(9px, 0.9vw, 12px);
+  line-height: 1.08;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.field-identity small {
+  color: rgba(245, 241, 232, 0.76);
+}
+
+.field-identity.opp .mobile-role-icon,
+.field-identity.opp div {
+  border: 1px solid rgba(255, 117, 82, 0.58);
+  background: rgba(105, 28, 22, 0.88);
+  color: #ffd7ce;
+}
+
+.field-identity.you .mobile-role-icon,
+.field-identity.you div {
+  border: 1px solid rgba(93, 169, 233, 0.58);
+  background: rgba(18, 58, 90, 0.9);
+  color: #d6f4ff;
 }
 
 .slot.removable {
@@ -1184,15 +1462,18 @@ h1 {
 }
 
 .slot-art {
-  width: min(150px, 78%);
-  margin: -6px auto 4px;
+  align-self: center;
+  justify-self: center;
+  width: min(118px, 54%);
+  max-width: 100%;
+  margin: 0 auto;
   transition:
     transform 0.18s ease,
     filter 0.18s ease;
 }
 
 .slot.filled:hover .slot-art {
-  transform: translateY(-3px) scale(1.05);
+  transform: translateY(-2px) scale(1.03);
   filter: drop-shadow(0 16px 18px rgba(216, 182, 90, 0.24));
 }
 
@@ -1221,6 +1502,21 @@ h1 {
 .card h3 {
   margin: 0 0 6px;
   font-size: 16px;
+}
+
+.slot h3 {
+  overflow: hidden;
+  width: 100%;
+  margin: 0;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slot .mini-stats,
+.slot .tags,
+.slot p {
+  display: none;
 }
 
 .slot p,
@@ -1383,6 +1679,42 @@ button:not(:disabled):active {
   overflow: visible;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.48);
   transform: translateX(-50%);
+}
+
+body.pc-ui .floating-hand {
+  border-color: rgba(216, 182, 90, 0.42);
+  border-radius: 18px 18px 10px 10px;
+  padding: 14px 14px 12px clamp(72px, 7vw, 92px);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.28)),
+    rgba(13, 15, 18, 0.93);
+}
+
+body.pc-ui .floating-hand::before {
+  content: "HAND";
+  position: absolute;
+  left: 18px;
+  top: 18px;
+  color: var(--gold);
+  font-size: 14px;
+  font-weight: 1000;
+}
+
+body.pc-ui .floating-hand::after {
+  content: "";
+  position: absolute;
+  left: 20px;
+  top: 44px;
+  width: 30px;
+  height: 22px;
+  border: 1px solid rgba(216, 182, 90, 0.64);
+  border-radius: 5px;
+  background:
+    linear-gradient(100deg, transparent 42%, rgba(216, 182, 90, 0.24) 43% 56%, transparent 57%),
+    rgba(70, 50, 23, 0.78);
+  box-shadow:
+    8px 3px 0 -1px rgba(70, 50, 23, 0.78),
+    8px 3px 0 0 rgba(216, 182, 90, 0.36);
 }
 
 .hand-drag {
@@ -4342,6 +4674,7 @@ body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle {
   border: 1px dashed rgba(216, 182, 90, 0.42);
   border-radius: 12px;
   padding: 3px;
+  overflow: hidden;
   background: rgba(54, 40, 25, 0.56);
   color: var(--ink);
 }
@@ -4445,9 +4778,14 @@ body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle {
 }
 
 .mobile-slot-art {
-  width: min(54px, 78%);
-  min-height: 34px;
+  align-self: center;
+  justify-self: center;
+  width: min(46px, 46%);
+  min-width: 34px;
+  min-height: 0;
+  aspect-ratio: 1.2;
   margin: 0;
+  background-size: 300% 300%;
 }
 
 .mobile-slot strong {
@@ -4758,7 +5096,8 @@ body.mobile-ui.landscape-ui.mobile-compact .mobile-slot-badge small {
 }
 
 body.mobile-ui.landscape-ui.mobile-compact .mobile-slot-art {
-  width: min(52px, 84%);
+  width: min(42px, 46%);
+  min-width: 30px;
 }
 
 body.mobile-ui.landscape-ui.mobile-compact .mobile-slot strong {
@@ -4846,7 +5185,8 @@ body.mobile-ui.landscape-ui.mobile-tiny .mobile-hud b {
 }
 
 body.mobile-ui.landscape-ui.mobile-tiny .mobile-slot-art {
-  width: min(42px, 80%);
+  width: min(34px, 44%);
+  min-width: 26px;
 }
 
 body.mobile-ui.landscape-ui.mobile-tiny .mobile-slot .mobile-slot-badge,
