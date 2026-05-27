@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.05.27-mobile-field-badges-v1";
+const APP_VERSION = "2026.05.27-mobile-field-readability-v1";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -2827,17 +2827,31 @@ function renderMobileBoard(id, board, side) {
     }
     root.append(button);
   }
+  root.append(mobileFieldIdentity(side));
 }
 
 function mobileSlotBadge(index, side) {
-  const owner = side === "player" ? "YOU" : "OPP";
   return `
     <span class="mobile-slot-badge ${side === "player" ? "you" : "opp"}">
-      <em>${owner}</em>
       <b>${slotAbbrevs[index]}</b>
       <small>${slotProfiles[index].name}</small>
     </span>
   `;
+}
+
+function mobileFieldIdentity(side) {
+  const identity = document.createElement("div");
+  const isPlayer = side === "player";
+  identity.className = `mobile-field-identity ${isPlayer ? "you" : "opp"}`;
+  identity.innerHTML = `
+    <span class="mobile-role-icon">${isPlayer ? "YOU" : "OPP"}</span>
+    <img src="${isPlayer ? "assets/haou-vs.png" : "assets/jin-vs.png"}" alt="" />
+    <div>
+      <strong>${isPlayer ? "自分フィールド" : "相手フィールド"}</strong>
+      <small>${isPlayer ? "寿立覇王" : "松葉迅"}</small>
+    </div>
+  `;
+  return identity;
 }
 
 function shortSlipperName(name = "") {
