@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.05.27-coin-art-v2";
+const APP_VERSION = "2026.05.27-mobile-field-badges-v1";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -495,6 +495,8 @@ const slotProfiles = [
     log: "奥に控えたおもてなしが吟味時間に効いてきた。",
   },
 ];
+
+const slotAbbrevs = ["LF", "CF", "RF", "LB", "RB"];
 
 const HAOU_COUNTER_IMAGE = "assets/haou-counter.png";
 const JIN_COUNTER_IMAGE = "assets/jin-counter.png";
@@ -2776,6 +2778,8 @@ function renderMobileBattle() {
   const mobileRoot = byId("mobileBattle");
   if (!mobileRoot) return;
   const profile = loadPlayerProfile();
+  mobileRoot.classList.toggle("player-turn", state.started && state.turn === "player" && !state.gameOver);
+  mobileRoot.classList.toggle("rival-turn", state.started && ["cpu", "judge-cpu"].includes(state.turn) && !state.gameOver);
   byId("mobilePlayerScore").textContent = state.playerScore;
   byId("mobileCpuScore").textContent = state.cpuScore;
   byId("mobilePlayerMeta").textContent = `Rating ${profile.rating}`;
@@ -2800,6 +2804,8 @@ function renderMobileBattle() {
 function renderMobileBoard(id, board, side) {
   const root = byId(id);
   root.innerHTML = "";
+  root.dataset.side = side === "player" ? "YOU" : "OPP";
+  root.dataset.fieldLabel = side === "player" ? "寿立覇王の玄関" : "松葉迅の玄関";
   const canOperate = side === "player" && state.turn === "player" && !state.gameOver && !state.cutinActive;
   const hasActive = Boolean(state.activeHandUid);
   for (let i = 0; i < field.maxBoard; i += 1) {
@@ -2810,17 +2816,28 @@ function renderMobileBoard(id, board, side) {
     button.disabled = side !== "player" || (!slipper && (!canOperate || !hasActive)) || Boolean(slipper && !canOperate);
     if (slipper) {
       button.innerHTML = `
-        <span>${slotProfiles[i].name}</span>
+        ${mobileSlotBadge(i, side)}
         ${slipperArt(slipper, "mobile-slot-art")}
         <strong>${shortSlipperName(slipper.name)}</strong>
       `;
       if (canOperate) button.addEventListener("click", () => removeSlipper(i));
     } else {
-      button.innerHTML = `<span>${slotProfiles[i].name}</span><i></i>`;
+      button.innerHTML = `${mobileSlotBadge(i, side)}<i></i>`;
       if (canOperate && hasActive) button.addEventListener("click", () => playSlipper(state.activeHandUid, i));
     }
     root.append(button);
   }
+}
+
+function mobileSlotBadge(index, side) {
+  const owner = side === "player" ? "YOU" : "OPP";
+  return `
+    <span class="mobile-slot-badge ${side === "player" ? "you" : "opp"}">
+      <em>${owner}</em>
+      <b>${slotAbbrevs[index]}</b>
+      <small>${slotProfiles[index].name}</small>
+    </span>
+  `;
 }
 
 function shortSlipperName(name = "") {
