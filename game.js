@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.05.27-mobile-field-readability-v1";
+const APP_VERSION = "2026.05.27-mobile-field-readability-v2";
 const VERSION_URL = "version.json";
 
 const slippers = [
