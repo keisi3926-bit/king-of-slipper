@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.05.27-coin-art-v1";
+const APP_VERSION = "2026.05.27-coin-art-v2";
 const VERSION_URL = "version.json";
 
 const slippers = [
