@@ -180,6 +180,24 @@
         <small>ホーム画面に追加すると、よりゲーム機っぽく遊べます。</small>
       </aside>
       <section id="mobileBattle" class="mobile-battle" aria-label="Mobile TSG battle">
+        <aside class="mobile-insider-rail" aria-label="Slip Insider status">
+          <section class="mobile-insider-panel rival">
+            <span>SLIP INSIDER</span>
+            <strong>迅</strong>
+            <div class="mobile-insider-icons" aria-hidden="true">
+              <i></i><i></i><i></i><i></i><i class="lost"></i>
+            </div>
+            <b id="mobileCpuInsiderCount">4/5</b>
+          </section>
+          <section class="mobile-insider-panel player">
+            <span>SLIP INSIDER</span>
+            <strong>覇王</strong>
+            <div class="mobile-insider-icons" aria-hidden="true">
+              <i></i><i></i><i></i><i></i><i class="lost"></i>
+            </div>
+            <b id="mobilePlayerInsiderCount">4/5</b>
+          </section>
+        </aside>
         <div class="mobile-hud mobile-hud-rival">
           <div>
             <span>相手</span>
@@ -212,10 +230,12 @@
         <div id="mobileHand" class="mobile-hand"></div>
 
         <div class="mobile-actions">
+          <button id="mobileRivalBtn" type="button" disabled>迅</button>
           <button id="mobileStartBtn" class="primary" type="button">開始</button>
           <button id="mobileEndTurnBtn" class="primary" type="button">END</button>
-          <button id="mobileCounterBtn" type="button">伏</button>
-          <button id="mobileRematchBtn" type="button">再</button>
+          <button id="mobileCounterBtn" type="button">伏せ</button>
+          <button id="mobilePlayerBtn" type="button" disabled>覇王</button>
+          <button id="mobileRematchBtn" type="button">再戦</button>
         </div>
       </section>
       <section class="arena" aria-label="TSG arena">
@@ -280,6 +300,18 @@
         <section class="play-layout">
           <aside class="match-info-panel" aria-label="Match information">
             <p class="eyebrow">Match Status</p>
+            <div class="desktop-insider-panel rival">
+              <span>SLIP INSIDER</span>
+              <strong>迅</strong>
+              <div class="desktop-insider-icons" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+              <b id="desktopCpuInsiderCount">0/5</b>
+            </div>
+            <div class="desktop-insider-panel player">
+              <span>SLIP INSIDER</span>
+              <strong>覇王</strong>
+              <div class="desktop-insider-icons" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+              <b id="desktopPlayerInsiderCount">0/5</b>
+            </div>
             <strong id="matchInfoTime">MATCH TIME --:--</strong>
             <span id="matchInfoGame">GAME 0 / BO3</span>
             <span id="matchInfoScore">0 - 0</span>

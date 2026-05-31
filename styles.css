@@ -5276,3 +5276,386 @@ body.mobile-ui.landscape-ui.mobile-short .mobile-hand {
 body.mobile-ui.landscape-ui.mobile-short .mobile-actions button {
   min-height: 34px;
 }
+
+/* TSG direct-control battle layout: wide entrance first, details only on demand. */
+.slot.targetable {
+  cursor: pointer;
+  border-color: rgba(42, 157, 143, 0.85);
+  background:
+    radial-gradient(circle at 50% 52%, rgba(42, 157, 143, 0.2), transparent 42%),
+    linear-gradient(180deg, rgba(216, 182, 90, 0.06), rgba(16, 17, 19, 0.62)),
+    rgba(16, 17, 19, 0.5);
+  box-shadow:
+    0 0 0 2px rgba(42, 157, 143, 0.16),
+    0 0 22px rgba(42, 157, 143, 0.22),
+    inset 0 0 20px rgba(42, 157, 143, 0.08);
+}
+
+.slot.targetable::after {
+  content: "+";
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin: 4px auto 0;
+  border: 1px solid rgba(42, 157, 143, 0.78);
+  border-radius: 50%;
+  color: #8ff5e9;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.card.open,
+.mobile-hand-card.selected {
+  border-color: var(--gold);
+  box-shadow:
+    0 0 0 2px rgba(216, 182, 90, 0.22),
+    0 0 24px rgba(216, 182, 90, 0.22);
+}
+
+.hand-detail .placement-help,
+.hand-detail .slot-buttons,
+.mobile-hand-detail .mobile-slot-buttons {
+  display: none;
+}
+
+.desktop-insider-panel {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  border: 1px solid rgba(216, 182, 90, 0.34);
+  border-radius: 12px;
+  padding: 10px 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.28)),
+    rgba(12, 13, 16, 0.72);
+}
+
+.desktop-insider-panel.rival {
+  border-color: rgba(255, 85, 64, 0.64);
+}
+
+.desktop-insider-panel.player {
+  border-color: rgba(58, 176, 255, 0.66);
+}
+
+.desktop-insider-panel span {
+  color: var(--gold);
+  font-size: 10px;
+  font-weight: 1000;
+}
+
+.desktop-insider-panel strong {
+  color: #fff;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.desktop-insider-icons {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+  width: 100%;
+}
+
+.desktop-insider-icons i {
+  display: block;
+  aspect-ratio: 1;
+  border: 1px solid rgba(216, 182, 90, 0.5);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 42% 34%, rgba(255, 255, 255, 0.22), transparent 24%),
+    var(--desktop-insider-icon, url("assets/haou-vs.png")) center / cover,
+    #111;
+}
+
+.desktop-insider-panel.rival .desktop-insider-icons i {
+  --desktop-insider-icon: url("assets/jin-vs.png");
+}
+
+.desktop-insider-icons i.lost {
+  filter: grayscale(1) brightness(0.48);
+  opacity: 0.56;
+}
+
+.desktop-insider-panel b {
+  color: var(--gold);
+  font-size: 22px;
+  line-height: 1;
+}
+
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle {
+  grid-template-columns: clamp(66px, 8.8vw, 92px) minmax(0, 1fr) clamp(54px, 7.4vw, 76px);
+  grid-template-rows:
+    clamp(44px, 10dvh, 60px)
+    minmax(82px, 1fr)
+    clamp(34px, 7.6dvh, 46px)
+    minmax(82px, 1fr)
+    clamp(92px, 21dvh, 124px);
+  gap: clamp(4px, 0.8vw, 8px);
+  padding:
+    max(5px, env(safe-area-inset-top))
+    max(5px, env(safe-area-inset-right))
+    max(5px, env(safe-area-inset-bottom))
+    max(5px, env(safe-area-inset-left));
+}
+
+.mobile-insider-rail {
+  grid-column: 1;
+  grid-row: 1 / 6;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: clamp(6px, 1.1dvh, 10px);
+  min-height: 0;
+}
+
+.mobile-insider-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  justify-items: center;
+  gap: 3px;
+  min-height: 0;
+  border: 1px solid rgba(216, 182, 90, 0.32);
+  border-radius: 14px;
+  padding: 7px 4px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.36)),
+    rgba(9, 10, 12, 0.88);
+  box-shadow: inset 0 0 16px rgba(216, 182, 90, 0.06);
+}
+
+.mobile-insider-panel.rival {
+  border-color: rgba(255, 85, 64, 0.72);
+  box-shadow:
+    0 0 20px rgba(255, 74, 54, 0.12),
+    inset 0 0 18px rgba(255, 74, 54, 0.08);
+}
+
+.mobile-insider-panel.player {
+  border-color: rgba(58, 176, 255, 0.74);
+  box-shadow:
+    0 0 20px rgba(58, 176, 255, 0.12),
+    inset 0 0 18px rgba(58, 176, 255, 0.08);
+}
+
+.mobile-insider-panel span {
+  color: var(--gold);
+  font-size: clamp(6px, 1.1vw, 9px);
+  font-weight: 1000;
+  line-height: 1;
+}
+
+.mobile-insider-panel strong {
+  color: #fff;
+  font-size: clamp(14px, 2.4vw, 22px);
+  line-height: 1;
+  text-shadow: 0 0 10px rgba(216, 182, 90, 0.28);
+}
+
+.mobile-insider-panel.rival strong,
+.mobile-insider-panel.rival b {
+  color: #ff644f;
+}
+
+.mobile-insider-panel.player strong,
+.mobile-insider-panel.player b {
+  color: #42c5ff;
+}
+
+.mobile-insider-icons {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-height: 0;
+}
+
+.mobile-insider-icons i {
+  display: block;
+  width: clamp(24px, 4.4vw, 38px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(216, 182, 90, 0.54);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 42% 34%, rgba(255, 255, 255, 0.22), transparent 24%),
+    var(--insider-icon, url("assets/haou-vs.png")) center / cover,
+    #111;
+  filter: saturate(1.1);
+}
+
+.mobile-insider-panel.rival .mobile-insider-icons i {
+  --insider-icon: url("assets/jin-vs.png");
+}
+
+.mobile-insider-icons i.lost {
+  filter: grayscale(1) brightness(0.48);
+  opacity: 0.58;
+}
+
+.mobile-insider-panel b {
+  font-size: clamp(13px, 2.2vw, 20px);
+  line-height: 1;
+}
+
+body.mobile-ui.landscape-ui .mobile-hud-rival {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+body.mobile-ui.landscape-ui .rival-board {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+body.mobile-ui.landscape-ui .mobile-center {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+body.mobile-ui.landscape-ui .player-board {
+  grid-column: 2;
+  grid-row: 4;
+}
+
+body.mobile-ui.landscape-ui .mobile-hud-player {
+  display: none;
+}
+
+body.mobile-ui.landscape-ui .mobile-hand {
+  grid-column: 2;
+  grid-row: 5;
+}
+
+body.mobile-ui.landscape-ui .mobile-actions {
+  grid-column: 3;
+  grid-row: 1 / 6;
+  display: grid;
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  align-content: stretch;
+  gap: clamp(6px, 1.3dvh, 12px);
+}
+
+body.mobile-ui.landscape-ui .mobile-actions button {
+  min-height: 0;
+  width: 100%;
+  border-radius: 14px;
+  font-size: clamp(11px, 2vw, 16px);
+  font-weight: 1000;
+}
+
+body.mobile-ui.landscape-ui #mobileRivalBtn,
+body.mobile-ui.landscape-ui #mobilePlayerBtn {
+  display: block;
+}
+
+body.mobile-ui.landscape-ui #mobileRivalBtn {
+  border-color: rgba(255, 117, 82, 0.72);
+  background: linear-gradient(180deg, rgba(139, 34, 24, 0.86), rgba(65, 12, 9, 0.9));
+  color: #ffd6ca;
+}
+
+body.mobile-ui.landscape-ui #mobilePlayerBtn {
+  border-color: rgba(93, 169, 233, 0.72);
+  background: linear-gradient(180deg, rgba(20, 86, 130, 0.88), rgba(8, 38, 64, 0.92));
+  color: #d6f4ff;
+}
+
+body.mobile-ui.landscape-ui #mobileEndTurnBtn,
+body.mobile-ui.landscape-ui #mobileCounterBtn {
+  justify-self: center;
+  width: 86%;
+}
+
+body.mobile-ui.landscape-ui #mobileStartBtn[hidden],
+body.mobile-ui.landscape-ui #mobileRematchBtn[hidden] {
+  display: none;
+}
+
+body.mobile-ui.landscape-ui .mobile-actions:has(#mobileStartBtn:not([hidden])) {
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+}
+
+body.mobile-ui.landscape-ui .mobile-board {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: clamp(4px, 0.7vw, 8px);
+  padding: clamp(18px, 3.2dvh, 24px) clamp(6px, 1vw, 10px) clamp(6px, 1vw, 10px);
+}
+
+body.mobile-ui.landscape-ui .mobile-slot {
+  border-radius: 12px;
+  padding: 4px;
+}
+
+body.mobile-ui.landscape-ui .mobile-slot-art {
+  width: min(58px, 44%);
+  max-height: 54%;
+}
+
+body.mobile-ui.landscape-ui .mobile-slot.targetable::after {
+  content: "+";
+  display: grid;
+  place-items: center;
+  width: clamp(22px, 4vw, 34px);
+  aspect-ratio: 1;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  color: #76f2e6;
+  font-size: clamp(18px, 3.2vw, 28px);
+  font-weight: 900;
+  opacity: 0.9;
+}
+
+body.mobile-ui.landscape-ui .mobile-field-identity {
+  display: none;
+}
+
+body.mobile-ui.landscape-ui .mobile-hand {
+  align-items: stretch;
+  gap: clamp(5px, 0.8vw, 9px);
+  padding: clamp(18px, 3.2dvh, 22px) clamp(8px, 1.2vw, 12px) clamp(6px, 1vw, 10px) clamp(48px, 6.4vw, 66px);
+}
+
+body.mobile-ui.landscape-ui .mobile-hand-card {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  align-items: end;
+  max-width: 128px;
+  border-radius: 12px;
+}
+
+body.mobile-ui.landscape-ui .mobile-card-art {
+  width: min(62px, 82%);
+}
+
+body.mobile-ui.landscape-ui .mobile-hand-detail {
+  left: clamp(82px, 10vw, 112px);
+  right: clamp(68px, 8.5vw, 92px);
+  bottom: clamp(104px, 23dvh, 136px);
+  max-height: 42dvh;
+}
+
+body.mobile-ui.landscape-ui.mobile-compact #gameApp:not(.screen-hidden) .mobile-battle,
+body.mobile-ui.landscape-ui.mobile-tiny #gameApp:not(.screen-hidden) .mobile-battle,
+body.mobile-ui.landscape-ui.mobile-short #gameApp:not(.screen-hidden) .mobile-battle {
+  grid-template-columns: clamp(54px, 8.2vw, 76px) minmax(0, 1fr) clamp(46px, 7vw, 60px);
+}
+
+body.mobile-ui.landscape-ui.mobile-compact .mobile-insider-panel {
+  padding: 5px 3px;
+}
+
+body.mobile-ui.landscape-ui.mobile-compact .mobile-insider-icons i {
+  width: clamp(20px, 4vw, 30px);
+}
+
+body.mobile-ui.landscape-ui.mobile-tiny .mobile-insider-panel span {
+  display: none;
+}
+
+body.mobile-ui.landscape-ui.mobile-tiny .mobile-insider-icons {
+  gap: 2px;
+}
+
+body.mobile-ui.landscape-ui.mobile-tiny .mobile-insider-icons i {
+  width: 20px;
+}

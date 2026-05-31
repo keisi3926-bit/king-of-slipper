@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.05.28-web-battle-refresh-v1";
+const APP_VERSION = "2026.05.31-direct-entrance-ui-v1";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -535,6 +535,7 @@ const state = {
   playerTurnsTaken: 0,
   cpuTurnsTaken: 0,
   activeHandUid: null,
+  detailHandUid: null,
   phaseTimeout: null,
   cutinActive: false,
   matchRound: 0,
@@ -1813,6 +1814,7 @@ function playSlipper(uid, slotIndex = firstEmptySlot(state.playerBoard)) {
   }
   const [slipper] = state.hand.splice(index, 1);
   state.activeHandUid = null;
+  state.detailHandUid = null;
   slipper.placedTurn = state.turnNumber;
   slipper.slotIndex = slotIndex;
   state.playerBoard[slotIndex] = slipper;
@@ -2574,6 +2576,10 @@ function render() {
   byId("matchInfoScore").textContent = `履き ${state.playerScore} - ${state.cpuScore} / Match ${state.playerRoundWins}-${state.cpuRoundWins}`;
   byId("matchInfoRatings").textContent = `Rating ${profile.rating} / ${state.cpuRatingBefore || 1980}`;
   byId("deckCount").textContent = `残り ${state.playerDeck.length} / 配置 ${state.placementsThisTurn}・${maxPlacementsPerTurn()}`;
+  byId("desktopPlayerInsiderCount").textContent = `${Math.min(5, state.playerScore)}/5`;
+  byId("desktopCpuInsiderCount").textContent = `${Math.min(5, state.cpuScore)}/5`;
+  updateDesktopInsiderIcons(".desktop-insider-panel.player", state.playerScore);
+  updateDesktopInsiderIcons(".desktop-insider-panel.rival", state.cpuScore);
   byId("turnLabel").textContent = getTurnLabel();
   byId("phaseHint").textContent = getPhaseHint();
   if (!state.started) byId("timer").textContent = "--";
@@ -2621,11 +2627,13 @@ function getPhaseHint() {
 function renderBoard(id, board) {
   const root = byId(id);
   root.innerHTML = "";
+  const canPlaceHere = id === "playerBoard" && state.turn === "player" && !state.gameOver && !state.cutinActive && Boolean(state.activeHandUid);
   for (let i = 0; i < field.maxBoard; i += 1) {
     const slot = document.createElement("article");
     const slipper = board[i];
     const canRemove = id === "playerBoard" && slipper && state.turn === "player" && !state.gameOver && !state.cutinActive;
-    slot.className = `slot ${slipper ? "filled" : ""} ${canRemove ? "removable" : ""}`;
+    const canTarget = canPlaceHere && !slipper;
+    slot.className = `slot ${slipper ? "filled" : ""} ${canRemove ? "removable" : ""} ${canTarget ? "targetable" : ""}`;
     if (slipper) {
       const slotBonus = slotBonusFor(slipper, i);
       slot.innerHTML = `
@@ -2643,8 +2651,36 @@ function renderBoard(id, board) {
     } else {
       slot.innerHTML = `<span class="slot-name">${slotProfiles[i].name}</span><p>空き導線</p>`;
     }
+    if (canTarget) {
+      slot.title = "選択中のスリッパをここへ配置";
+      slot.addEventListener("click", () => playSlipper(state.activeHandUid, i));
+    }
     root.append(slot);
   }
+}
+
+function openHandDetail(uid) {
+  state.activeHandUid = uid;
+  state.detailHandUid = uid;
+  render();
+}
+
+function attachDetailGesture(element, uid, canOpen = () => true) {
+  let pressTimer = null;
+  const clear = () => {
+    if (pressTimer) window.clearTimeout(pressTimer);
+    pressTimer = null;
+  };
+  element.addEventListener("pointerdown", () => {
+    clear();
+    pressTimer = window.setTimeout(() => {
+      if (canOpen()) openHandDetail(uid);
+      clear();
+    }, 520);
+  });
+  element.addEventListener("pointerup", clear);
+  element.addEventListener("pointerleave", clear);
+  element.addEventListener("pointercancel", clear);
 }
 
 function renderHand() {
@@ -2663,14 +2699,24 @@ function renderHand() {
     button.addEventListener("click", () => {
       if (actionLocked) return;
       state.activeHandUid = state.activeHandUid === slipper.uid ? null : slipper.uid;
+      if (state.activeHandUid !== slipper.uid) state.detailHandUid = null;
       renderHand();
+      renderBoard("playerBoard", state.playerBoard);
     });
+    button.addEventListener("dblclick", (event) => {
+      event.preventDefault();
+      if (actionLocked) return;
+      openHandDetail(slipper.uid);
+    });
+    attachDetailGesture(button, slipper.uid, () => !actionLocked);
     button.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
       if (actionLocked) return;
       state.activeHandUid = state.activeHandUid === slipper.uid ? null : slipper.uid;
+      if (state.activeHandUid !== slipper.uid) state.detailHandUid = null;
       renderHand();
+      renderBoard("playerBoard", state.playerBoard);
     });
     button.innerHTML = `
       ${slipperArt(slipper, "card-art")}
@@ -2682,19 +2728,12 @@ function renderHand() {
 
 function renderHandDetail() {
   const root = byId("handDetail");
-  const slipper = state.hand.find((item) => item.uid === state.activeHandUid);
+  const slipper = state.hand.find((item) => item.uid === state.detailHandUid);
   if (!slipper) {
     root.hidden = true;
     root.innerHTML = "";
     return;
   }
-  const actionLocked = state.turn !== "player" || state.gameOver || state.cutinActive;
-  const slotButtons = slotProfiles
-    .map(
-      (slot, index) =>
-        `<button type="button" data-detail-slot="${index}" ${state.playerBoard[index] || actionLocked ? "disabled" : ""}>${slot.name}</button>`,
-    )
-    .join("");
   root.hidden = false;
   root.innerHTML = `
     <div class="hand-detail-head">
@@ -2709,17 +2748,10 @@ function renderHandDetail() {
     <div class="mini-stats">${statPill("履き心地", slipper.comfort)}${statPill("導線", slipper.flow)}${statPill("品格", slipper.dignity)}</div>
     <div class="tags">${slipper.tags.map((tag) => `<span class="tag">${tag}</span>`).join("")}</div>
     <p class="placement-help">配置先を選択：左前 / 中央前 / 右前 / 左奥 / 右奥</p>
-    <div class="slot-buttons">${slotButtons}</div>
   `;
   root.querySelector("[data-close-detail]").addEventListener("click", () => {
-    state.activeHandUid = null;
+    state.detailHandUid = null;
     renderHand();
-  });
-  root.querySelectorAll("[data-detail-slot]").forEach((slotButton) => {
-    slotButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      playSlipper(slipper.uid, Number(slotButton.dataset.detailSlot));
-    });
   });
 }
 
@@ -2784,9 +2816,13 @@ function renderMobileBattle() {
   mobileRoot.classList.toggle("player-turn", state.started && state.turn === "player" && !state.gameOver);
   mobileRoot.classList.toggle("rival-turn", state.started && ["cpu", "judge-cpu"].includes(state.turn) && !state.gameOver);
   byId("mobilePlayerScore").textContent = state.playerScore;
-  byId("mobileCpuScore").textContent = state.cpuScore;
+  byId("mobileCpuScore").textContent = state.turnNumber || 0;
+  byId("mobilePlayerInsiderCount").textContent = `${Math.min(5, state.playerScore)}/5`;
+  byId("mobileCpuInsiderCount").textContent = `${Math.min(5, state.cpuScore)}/5`;
+  updateMobileInsiderIcons(".mobile-insider-panel.player", state.playerScore);
+  updateMobileInsiderIcons(".mobile-insider-panel.rival", state.cpuScore);
   byId("mobilePlayerMeta").textContent = `Rating ${profile.rating}`;
-  byId("mobileCpuMeta").textContent = `Rating ${state.cpuRatingBefore || 1980}`;
+  byId("mobileCpuMeta").textContent = "ターン";
   byId("mobileGameLabel").textContent = `GAME ${state.matchRound || 0}/BO3 ${state.playerRoundWins}-${state.cpuRoundWins}`;
   byId("mobileTurnLabel").textContent = getTurnLabel();
   byId("mobileTimeLabel").textContent = formatClock(state.matchSeconds || MATCH_SECONDS);
@@ -2794,7 +2830,9 @@ function renderMobileBattle() {
   byId("mobileStartBtn").disabled = state.cutinActive || state.started;
   byId("mobileEndTurnBtn").disabled = state.turn !== "player" || state.gameOver || state.cutinActive;
   byId("mobileCounterBtn").disabled = state.turn !== "counter-window" || state.playerTrapCount <= 0 || state.gameOver || state.cutinActive;
+  byId("mobileCounterBtn").textContent = "伏せ";
   byId("mobileCounterBtn").textContent = `伏${state.playerTrapCount}`;
+  byId("mobileCounterBtn").textContent = "伏せ";
   const canShowMobileRematch = state.gameOver || state.matchFinished;
   byId("mobileRematchBtn").hidden = !canShowMobileRematch;
   byId("mobileRematchBtn").disabled = !canShowMobileRematch || state.cutinActive;
@@ -2802,6 +2840,18 @@ function renderMobileBattle() {
   renderMobileBoard("mobilePlayerBoard", state.playerBoard, "player");
   renderMobileHand();
   renderMobileHandDetail();
+}
+
+function updateMobileInsiderIcons(selector, score) {
+  document.querySelectorAll(`${selector} .mobile-insider-icons i`).forEach((icon, index) => {
+    icon.classList.toggle("lost", index >= Math.min(5, score));
+  });
+}
+
+function updateDesktopInsiderIcons(selector, score) {
+  document.querySelectorAll(`${selector} .desktop-insider-icons i`).forEach((icon, index) => {
+    icon.classList.toggle("lost", index >= Math.min(5, score));
+  });
 }
 
 function renderMobileBoard(id, board, side) {
@@ -2878,24 +2928,27 @@ function renderMobileHand() {
     button.addEventListener("click", () => {
       if (actionLocked) return;
       state.activeHandUid = state.activeHandUid === slipper.uid ? null : slipper.uid;
+      if (state.activeHandUid !== slipper.uid) state.detailHandUid = null;
       render();
     });
+    button.addEventListener("dblclick", (event) => {
+      event.preventDefault();
+      if (actionLocked) return;
+      openHandDetail(slipper.uid);
+    });
+    attachDetailGesture(button, slipper.uid, () => !actionLocked);
     root.append(button);
   });
 }
 
 function renderMobileHandDetail() {
   const root = byId("mobileHandDetail");
-  const slipper = state.hand.find((item) => item.uid === state.activeHandUid);
+  const slipper = state.hand.find((item) => item.uid === state.detailHandUid);
   if (!slipper) {
     root.hidden = true;
     root.innerHTML = "";
     return;
   }
-  const actionLocked = state.turn !== "player" || state.gameOver || state.cutinActive;
-  const slotButtons = slotProfiles
-    .map((slot, index) => `<button type="button" data-mobile-slot="${index}" ${state.playerBoard[index] || actionLocked ? "disabled" : ""}>${slot.name}</button>`)
-    .join("");
   root.hidden = false;
   root.innerHTML = `
     <div class="mobile-detail-main">
@@ -2907,14 +2960,10 @@ function renderMobileHandDetail() {
       </div>
       <button type="button" data-mobile-close>×</button>
     </div>
-    <div class="mobile-slot-buttons">${slotButtons}</div>
   `;
   root.querySelector("[data-mobile-close]")?.addEventListener("click", () => {
-    state.activeHandUid = null;
+    state.detailHandUid = null;
     render();
-  });
-  root.querySelectorAll("[data-mobile-slot]").forEach((button) => {
-    button.addEventListener("click", () => playSlipper(slipper.uid, Number(button.dataset.mobileSlot)));
   });
 }
 
