@@ -5774,22 +5774,48 @@ body.mobile-ui.landscape-ui .mobile-hand-detail[hidden] {
 }
 
 /* Placed slipper recovery: only enlarge slippers already on the entrance. */
+body.mobile-ui.landscape-ui .mobile-slot.filled {
+  isolation: isolate;
+}
+
+body.mobile-ui.landscape-ui .mobile-slot.filled .mobile-slot-badge {
+  position: relative;
+  z-index: 3;
+}
+
 body.mobile-ui.landscape-ui .mobile-slot.filled .mobile-slot-art {
-  width: min(86px, 68%);
-  min-width: 52px;
-  max-width: 88%;
-  max-height: 68%;
+  position: absolute;
+  left: 50%;
+  top: 53%;
+  z-index: 1;
+  width: clamp(66px, 12vw, 104px);
+  min-width: 58px;
+  max-width: calc(100% - 18px);
+  max-height: calc(100% - 18px);
   aspect-ratio: 1.2;
-  align-self: center;
-  justify-self: center;
   margin: 0 auto;
   background-size: 300% 300%;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 10px 12px rgba(0, 0, 0, 0.48));
+}
+
+body.mobile-ui.landscape-ui .mobile-slot.filled strong {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 4px;
+  z-index: 2;
+  padding: 1px 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.42);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.86);
 }
 
 body.mobile-ui.landscape-ui.mobile-compact .mobile-slot.filled .mobile-slot-art,
 body.mobile-ui.landscape-ui.mobile-tiny .mobile-slot.filled .mobile-slot-art,
 body.mobile-ui.landscape-ui.mobile-short .mobile-slot.filled .mobile-slot-art {
-  width: min(76px, 64%);
-  min-width: 44px;
-  max-height: 64%;
+  width: clamp(56px, 10.8vw, 88px);
+  min-width: 50px;
+  max-width: calc(100% - 14px);
+  max-height: calc(100% - 16px);
 }
