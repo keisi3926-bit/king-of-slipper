@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.05.31-long-press-detail-v8";
+const APP_VERSION = "2026.06.01-mobile-log-hand-v9";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -538,6 +538,7 @@ const state = {
   detailHandUid: null,
   mobileHandOpen: false,
   mobileHandSide: "player",
+  mobileLogOpen: false,
   phaseTimeout: null,
   cutinActive: false,
   matchRound: 0,
@@ -1663,6 +1664,7 @@ async function resetMatch() {
     detailHandUid: null,
     mobileHandOpen: false,
     mobileHandSide: "player",
+    mobileLogOpen: false,
     phaseTimeout: null,
     cutinActive: false,
     matchRound: 1,
@@ -2827,6 +2829,16 @@ function log(text) {
   while (byId("log").children.length > 80) byId("log").lastElementChild.remove();
 }
 
+function escapeHtml(value = "") {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[char]);
+}
+
 function renderMobileBattle() {
   const mobileRoot = byId("mobileBattle");
   if (!mobileRoot) return;
@@ -2835,6 +2847,7 @@ function renderMobileBattle() {
   mobileRoot.classList.toggle("rival-turn", state.started && ["cpu", "judge-cpu"].includes(state.turn) && !state.gameOver);
   mobileRoot.classList.toggle("hand-open", state.mobileHandOpen);
   mobileRoot.classList.toggle("hand-closed", !state.mobileHandOpen);
+  mobileRoot.classList.toggle("log-open", state.mobileLogOpen);
   mobileRoot.dataset.handSide = state.mobileHandSide || "player";
   byId("mobilePlayerScore").textContent = state.playerScore;
   byId("mobileCpuScore").textContent = state.turnNumber || 0;
@@ -2854,9 +2867,11 @@ function renderMobileBattle() {
   byId("mobileCounterBtn").textContent = "伏せ";
   byId("mobileRivalBtn").disabled = state.cutinActive;
   byId("mobilePlayerBtn").disabled = state.cutinActive;
-  byId("mobileRivalBtn").classList.toggle("active", state.mobileHandOpen && state.mobileHandSide === "cpu");
+  byId("mobileRivalBtn").textContent = "ログ";
+  byId("mobilePlayerBtn").textContent = "手持ち";
+  byId("mobileRivalBtn").classList.toggle("active", state.mobileLogOpen);
   byId("mobilePlayerBtn").classList.toggle("active", state.mobileHandOpen && state.mobileHandSide === "player");
-  byId("mobileRivalBtn").setAttribute("aria-pressed", String(state.mobileHandOpen && state.mobileHandSide === "cpu"));
+  byId("mobileRivalBtn").setAttribute("aria-pressed", String(state.mobileLogOpen));
   byId("mobilePlayerBtn").setAttribute("aria-pressed", String(state.mobileHandOpen && state.mobileHandSide === "player"));
   const canShowMobileRematch = state.gameOver || state.matchFinished;
   byId("mobileRematchBtn").hidden = !canShowMobileRematch;
@@ -2865,6 +2880,7 @@ function renderMobileBattle() {
   renderMobileBoard("mobilePlayerBoard", state.playerBoard, "player");
   renderMobileHand();
   renderMobileHandDetail();
+  renderMobileLogPanel();
 }
 
 function updateMobileInsiderIcons(selector, score) {
@@ -2997,23 +3013,68 @@ function renderMobileHandDetail() {
   });
 }
 
+function renderMobileLogPanel() {
+  const root = byId("mobileLogPanel");
+  if (!root) return;
+  if (!state.mobileLogOpen) {
+    root.hidden = true;
+    root.innerHTML = "";
+    return;
+  }
+  const logItems = Array.from(byId("log")?.children || [])
+    .slice(0, 40)
+    .map((item) => item.textContent || "");
+  root.hidden = false;
+  root.innerHTML = `
+    <div class="mobile-log-head">
+      <strong>ログ履歴</strong>
+      <button type="button" data-mobile-log-close>閉じる</button>
+    </div>
+    <ol class="mobile-log-list">
+      ${(logItems.length ? logItems : ["まだログはありません。"]).map((text) => `<li>${escapeHtml(text)}</li>`).join("")}
+    </ol>
+  `;
+  root.querySelector("[data-mobile-log-close]")?.addEventListener("click", () => {
+    state.mobileLogOpen = false;
+    render();
+  });
+}
+
 function toggleMobileHand(side = "player") {
   const nextSide = side === "cpu" ? "cpu" : "player";
   const shouldClose = state.mobileHandOpen && state.mobileHandSide === nextSide;
   state.mobileHandOpen = !shouldClose;
   state.mobileHandSide = nextSide;
+  if (!shouldClose) {
+    state.mobileLogOpen = false;
+  }
   if (shouldClose) {
     state.detailHandUid = null;
   }
   render();
 }
 
-function closeDetailOnOutside(event) {
-  if (!state.detailHandUid) return;
-  const target = event.target;
-  if (target.closest?.("#handDetail, #mobileHandDetail")) return;
-  state.detailHandUid = null;
+function toggleMobileLog() {
+  state.mobileLogOpen = !state.mobileLogOpen;
+  if (state.mobileLogOpen) {
+    state.mobileHandOpen = false;
+    state.detailHandUid = null;
+  }
   render();
+}
+
+function closeTransientPanelsOnOutside(event) {
+  const target = event.target;
+  let changed = false;
+  if (state.detailHandUid && !target.closest?.("#handDetail, #mobileHandDetail")) {
+    state.detailHandUid = null;
+    changed = true;
+  }
+  if (state.mobileLogOpen && !target.closest?.("#mobileLogPanel, #mobileRivalBtn")) {
+    state.mobileLogOpen = false;
+    changed = true;
+  }
+  if (changed) render();
 }
 
 let lastCommentaryAt = 0;
@@ -3779,10 +3840,10 @@ byId("counterBtn").addEventListener("click", useCounter);
 byId("mobileStartBtn").addEventListener("click", startMatchFromButton);
 byId("mobileEndTurnBtn").addEventListener("click", endPlayerTurn);
 byId("mobileCounterBtn").addEventListener("click", useCounter);
-byId("mobileRivalBtn").addEventListener("click", () => toggleMobileHand("cpu"));
+byId("mobileRivalBtn").addEventListener("click", toggleMobileLog);
 byId("mobilePlayerBtn").addEventListener("click", () => toggleMobileHand("player"));
 byId("mobileRematchBtn").addEventListener("click", startMatchFromButton);
-document.addEventListener("pointerdown", closeDetailOnOutside);
+document.addEventListener("pointerdown", closeTransientPanelsOnOutside);
 byId("sideboardTitleBtn").addEventListener("click", returnToTitleFromSideboard);
 byId("sideboardDoneBtn").addEventListener("click", completeSideboard);
 byId("createRoomBtn").addEventListener("click", createRoom);
