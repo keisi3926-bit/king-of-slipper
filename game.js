@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.05.31-placed-slipper-visible-v6";
+const APP_VERSION = "2026.05.31-collapsible-hand-v7";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -536,6 +536,8 @@ const state = {
   cpuTurnsTaken: 0,
   activeHandUid: null,
   detailHandUid: null,
+  mobileHandOpen: false,
+  mobileHandSide: "player",
   phaseTimeout: null,
   cutinActive: false,
   matchRound: 0,
@@ -1657,6 +1659,10 @@ async function resetMatch() {
     placementsThisTurn: 0,
     playerTurnsTaken: 0,
     cpuTurnsTaken: 0,
+    activeHandUid: null,
+    detailHandUid: null,
+    mobileHandOpen: false,
+    mobileHandSide: "player",
     phaseTimeout: null,
     cutinActive: false,
     matchRound: 1,
@@ -2815,6 +2821,9 @@ function renderMobileBattle() {
   const profile = loadPlayerProfile();
   mobileRoot.classList.toggle("player-turn", state.started && state.turn === "player" && !state.gameOver);
   mobileRoot.classList.toggle("rival-turn", state.started && ["cpu", "judge-cpu"].includes(state.turn) && !state.gameOver);
+  mobileRoot.classList.toggle("hand-open", state.mobileHandOpen);
+  mobileRoot.classList.toggle("hand-closed", !state.mobileHandOpen);
+  mobileRoot.dataset.handSide = state.mobileHandSide || "player";
   byId("mobilePlayerScore").textContent = state.playerScore;
   byId("mobileCpuScore").textContent = state.turnNumber || 0;
   byId("mobilePlayerInsiderCount").textContent = `${Math.min(5, state.playerScore)}/5`;
@@ -2831,6 +2840,12 @@ function renderMobileBattle() {
   byId("mobileEndTurnBtn").disabled = state.turn !== "player" || state.gameOver || state.cutinActive;
   byId("mobileCounterBtn").disabled = state.turn !== "counter-window" || state.playerTrapCount <= 0 || state.gameOver || state.cutinActive;
   byId("mobileCounterBtn").textContent = "伏せ";
+  byId("mobileRivalBtn").disabled = state.cutinActive;
+  byId("mobilePlayerBtn").disabled = state.cutinActive;
+  byId("mobileRivalBtn").classList.toggle("active", state.mobileHandOpen && state.mobileHandSide === "cpu");
+  byId("mobilePlayerBtn").classList.toggle("active", state.mobileHandOpen && state.mobileHandSide === "player");
+  byId("mobileRivalBtn").setAttribute("aria-pressed", String(state.mobileHandOpen && state.mobileHandSide === "cpu"));
+  byId("mobilePlayerBtn").setAttribute("aria-pressed", String(state.mobileHandOpen && state.mobileHandSide === "player"));
   const canShowMobileRematch = state.gameOver || state.matchFinished;
   byId("mobileRematchBtn").hidden = !canShowMobileRematch;
   byId("mobileRematchBtn").disabled = !canShowMobileRematch || state.cutinActive;
@@ -2941,6 +2956,11 @@ function renderMobileHand() {
 
 function renderMobileHandDetail() {
   const root = byId("mobileHandDetail");
+  if (!state.mobileHandOpen) {
+    root.hidden = true;
+    root.innerHTML = "";
+    return;
+  }
   const slipper = state.hand.find((item) => item.uid === state.detailHandUid);
   if (!slipper) {
     root.hidden = true;
@@ -2963,6 +2983,17 @@ function renderMobileHandDetail() {
     state.detailHandUid = null;
     render();
   });
+}
+
+function toggleMobileHand(side = "player") {
+  const nextSide = side === "cpu" ? "cpu" : "player";
+  const shouldClose = state.mobileHandOpen && state.mobileHandSide === nextSide;
+  state.mobileHandOpen = !shouldClose;
+  state.mobileHandSide = nextSide;
+  if (shouldClose) {
+    state.detailHandUid = null;
+  }
+  render();
 }
 
 let lastCommentaryAt = 0;
@@ -3728,6 +3759,8 @@ byId("counterBtn").addEventListener("click", useCounter);
 byId("mobileStartBtn").addEventListener("click", startMatchFromButton);
 byId("mobileEndTurnBtn").addEventListener("click", endPlayerTurn);
 byId("mobileCounterBtn").addEventListener("click", useCounter);
+byId("mobileRivalBtn").addEventListener("click", () => toggleMobileHand("cpu"));
+byId("mobilePlayerBtn").addEventListener("click", () => toggleMobileHand("player"));
 byId("mobileRematchBtn").addEventListener("click", startMatchFromButton);
 byId("sideboardTitleBtn").addEventListener("click", returnToTitleFromSideboard);
 byId("sideboardDoneBtn").addEventListener("click", completeSideboard);
