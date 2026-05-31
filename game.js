@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.05.31-collapsible-hand-v7";
+const APP_VERSION = "2026.05.31-long-press-detail-v8";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -2654,6 +2654,7 @@ function renderBoard(id, board) {
         slot.title = "クリックでこのスリッパを外す";
         slot.addEventListener("click", () => removeSlipper(i));
       }
+      attachDetailGesture(slot, slipper.uid, () => true, { select: false });
     } else {
       slot.innerHTML = `<span class="slot-name">${slotProfiles[i].name}</span><p>空き導線</p>`;
     }
@@ -2665,13 +2666,15 @@ function renderBoard(id, board) {
   }
 }
 
-function openHandDetail(uid) {
-  state.activeHandUid = uid;
+function openHandDetail(uid, options = {}) {
+  const { select = true, openHand = false } = options;
+  if (select) state.activeHandUid = uid;
   state.detailHandUid = uid;
+  if (openHand) state.mobileHandOpen = true;
   render();
 }
 
-function attachDetailGesture(element, uid, canOpen = () => true) {
+function attachDetailGesture(element, uid, canOpen = () => true, openOptions = {}) {
   let pressTimer = null;
   const clear = () => {
     if (pressTimer) window.clearTimeout(pressTimer);
@@ -2680,10 +2683,24 @@ function attachDetailGesture(element, uid, canOpen = () => true) {
   element.addEventListener("pointerdown", () => {
     clear();
     pressTimer = window.setTimeout(() => {
-      if (canOpen()) openHandDetail(uid);
+      if (canOpen()) {
+        element.dataset.longPressOpen = "true";
+        openHandDetail(uid, openOptions);
+      }
       clear();
     }, 520);
   });
+  element.addEventListener(
+    "click",
+    (event) => {
+      if (element.dataset.longPressOpen === "true") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        delete element.dataset.longPressOpen;
+      }
+    },
+    true,
+  );
   element.addEventListener("pointerup", clear);
   element.addEventListener("pointerleave", clear);
   element.addEventListener("pointercancel", clear);
@@ -2709,11 +2726,6 @@ function renderHand() {
       renderHand();
       renderBoard("playerBoard", state.playerBoard);
     });
-    button.addEventListener("dblclick", (event) => {
-      event.preventDefault();
-      if (actionLocked) return;
-      openHandDetail(slipper.uid);
-    });
     attachDetailGesture(button, slipper.uid, () => !actionLocked);
     button.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
@@ -2734,7 +2746,7 @@ function renderHand() {
 
 function renderHandDetail() {
   const root = byId("handDetail");
-  const slipper = state.hand.find((item) => item.uid === state.detailHandUid);
+  const slipper = findDetailSlipper(state.detailHandUid);
   if (!slipper) {
     root.hidden = true;
     root.innerHTML = "";
@@ -2879,7 +2891,7 @@ function renderMobileBoard(id, board, side) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `mobile-slot ${slipper ? "filled" : ""} ${canOperate && !slipper && hasActive ? "targetable" : ""} ${canOperate && slipper ? "removable" : ""}`;
-    button.disabled = side !== "player" || (!slipper && (!canOperate || !hasActive)) || Boolean(slipper && !canOperate);
+    button.disabled = !slipper && (side !== "player" || !canOperate || !hasActive);
     if (slipper) {
       button.innerHTML = `
         ${mobileSlotBadge(i, side)}
@@ -2887,6 +2899,7 @@ function renderMobileBoard(id, board, side) {
         <strong>${shortSlipperName(slipper.name)}</strong>
       `;
       if (canOperate) button.addEventListener("click", () => removeSlipper(i));
+      attachDetailGesture(button, slipper.uid, () => true, { select: false });
     } else {
       button.innerHTML = `${mobileSlotBadge(i, side)}<i></i>`;
       if (canOperate && hasActive) button.addEventListener("click", () => playSlipper(state.activeHandUid, i));
@@ -2944,24 +2957,23 @@ function renderMobileHand() {
       if (state.activeHandUid !== slipper.uid) state.detailHandUid = null;
       render();
     });
-    button.addEventListener("dblclick", (event) => {
-      event.preventDefault();
-      if (actionLocked) return;
-      openHandDetail(slipper.uid);
-    });
     attachDetailGesture(button, slipper.uid, () => !actionLocked);
     root.append(button);
   });
 }
 
+function findDetailSlipper(uid) {
+  return (
+    state.hand.find((item) => item.uid === uid) ||
+    state.playerBoard.find((item) => item?.uid === uid) ||
+    state.cpuBoard.find((item) => item?.uid === uid) ||
+    null
+  );
+}
+
 function renderMobileHandDetail() {
   const root = byId("mobileHandDetail");
-  if (!state.mobileHandOpen) {
-    root.hidden = true;
-    root.innerHTML = "";
-    return;
-  }
-  const slipper = state.hand.find((item) => item.uid === state.detailHandUid);
+  const slipper = findDetailSlipper(state.detailHandUid);
   if (!slipper) {
     root.hidden = true;
     root.innerHTML = "";
@@ -2993,6 +3005,14 @@ function toggleMobileHand(side = "player") {
   if (shouldClose) {
     state.detailHandUid = null;
   }
+  render();
+}
+
+function closeDetailOnOutside(event) {
+  if (!state.detailHandUid) return;
+  const target = event.target;
+  if (target.closest?.("#handDetail, #mobileHandDetail")) return;
+  state.detailHandUid = null;
   render();
 }
 
@@ -3762,6 +3782,7 @@ byId("mobileCounterBtn").addEventListener("click", useCounter);
 byId("mobileRivalBtn").addEventListener("click", () => toggleMobileHand("cpu"));
 byId("mobilePlayerBtn").addEventListener("click", () => toggleMobileHand("player"));
 byId("mobileRematchBtn").addEventListener("click", startMatchFromButton);
+document.addEventListener("pointerdown", closeDetailOnOutside);
 byId("sideboardTitleBtn").addEventListener("click", returnToTitleFromSideboard);
 byId("sideboardDoneBtn").addEventListener("click", completeSideboard);
 byId("createRoomBtn").addEventListener("click", createRoom);

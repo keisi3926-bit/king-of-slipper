@@ -5841,8 +5841,7 @@ body.mobile-ui.landscape-ui.mobile-short #gameApp:not(.screen-hidden) .mobile-ba
     0;
 }
 
-body.mobile-ui.landscape-ui .mobile-battle.hand-closed .mobile-hand,
-body.mobile-ui.landscape-ui .mobile-battle.hand-closed .mobile-hand-detail {
+body.mobile-ui.landscape-ui .mobile-battle.hand-closed .mobile-hand {
   display: none !important;
 }
 
