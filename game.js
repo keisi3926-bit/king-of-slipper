@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.01-mobile-log-hand-v9";
+const APP_VERSION = "2026.06.01-sideboard-longpress-v10";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -554,6 +554,7 @@ const state = {
   sideboardWarnedTwoMinute: false,
   sideboardWarnedTenSecond: false,
   sideboardMessageOverride: "",
+  sideboardDetail: null,
   matchSeconds: MATCH_SECONDS,
   matchInterval: null,
   matchFinished: false,
@@ -1691,6 +1692,7 @@ async function resetMatch() {
     cpuSideboardReady: false,
     sideboardWarnedTwoMinute: false,
     sideboardWarnedTenSecond: false,
+    sideboardDetail: null,
   });
   drawSlippers(5);
   byId("fieldName").textContent = field.name;
@@ -2375,6 +2377,8 @@ function setupRound() {
 async function beginNextRound() {
   byId("sideboardScreen").classList.remove("show");
   byId("sideboardScreen").setAttribute("aria-hidden", "true");
+  state.sideboardDetail = null;
+  renderSideboardDetail();
   state.matchRound += 1;
   setupRound();
   applyPendingRoundStartEffects();
@@ -2459,6 +2463,7 @@ function renderSideboard() {
   }
   renderSwapList("sideboardEntrance", state.matchEntrance, "entrance");
   renderSwapList("sideboardRack", state.matchShoeRack, "shoeRack");
+  renderSideboardDetail();
 }
 
 function renderSwapList(id, names, source) {
@@ -2490,7 +2495,70 @@ function renderSwapList(id, names, source) {
             : "入れる足を選択";
     item.innerHTML = `${slipperArt(name, "swap-art")}<strong>${name}</strong><span>${label}</span>`;
     item.addEventListener("click", () => selectSideboardItem(source, index));
+    attachSideboardDetailGesture(item, name, source);
     root.append(item);
+  });
+}
+
+function attachSideboardDetailGesture(element, name, source) {
+  let pressTimer = null;
+  const clear = () => {
+    if (pressTimer) window.clearTimeout(pressTimer);
+    pressTimer = null;
+  };
+  element.addEventListener("pointerdown", () => {
+    clear();
+    pressTimer = window.setTimeout(() => {
+      element.dataset.longPressOpen = "true";
+      state.sideboardDetail = { name, source };
+      renderSideboardDetail();
+      clear();
+    }, 520);
+  });
+  element.addEventListener(
+    "click",
+    (event) => {
+      if (element.dataset.longPressOpen === "true") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        delete element.dataset.longPressOpen;
+      }
+    },
+    true,
+  );
+  element.addEventListener("pointerup", clear);
+  element.addEventListener("pointerleave", clear);
+  element.addEventListener("pointercancel", clear);
+}
+
+function renderSideboardDetail() {
+  const root = byId("sideboardDetail");
+  if (!root) return;
+  const detail = state.sideboardDetail;
+  const slipper = detail ? slipperByName(detail.name) : null;
+  if (!slipper) {
+    root.hidden = true;
+    root.innerHTML = "";
+    return;
+  }
+  const label = detail.source === "shoeRack" ? "交換候補 / Shoe Rack" : "現在のエントランス";
+  root.hidden = false;
+  root.innerHTML = `
+    <div class="sideboard-detail-card">
+      ${slipperArt(slipper, "sideboard-detail-art")}
+      <div>
+        <span>${label}</span>
+        <h3>${escapeHtml(slipper.name)}</h3>
+        <p class="sideboard-detail-type">${escapeHtml(slipper.style)} / 履 ${slipper.comfort} 導 ${slipper.flow} 品 ${slipper.dignity}</p>
+        <p>${escapeHtml(slipper.text)}</p>
+        <div class="tags">${slipper.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>
+      </div>
+      <button type="button" data-sideboard-detail-close>閉じる</button>
+    </div>
+  `;
+  root.querySelector("[data-sideboard-detail-close]")?.addEventListener("click", () => {
+    state.sideboardDetail = null;
+    renderSideboardDetail();
   });
 }
 let pendingSideboardPick = null;
@@ -2559,6 +2627,8 @@ function returnToTitleFromSideboard() {
   state.playerSideboardReady = false;
   state.cpuSideboardReady = false;
   pendingSideboardPick = null;
+  state.sideboardDetail = null;
+  renderSideboardDetail();
   byId("sideboardScreen").classList.remove("show");
   byId("sideboardScreen").setAttribute("aria-hidden", "true");
   byId("gameApp").classList.add("screen-hidden");
@@ -3073,6 +3143,11 @@ function closeTransientPanelsOnOutside(event) {
   if (state.mobileLogOpen && !target.closest?.("#mobileLogPanel, #mobileRivalBtn")) {
     state.mobileLogOpen = false;
     changed = true;
+  }
+  if (state.sideboardDetail && !target.closest?.(".sideboard-detail-card")) {
+    state.sideboardDetail = null;
+    changed = true;
+    renderSideboardDetail();
   }
   if (changed) render();
 }
