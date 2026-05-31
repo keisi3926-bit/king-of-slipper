@@ -5772,3 +5772,24 @@ body.mobile-ui.landscape-ui.mobile-short .mobile-hand-card span {
 body.mobile-ui.landscape-ui .mobile-hand-detail[hidden] {
   display: none !important;
 }
+
+/* Placed slipper recovery: only enlarge slippers already on the entrance. */
+body.mobile-ui.landscape-ui .mobile-slot.filled .mobile-slot-art {
+  width: min(86px, 68%);
+  min-width: 52px;
+  max-width: 88%;
+  max-height: 68%;
+  aspect-ratio: 1.2;
+  align-self: center;
+  justify-self: center;
+  margin: 0 auto;
+  background-size: 300% 300%;
+}
+
+body.mobile-ui.landscape-ui.mobile-compact .mobile-slot.filled .mobile-slot-art,
+body.mobile-ui.landscape-ui.mobile-tiny .mobile-slot.filled .mobile-slot-art,
+body.mobile-ui.landscape-ui.mobile-short .mobile-slot.filled .mobile-slot-art {
+  width: min(76px, 64%);
+  min-width: 44px;
+  max-height: 64%;
+}
