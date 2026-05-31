@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.05.31-direct-entrance-ui-v1";
+const APP_VERSION = "2026.05.31-stable-entrance-ui-v2";
 const VERSION_URL = "version.json";
 
 const slippers = [
