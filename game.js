@@ -2831,8 +2831,6 @@ function renderMobileBattle() {
   byId("mobileEndTurnBtn").disabled = state.turn !== "player" || state.gameOver || state.cutinActive;
   byId("mobileCounterBtn").disabled = state.turn !== "counter-window" || state.playerTrapCount <= 0 || state.gameOver || state.cutinActive;
   byId("mobileCounterBtn").textContent = "伏せ";
-  byId("mobileCounterBtn").textContent = `伏${state.playerTrapCount}`;
-  byId("mobileCounterBtn").textContent = "伏せ";
   const canShowMobileRematch = state.gameOver || state.matchFinished;
   byId("mobileRematchBtn").hidden = !canShowMobileRematch;
   byId("mobileRematchBtn").disabled = !canShowMobileRematch || state.cutinActive;
