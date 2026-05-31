@@ -5679,44 +5679,82 @@ body.mobile-ui.landscape-ui.mobile-tiny .mobile-insider-icons i {
   width: 20px;
 }
 
-/* Stable hand-shelf recovery: keep the direct battle layout, but reserve
-   enough room for readable slipper images on short mobile landscape screens. */
+/* Stable hand-shelf recovery: keep the direct battle layout, but make HAND a
+   real horizontal slipper shelf instead of a compressed text bar. */
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle {
+  grid-template-rows:
+    clamp(40px, 9dvh, 56px)
+    minmax(70px, 1fr)
+    clamp(30px, 6.8dvh, 42px)
+    minmax(70px, 1fr)
+    clamp(108px, 25dvh, 136px);
+}
+
 body.mobile-ui.landscape-ui.mobile-compact #gameApp:not(.screen-hidden) .mobile-battle,
 body.mobile-ui.landscape-ui.mobile-tiny #gameApp:not(.screen-hidden) .mobile-battle,
 body.mobile-ui.landscape-ui.mobile-short #gameApp:not(.screen-hidden) .mobile-battle {
   grid-template-columns: clamp(54px, 8.2vw, 76px) minmax(0, 1fr) clamp(46px, 7vw, 60px);
   grid-template-rows:
-    clamp(36px, 8dvh, 50px)
-    minmax(68px, 1fr)
-    clamp(28px, 6dvh, 38px)
-    minmax(68px, 1fr)
-    clamp(86px, 22dvh, 112px);
+    clamp(34px, 7.5dvh, 48px)
+    minmax(56px, 1fr)
+    clamp(26px, 5.6dvh, 36px)
+    minmax(56px, 1fr)
+    clamp(98px, 25dvh, 122px);
+}
+
+body.mobile-ui.landscape-ui .mobile-hand {
+  min-height: 104px;
+  align-items: stretch;
+  gap: clamp(7px, 1vw, 10px);
+  padding: clamp(18px, 3dvh, 22px) clamp(8px, 1.2vw, 12px) max(8px, env(safe-area-inset-bottom)) clamp(44px, 6.2vw, 60px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 body.mobile-ui.landscape-ui.mobile-compact .mobile-hand,
 body.mobile-ui.landscape-ui.mobile-tiny .mobile-hand,
 body.mobile-ui.landscape-ui.mobile-short .mobile-hand {
-  min-height: 82px;
+  min-height: 96px;
   padding: clamp(16px, 3dvh, 21px) clamp(6px, 1vw, 10px) max(6px, env(safe-area-inset-bottom)) clamp(42px, 6.6vw, 58px);
-  overflow-x: auto;
-  overflow-y: hidden;
+}
+
+body.mobile-ui.landscape-ui .mobile-hand-card {
+  flex: 0 0 clamp(82px, 14vw, 126px);
+  display: grid;
+  grid-template-rows: minmax(48px, 1fr) auto auto;
+  min-width: clamp(82px, 14vw, 126px);
+  min-height: 82px;
+  height: auto;
+  max-width: none;
+  padding: 4px;
+  overflow: hidden;
 }
 
 body.mobile-ui.landscape-ui.mobile-compact .mobile-hand-card,
 body.mobile-ui.landscape-ui.mobile-tiny .mobile-hand-card,
 body.mobile-ui.landscape-ui.mobile-short .mobile-hand-card {
-  display: grid;
-  grid-template-rows: minmax(38px, 1fr) auto auto;
-  min-height: 66px;
+  flex-basis: clamp(76px, 13vw, 108px);
+  min-width: clamp(76px, 13vw, 108px);
+  grid-template-rows: minmax(44px, 1fr) auto auto;
+  min-height: 74px;
   padding: 3px;
+}
+
+body.mobile-ui.landscape-ui .mobile-card-art {
+  width: min(70px, 88%);
+  min-width: 50px;
+  aspect-ratio: 1.2;
+  align-self: center;
+  justify-self: center;
+  margin: 0 auto;
 }
 
 body.mobile-ui.landscape-ui.mobile-compact .mobile-card-art,
 body.mobile-ui.landscape-ui.mobile-tiny .mobile-card-art,
 body.mobile-ui.landscape-ui.mobile-short .mobile-card-art {
-  width: min(54px, 86%);
-  min-width: 40px;
-  margin-bottom: 0;
+  width: min(62px, 86%);
+  min-width: 46px;
 }
 
 body.mobile-ui.landscape-ui.mobile-compact .mobile-hand-card strong,

@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.05.31-stable-hand-recovery-v3";
+const APP_VERSION = "2026.05.31-stable-hand-shelf-v4";
 const VERSION_URL = "version.json";
 
 const slippers = [
