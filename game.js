@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.01-nonblocking-traps-v12";
+const APP_VERSION = "2026.06.01-insider-details-v13";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -542,6 +542,8 @@ const state = {
   mobileTrapOpen: false,
   selectedTrapIndex: null,
   trapDetailIndex: null,
+  insiderDetail: null,
+  insiderVerdicts: { player: [], cpu: [] },
   phaseTimeout: null,
   cutinActive: false,
   matchRound: 0,
@@ -1680,6 +1682,8 @@ async function resetMatch() {
     mobileTrapOpen: false,
     selectedTrapIndex: null,
     trapDetailIndex: null,
+    insiderDetail: null,
+    insiderVerdicts: { player: [], cpu: [] },
     phaseTimeout: null,
     cutinActive: false,
     matchRound: 1,
@@ -2060,6 +2064,7 @@ async function resolveJudgement(side) {
     turnNumber: state.turnNumber,
   });
   const verdicts = wearResults.results;
+  state.insiderVerdicts[side] = verdicts;
   const bonusHits = state.pendingJudgementBonus[side] || 0;
   state.pendingJudgementBonus[side] = 0;
   const hits = Math.min(5, wearResults.count + bonusHits);
@@ -2676,8 +2681,8 @@ function render() {
   byId("deckCount").textContent = `残り ${state.playerDeck.length} / 配置 ${state.placementsThisTurn}・${maxPlacementsPerTurn()}`;
   byId("desktopPlayerInsiderCount").textContent = `${Math.min(5, state.playerScore)}/5`;
   byId("desktopCpuInsiderCount").textContent = `${Math.min(5, state.cpuScore)}/5`;
-  updateDesktopInsiderIcons(".desktop-insider-panel.player", state.playerScore);
-  updateDesktopInsiderIcons(".desktop-insider-panel.rival", state.cpuScore);
+  updateDesktopInsiderIcons(".desktop-insider-panel.player", state.playerScore, "player");
+  updateDesktopInsiderIcons(".desktop-insider-panel.rival", state.cpuScore, "cpu");
   byId("turnLabel").textContent = getTurnLabel();
   byId("phaseHint").textContent = getPhaseHint();
   if (!state.started) byId("timer").textContent = "--";
@@ -2944,8 +2949,8 @@ function renderMobileBattle() {
   byId("mobileCpuScore").textContent = state.turnNumber || 0;
   byId("mobilePlayerInsiderCount").textContent = `${Math.min(5, state.playerScore)}/5`;
   byId("mobileCpuInsiderCount").textContent = `${Math.min(5, state.cpuScore)}/5`;
-  updateMobileInsiderIcons(".mobile-insider-panel.player", state.playerScore);
-  updateMobileInsiderIcons(".mobile-insider-panel.rival", state.cpuScore);
+  updateMobileInsiderIcons(".mobile-insider-panel.player", state.playerScore, "player");
+  updateMobileInsiderIcons(".mobile-insider-panel.rival", state.cpuScore, "cpu");
   byId("mobilePlayerMeta").textContent = `Rating ${profile.rating}`;
   byId("mobileCpuMeta").textContent = "ターン";
   byId("mobileGameLabel").textContent = `GAME ${state.matchRound || 0}/BO3 ${state.playerRoundWins}-${state.cpuRoundWins}`;
@@ -2976,17 +2981,20 @@ function renderMobileBattle() {
   renderMobileLogPanel();
   renderMobileTrapPanel();
   renderMobileTrapDetail();
+  renderInsiderDetail();
 }
 
-function updateMobileInsiderIcons(selector, score) {
+function updateMobileInsiderIcons(selector, score, side) {
   document.querySelectorAll(`${selector} .mobile-insider-icons i`).forEach((icon, index) => {
     icon.classList.toggle("lost", index >= Math.min(5, score));
+    attachInsiderDetailGesture(icon, side, index);
   });
 }
 
-function updateDesktopInsiderIcons(selector, score) {
+function updateDesktopInsiderIcons(selector, score, side) {
   document.querySelectorAll(`${selector} .desktop-insider-icons i`).forEach((icon, index) => {
     icon.classList.toggle("lost", index >= Math.min(5, score));
+    attachInsiderDetailGesture(icon, side, index);
   });
 }
 
@@ -3254,6 +3262,104 @@ function renderMobileTrapDetail() {
   });
 }
 
+function attachInsiderDetailGesture(element, side, index) {
+  if (!element || element.dataset.insiderGesture === `${side}:${index}`) return;
+  element.dataset.insiderGesture = `${side}:${index}`;
+  element.dataset.insiderSide = side;
+  element.dataset.insiderIndex = String(index);
+  element.setAttribute("role", "button");
+  element.setAttribute("tabindex", "0");
+  element.setAttribute("aria-label", `${side === "player" ? "覇王側" : "迅側"}インサイダー${index + 1} 詳細`);
+  let pressTimer = null;
+  const clear = () => {
+    if (pressTimer) window.clearTimeout(pressTimer);
+    pressTimer = null;
+  };
+  const open = () => {
+    element.dataset.longPressOpen = "true";
+    state.insiderDetail = { side, index };
+    renderInsiderDetail();
+  };
+  element.addEventListener("pointerdown", () => {
+    clear();
+    pressTimer = window.setTimeout(() => {
+      open();
+      clear();
+    }, 520);
+  });
+  element.addEventListener(
+    "click",
+    (event) => {
+      if (element.dataset.longPressOpen === "true") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        delete element.dataset.longPressOpen;
+      }
+    },
+    true,
+  );
+  element.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    open();
+  });
+  element.addEventListener("pointerup", clear);
+  element.addEventListener("pointerleave", clear);
+  element.addEventListener("pointercancel", clear);
+}
+
+function insiderWeakness(insider) {
+  const byBias = {
+    comfort: "硬さ・湿度破弾・落ち着かない導線",
+    flow: "導線詰まり・奥列偏重・足運びの重さ",
+    dignity: "低品質感・雑な中央前・左右非対称",
+  };
+  return byBias[insider.bias] || "好みから外れたスリッパ";
+}
+
+function renderInsiderDetail() {
+  const root = byId("insiderDetail");
+  if (!root) return;
+  const detail = state.insiderDetail;
+  const insider = detail ? insiders[detail.index] : null;
+  if (!detail || !insider) {
+    root.hidden = true;
+    root.innerHTML = "";
+    return;
+  }
+  const sideLabel = detail.side === "player" ? "覇王側" : "迅側";
+  const score = detail.side === "player" ? state.playerScore : state.cpuScore;
+  const isAlive = detail.index < Math.min(5, score);
+  const verdict = state.insiderVerdicts?.[detail.side]?.[detail.index];
+  const image = detail.side === "player" ? "assets/haou-vs.png" : "assets/jin-vs.png";
+  const status = isAlive ? "生存 / 反応済み" : "脱落または未反応";
+  const current = verdict
+    ? `${verdict.won ? "履きたい" : "迷っている"} / 気分 ${verdict.score}`
+    : "現在は様子見";
+  const effect = verdict?.reasonText || "大きな補正はまだ見えていない。";
+  root.hidden = false;
+  root.innerHTML = `
+    <div class="insider-detail-card">
+      <img src="${image}" alt="" />
+      <div>
+        <span>${sideLabel} / Slip Insider ${detail.index + 1}</span>
+        <h3>${escapeHtml(insider.name)}</h3>
+        <p><b>状態</b>${escapeHtml(status)}</p>
+        <p><b>現在</b>${escapeHtml(current)}</p>
+        <p><b>傾向</b>${escapeHtml(insider.wants.join("・"))} / ${escapeHtml(insider.bias)}</p>
+        <p><b>苦手</b>${escapeHtml(insiderWeakness(insider))}</p>
+        <p><b>補正</b>${escapeHtml(effect)}</p>
+        <p><b>メモ</b>好みのタグと配置列が噛み合うと履き判定に寄りやすい。</p>
+      </div>
+      <button type="button" data-insider-detail-close>閉じる</button>
+    </div>
+  `;
+  root.querySelector("[data-insider-detail-close]")?.addEventListener("click", () => {
+    state.insiderDetail = null;
+    renderInsiderDetail();
+  });
+}
+
 function toggleMobileHand(side = "player") {
   const nextSide = side === "cpu" ? "cpu" : "player";
   const shouldClose = state.mobileHandOpen && state.mobileHandSide === nextSide;
@@ -3313,6 +3419,10 @@ function closeTransientPanelsOnOutside(event) {
   }
   if (state.trapDetailIndex != null && !target.closest?.("#mobileTrapDetail")) {
     state.trapDetailIndex = null;
+    changed = true;
+  }
+  if (state.insiderDetail && !target.closest?.("#insiderDetail")) {
+    state.insiderDetail = null;
     changed = true;
   }
   if (state.sideboardDetail && !target.closest?.(".sideboard-detail-card")) {
