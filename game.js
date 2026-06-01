@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.01-sideboard-longpress-v10";
+const APP_VERSION = "2026.06.01-trap-panel-v11";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -539,6 +539,9 @@ const state = {
   mobileHandOpen: false,
   mobileHandSide: "player",
   mobileLogOpen: false,
+  mobileTrapOpen: false,
+  selectedTrapIndex: null,
+  trapDetailIndex: null,
   phaseTimeout: null,
   cutinActive: false,
   matchRound: 0,
@@ -1314,6 +1317,14 @@ function drawTrapForSide(side) {
   return trapName ? cloneSlipper(slipperByName(trapName) || { name: trapName, style: "伏せ", tags: [], text: "" }) : null;
 }
 
+function drawTrapByIndexForSide(side, index = 0) {
+  const traps = [...trapListForSide(side)];
+  const safeIndex = Math.max(0, Math.min(index, traps.length - 1));
+  const trapName = traps.splice(safeIndex, 1)[0];
+  setTrapListForSide(side, traps);
+  return trapName ? cloneSlipper(slipperByName(trapName) || { name: trapName, style: "伏せ", tags: [], text: "" }) : null;
+}
+
 function pickTrapForInspection(side) {
   const traps = trapListForSide(side);
   if (!traps.length) return null;
@@ -1666,6 +1677,9 @@ async function resetMatch() {
     mobileHandOpen: false,
     mobileHandSide: "player",
     mobileLogOpen: false,
+    mobileTrapOpen: false,
+    selectedTrapIndex: null,
+    trapDetailIndex: null,
     phaseTimeout: null,
     cutinActive: false,
     matchRound: 1,
@@ -1998,10 +2012,13 @@ async function startPlayerTurn() {
   render();
 }
 
-async function useCounter() {
+async function useCounter(index = 0) {
   if (state.gameOver || state.playerTrapCount <= 0 || state.turn !== "counter-window" || state.cutinActive) return;
   clearTimeout(state.phaseTimeout);
-  const trap = drawTrapForSide("player");
+  state.mobileTrapOpen = false;
+  state.trapDetailIndex = null;
+  state.selectedTrapIndex = null;
+  const trap = drawTrapByIndexForSide("player", Number.isInteger(index) ? index : 0);
   await showCutin("寿立覇王", "伏せスリッパオープン！", `${trap?.name || "湿度カウンター"}！`, {
     image: HAOU_COUNTER_IMAGE,
   });
@@ -2365,6 +2382,9 @@ function setupRound() {
     placementsThisTurn: 0,
     playerTurnsTaken: 0,
     cpuTurnsTaken: 0,
+    mobileTrapOpen: false,
+    selectedTrapIndex: null,
+    trapDetailIndex: null,
     phaseTimeout: null,
     cutinActive: false,
   });
@@ -2918,6 +2938,7 @@ function renderMobileBattle() {
   mobileRoot.classList.toggle("hand-open", state.mobileHandOpen);
   mobileRoot.classList.toggle("hand-closed", !state.mobileHandOpen);
   mobileRoot.classList.toggle("log-open", state.mobileLogOpen);
+  mobileRoot.classList.toggle("trap-open", state.mobileTrapOpen);
   mobileRoot.dataset.handSide = state.mobileHandSide || "player";
   byId("mobilePlayerScore").textContent = state.playerScore;
   byId("mobileCpuScore").textContent = state.turnNumber || 0;
@@ -2935,6 +2956,8 @@ function renderMobileBattle() {
   byId("mobileEndTurnBtn").disabled = state.turn !== "player" || state.gameOver || state.cutinActive;
   byId("mobileCounterBtn").disabled = state.turn !== "counter-window" || state.playerTrapCount <= 0 || state.gameOver || state.cutinActive;
   byId("mobileCounterBtn").textContent = "伏せ";
+  byId("mobileCounterBtn").classList.toggle("active", state.mobileTrapOpen);
+  byId("mobileCounterBtn").setAttribute("aria-pressed", String(state.mobileTrapOpen));
   byId("mobileRivalBtn").disabled = state.cutinActive;
   byId("mobilePlayerBtn").disabled = state.cutinActive;
   byId("mobileRivalBtn").textContent = "ログ";
@@ -2951,6 +2974,8 @@ function renderMobileBattle() {
   renderMobileHand();
   renderMobileHandDetail();
   renderMobileLogPanel();
+  renderMobileTrapPanel();
+  renderMobileTrapDetail();
 }
 
 function updateMobileInsiderIcons(selector, score) {
@@ -3110,6 +3135,125 @@ function renderMobileLogPanel() {
   });
 }
 
+function trapSlipperAt(index) {
+  const name = state.playerTraps[index];
+  return name ? cloneSlipper(slipperByName(name) || { name, style: "伏せ", tags: [], text: "" }) : null;
+}
+
+function renderMobileTrapPanel() {
+  const root = byId("mobileTrapPanel");
+  if (!root) return;
+  const canOpen = state.turn === "counter-window" && !state.gameOver && !state.cutinActive && state.playerTraps.length > 0;
+  if (!state.mobileTrapOpen || !canOpen) {
+    root.hidden = true;
+    root.innerHTML = "";
+    if (!canOpen) {
+      state.mobileTrapOpen = false;
+      state.selectedTrapIndex = null;
+      state.trapDetailIndex = null;
+    }
+    return;
+  }
+  if (state.selectedTrapIndex == null || state.selectedTrapIndex >= state.playerTraps.length) {
+    state.selectedTrapIndex = 0;
+  }
+  root.hidden = false;
+  root.innerHTML = `
+    <div class="mobile-trap-head">
+      <strong>伏せスリッパ</strong>
+      <button type="button" data-mobile-trap-close>閉じる</button>
+    </div>
+    <div class="mobile-trap-list"></div>
+    <button type="button" class="mobile-trap-open" data-mobile-trap-open>オープン</button>
+  `;
+  const list = root.querySelector(".mobile-trap-list");
+  state.playerTraps.forEach((name, index) => {
+    const slipper = trapSlipperAt(index);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `mobile-trap-card ${state.selectedTrapIndex === index ? "selected" : ""}`;
+    button.innerHTML = `
+      <span>伏せ${index + 1}</span>
+      <i aria-hidden="true"></i>
+      <strong>${shortSlipperName(name)}</strong>
+      <small>${state.selectedTrapIndex === index ? "選択中" : "タップで選択 / 長押し詳細"}</small>
+    `;
+    button.addEventListener("click", () => {
+      state.selectedTrapIndex = index;
+      renderMobileTrapPanel();
+    });
+    attachTrapDetailGesture(button, index);
+    list.append(button);
+  });
+  root.querySelector("[data-mobile-trap-close]")?.addEventListener("click", () => {
+    state.mobileTrapOpen = false;
+    state.trapDetailIndex = null;
+    render();
+  });
+  root.querySelector("[data-mobile-trap-open]")?.addEventListener("click", () => {
+    useCounter(state.selectedTrapIndex ?? 0);
+  });
+}
+
+function attachTrapDetailGesture(element, index) {
+  let pressTimer = null;
+  const clear = () => {
+    if (pressTimer) window.clearTimeout(pressTimer);
+    pressTimer = null;
+  };
+  element.addEventListener("pointerdown", () => {
+    clear();
+    pressTimer = window.setTimeout(() => {
+      element.dataset.longPressOpen = "true";
+      state.trapDetailIndex = index;
+      renderMobileTrapDetail();
+      clear();
+    }, 520);
+  });
+  element.addEventListener(
+    "click",
+    (event) => {
+      if (element.dataset.longPressOpen === "true") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        delete element.dataset.longPressOpen;
+      }
+    },
+    true,
+  );
+  element.addEventListener("pointerup", clear);
+  element.addEventListener("pointerleave", clear);
+  element.addEventListener("pointercancel", clear);
+}
+
+function renderMobileTrapDetail() {
+  const root = byId("mobileTrapDetail");
+  if (!root) return;
+  const slipper = state.trapDetailIndex == null ? null : trapSlipperAt(state.trapDetailIndex);
+  if (!slipper) {
+    root.hidden = true;
+    root.innerHTML = "";
+    return;
+  }
+  root.hidden = false;
+  root.innerHTML = `
+    <div class="mobile-detail-main">
+      ${slipperArt(slipper, "mobile-detail-art")}
+      <div>
+        <span>伏せスリッパ / 発動候補</span>
+        <strong>${escapeHtml(slipper.name)}</strong>
+        <span>${escapeHtml(slipper.style)} / 履 ${slipper.comfort} 導 ${slipper.flow} 品 ${slipper.dignity}</span>
+        <p>${escapeHtml(slipper.text || "伏せ状態からオープンして読み合いを動かす。")}</p>
+      </div>
+      <button type="button" data-mobile-trap-detail-close>閉じる</button>
+    </div>
+  `;
+  root.querySelector("[data-mobile-trap-detail-close]")?.addEventListener("click", () => {
+    state.trapDetailIndex = null;
+    renderMobileTrapDetail();
+  });
+}
+
 function toggleMobileHand(side = "player") {
   const nextSide = side === "cpu" ? "cpu" : "player";
   const shouldClose = state.mobileHandOpen && state.mobileHandSide === nextSide;
@@ -3117,6 +3261,8 @@ function toggleMobileHand(side = "player") {
   state.mobileHandSide = nextSide;
   if (!shouldClose) {
     state.mobileLogOpen = false;
+    state.mobileTrapOpen = false;
+    state.trapDetailIndex = null;
   }
   if (shouldClose) {
     state.detailHandUid = null;
@@ -3128,7 +3274,23 @@ function toggleMobileLog() {
   state.mobileLogOpen = !state.mobileLogOpen;
   if (state.mobileLogOpen) {
     state.mobileHandOpen = false;
+    state.mobileTrapOpen = false;
     state.detailHandUid = null;
+    state.trapDetailIndex = null;
+  }
+  render();
+}
+
+function toggleMobileTrapPanel() {
+  if (state.turn !== "counter-window" || state.playerTrapCount <= 0 || state.gameOver || state.cutinActive) return;
+  state.mobileTrapOpen = !state.mobileTrapOpen;
+  if (state.mobileTrapOpen) {
+    state.mobileHandOpen = false;
+    state.mobileLogOpen = false;
+    state.detailHandUid = null;
+    if (state.selectedTrapIndex == null || state.selectedTrapIndex >= state.playerTraps.length) state.selectedTrapIndex = 0;
+  } else {
+    state.trapDetailIndex = null;
   }
   render();
 }
@@ -3142,6 +3304,15 @@ function closeTransientPanelsOnOutside(event) {
   }
   if (state.mobileLogOpen && !target.closest?.("#mobileLogPanel, #mobileRivalBtn")) {
     state.mobileLogOpen = false;
+    changed = true;
+  }
+  if (state.mobileTrapOpen && !target.closest?.("#mobileTrapPanel, #mobileTrapDetail, #mobileCounterBtn")) {
+    state.mobileTrapOpen = false;
+    state.trapDetailIndex = null;
+    changed = true;
+  }
+  if (state.trapDetailIndex != null && !target.closest?.("#mobileTrapDetail")) {
+    state.trapDetailIndex = null;
     changed = true;
   }
   if (state.sideboardDetail && !target.closest?.(".sideboard-detail-card")) {
@@ -3914,7 +4085,7 @@ byId("endTurnBtn").addEventListener("click", endPlayerTurn);
 byId("counterBtn").addEventListener("click", useCounter);
 byId("mobileStartBtn").addEventListener("click", startMatchFromButton);
 byId("mobileEndTurnBtn").addEventListener("click", endPlayerTurn);
-byId("mobileCounterBtn").addEventListener("click", useCounter);
+byId("mobileCounterBtn").addEventListener("click", toggleMobileTrapPanel);
 byId("mobileRivalBtn").addEventListener("click", toggleMobileLog);
 byId("mobilePlayerBtn").addEventListener("click", () => toggleMobileHand("player"));
 byId("mobileRematchBtn").addEventListener("click", startMatchFromButton);

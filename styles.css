@@ -1814,6 +1814,11 @@ body.pc-ui .hand-detail:not([hidden]) .slot-buttons button:not(:disabled) {
   display: none !important;
 }
 
+.mobile-trap-panel[hidden],
+.mobile-trap-detail[hidden] {
+  display: none !important;
+}
+
 .mobile-log-panel[hidden] {
   display: none !important;
 }
@@ -5047,6 +5052,19 @@ body.mobile-ui.landscape-ui .mobile-hand-detail:not([hidden]) {
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.54);
 }
 
+.mobile-trap-detail {
+  position: fixed;
+  left: max(8px, env(safe-area-inset-left));
+  right: calc(clamp(58px, 9vw, 78px) + max(8px, env(safe-area-inset-right)));
+  bottom: calc(clamp(78px, 20dvh, 110px) + max(8px, env(safe-area-inset-bottom)));
+  z-index: 96;
+  border: 1px solid rgba(216, 182, 90, 0.58);
+  border-radius: 14px;
+  padding: 8px;
+  background: rgba(15, 17, 21, 0.97);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.54);
+}
+
 .mobile-detail-main {
   display: grid;
   grid-template-columns: 58px minmax(0, 1fr) 34px;
@@ -5983,4 +6001,110 @@ body.mobile-ui.landscape-ui .mobile-log-list li {
   color: var(--muted);
   font-size: clamp(10px, 1.65vw, 13px);
   line-height: 1.45;
+}
+
+body.mobile-ui.landscape-ui .mobile-trap-panel {
+  position: fixed;
+  right: calc(clamp(58px, 8vw, 84px) + max(8px, env(safe-area-inset-right)));
+  bottom: max(8px, env(safe-area-inset-bottom));
+  z-index: 90;
+  width: min(390px, 44vw);
+  max-width: calc(100vw - 122px);
+  padding: 10px;
+  border: 1px solid rgba(216, 182, 90, 0.58);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(216, 182, 90, 0.08), rgba(0, 0, 0, 0.24)),
+    rgba(12, 13, 16, 0.95);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.55);
+}
+
+body.mobile-ui.landscape-ui .mobile-trap-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+body.mobile-ui.landscape-ui .mobile-trap-head strong {
+  color: var(--gold);
+  font-size: clamp(13px, 2vw, 18px);
+  font-weight: 1000;
+}
+
+body.mobile-ui.landscape-ui .mobile-trap-head button,
+body.mobile-ui.landscape-ui .mobile-trap-open {
+  min-height: 34px;
+  border-radius: 999px;
+  font-size: clamp(10px, 1.6vw, 13px);
+  font-weight: 900;
+}
+
+body.mobile-ui.landscape-ui .mobile-trap-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 9px;
+}
+
+body.mobile-ui.landscape-ui .mobile-trap-card {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-height: 92px;
+  padding: 7px 5px;
+  border-color: rgba(216, 182, 90, 0.28);
+}
+
+body.mobile-ui.landscape-ui .mobile-trap-card.selected {
+  border-color: var(--gold);
+  box-shadow:
+    0 0 0 2px rgba(216, 182, 90, 0.18),
+    0 0 18px rgba(216, 182, 90, 0.24);
+}
+
+body.mobile-ui.landscape-ui .mobile-trap-card i {
+  display: block;
+  width: clamp(34px, 6vw, 50px);
+  aspect-ratio: 0.72;
+  border: 1px solid rgba(216, 182, 90, 0.6);
+  border-radius: 7px;
+  background:
+    radial-gradient(circle at 50% 24%, rgba(216, 182, 90, 0.4), transparent 28%),
+    linear-gradient(135deg, #16100c, #3b2815 48%, #0b0b0d);
+  box-shadow: inset 0 0 18px rgba(216, 182, 90, 0.16);
+}
+
+body.mobile-ui.landscape-ui .mobile-trap-card span,
+body.mobile-ui.landscape-ui .mobile-trap-card strong,
+body.mobile-ui.landscape-ui .mobile-trap-card small {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.mobile-ui.landscape-ui .mobile-trap-card span {
+  color: var(--gold);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+body.mobile-ui.landscape-ui .mobile-trap-card strong {
+  color: var(--ink);
+  font-size: clamp(9px, 1.45vw, 12px);
+}
+
+body.mobile-ui.landscape-ui .mobile-trap-card small {
+  color: var(--muted);
+  font-size: clamp(7px, 1.2vw, 10px);
+}
+
+body.mobile-ui.landscape-ui .mobile-trap-open {
+  width: 100%;
+  border-color: rgba(216, 182, 90, 0.78);
+  background: linear-gradient(180deg, rgba(216, 182, 90, 0.86), rgba(162, 119, 39, 0.9));
+  color: #120f09;
 }
