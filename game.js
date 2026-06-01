@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.01-turn-header-v14";
+const APP_VERSION = "2026.06.01-se-landscape-fit-v15";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -661,6 +661,7 @@ function applyDeviceMode() {
   document.body.classList.toggle("mobile-tiny", mode === "mobile" && (width < 720 || height < 370));
   document.body.classList.toggle("mobile-short", mode === "mobile" && orientation === "landscape" && height < 395);
   document.body.classList.toggle("mobile-narrow", mode === "mobile" && orientation === "landscape" && width < 780);
+  document.body.classList.toggle("mobile-se", mode === "mobile" && orientation === "landscape" && (width <= 700 || height <= 390));
 }
 
 function requestPlayFullscreen() {

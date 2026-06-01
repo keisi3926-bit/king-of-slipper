@@ -6278,3 +6278,230 @@ body.mobile-ui.landscape-ui .mobile-trap-open {
   border-radius: 999px;
   font-weight: 900;
 }
+
+/* Small landscape phones: keep the current battle UI, but fit it inside an iPhone SE class viewport. */
+@media (orientation: landscape) and (max-width: 700px), (orientation: landscape) and (max-height: 390px) {
+  body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle {
+    grid-template-columns: clamp(44px, 7.2vw, 54px) minmax(0, 1fr) clamp(42px, 6.8vw, 52px);
+    grid-template-rows:
+      clamp(31px, 8dvh, 39px)
+      minmax(54px, 1fr)
+      clamp(22px, 5.5dvh, 30px)
+      minmax(54px, 1fr)
+      clamp(76px, 21.5dvh, 96px);
+    gap: 2px;
+    padding:
+      max(2px, env(safe-area-inset-top))
+      max(3px, env(safe-area-inset-right))
+      max(3px, env(safe-area-inset-bottom))
+      max(3px, env(safe-area-inset-left));
+  }
+
+  body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle.hand-closed {
+    grid-template-rows:
+      clamp(31px, 8dvh, 39px)
+      minmax(76px, 1fr)
+      clamp(22px, 5.5dvh, 30px)
+      minmax(76px, 1fr)
+      0;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-hud-rival {
+    grid-template-columns: minmax(52px, 1fr) auto minmax(52px, 1fr);
+    gap: 3px;
+    padding: 3px 5px;
+    border-radius: 10px;
+  }
+
+  body.mobile-ui.landscape-ui .turn-head-name {
+    min-width: 0;
+  }
+
+  body.mobile-ui.landscape-ui .turn-head-name span {
+    display: none;
+  }
+
+  body.mobile-ui.landscape-ui .turn-head-name strong {
+    gap: 3px;
+    max-width: 100%;
+    font-size: clamp(10px, 2vw, 13px);
+    white-space: nowrap;
+  }
+
+  body.mobile-ui.landscape-ui .turn-head-name img {
+    width: clamp(16px, 3vw, 21px);
+  }
+
+  body.mobile-ui.landscape-ui #mobileCpuScore {
+    min-width: clamp(68px, 14vw, 90px);
+    padding: 3px 7px;
+    font-size: clamp(12px, 2.2vw, 16px);
+    white-space: nowrap;
+  }
+
+  body.mobile-ui.landscape-ui #mobileCpuScore.turn-countdown-urgent {
+    transform-origin: center;
+    box-shadow: 0 0 0 2px rgba(255, 81, 71, 0.2), 0 0 18px rgba(255, 81, 71, 0.48);
+  }
+
+  body.mobile-ui.landscape-ui .mobile-insider-rail {
+    gap: 3px;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-insider-panel {
+    gap: 1px;
+    padding: 3px 2px;
+    border-radius: 10px;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-insider-panel span {
+    display: none;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-insider-panel strong {
+    font-size: clamp(11px, 2vw, 14px);
+    line-height: 1;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-insider-icons {
+    gap: 2px;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-insider-icons i {
+    width: clamp(17px, 3.2vw, 22px);
+  }
+
+  body.mobile-ui.landscape-ui .mobile-insider-panel b {
+    font-size: clamp(11px, 2vw, 14px);
+  }
+
+  body.mobile-ui.landscape-ui .mobile-board {
+    gap: 2px;
+    padding: clamp(12px, 2.7dvh, 16px) 3px 3px;
+    border-radius: 10px;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-field-identity {
+    left: 3px;
+    top: 3px;
+    width: clamp(32px, 6.2vw, 44px);
+  }
+
+  body.mobile-ui.landscape-ui .mobile-field-identity img {
+    width: clamp(22px, 4.1vw, 30px);
+  }
+
+  body.mobile-ui.landscape-ui .mobile-field-identity strong {
+    font-size: 8px;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-field-identity span {
+    display: none;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-slot {
+    min-width: 0;
+    border-radius: 8px;
+    padding: 1px;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-slot .mobile-slot-badge {
+    gap: 2px;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-slot-badge b {
+    width: 16px;
+    height: 16px;
+    font-size: 7px;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-slot-badge small {
+    display: none;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-slot.filled .mobile-slot-art {
+    width: clamp(44px, 9vw, 62px);
+    min-width: 40px;
+    max-height: calc(100% - 12px);
+  }
+
+  body.mobile-ui.landscape-ui .mobile-slot.filled strong {
+    left: 4px;
+    right: 4px;
+    bottom: 2px;
+    font-size: 7px;
+    padding: 0 3px;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-center {
+    gap: 4px;
+    padding: 2px 6px;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-center span {
+    font-size: 8px;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-center strong {
+    font-size: clamp(10px, 2vw, 13px);
+  }
+
+  body.mobile-ui.landscape-ui .mobile-actions {
+    gap: 3px;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-actions button {
+    min-height: 0;
+    padding: 0 2px;
+    border-radius: 10px;
+    font-size: clamp(8px, 1.55vw, 10px);
+    line-height: 1.05;
+  }
+
+  body.mobile-ui.landscape-ui #mobileEndTurnBtn,
+  body.mobile-ui.landscape-ui #mobileCounterBtn {
+    width: 92%;
+    justify-self: center;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-hand {
+    min-height: 76px;
+    gap: 4px;
+    padding:
+      12px
+      4px
+      max(4px, env(safe-area-inset-bottom))
+      clamp(34px, 5.8vw, 44px);
+  }
+
+  body.mobile-ui.landscape-ui .mobile-hand-card {
+    flex-basis: clamp(62px, 11.5vw, 80px);
+    min-width: clamp(62px, 11.5vw, 80px);
+    min-height: 60px;
+    grid-template-rows: minmax(32px, 1fr) auto auto;
+    gap: 1px;
+    padding: 2px;
+    border-radius: 9px;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-card-art {
+    width: min(46px, 86%);
+    min-width: 34px;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-hand-card strong {
+    font-size: 7px;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-hand-card span {
+    font-size: 7px;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-log-panel,
+  body.mobile-ui.landscape-ui .mobile-trap-panel {
+    right: calc(clamp(44px, 6.8vw, 52px) + max(5px, env(safe-area-inset-right)));
+    width: min(330px, 52vw);
+    max-width: calc(100vw - 108px);
+    padding: 8px;
+  }
+}
