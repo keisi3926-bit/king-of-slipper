@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.01-trap-panel-v11";
+const APP_VERSION = "2026.06.01-nonblocking-traps-v12";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -1924,7 +1924,7 @@ async function maybeCpuTrap() {
   triggerSlipperEvent("onReveal", { side: "cpu", slipper: trap });
   if (trap?.effectId) {
     log(`ジンの伏せスリッパ！ 「${trap.name}」が公開された。`);
-    await showImportantCommentary("伏せスリッパ公開", `松葉迅の${trap.name}が発動。${trap.text || "読み合いが動いた。"}`, "danger");
+    showTrapResolutionNotice("松葉迅", trap.name, trap.text || "読み合いが動いた。", "danger");
     render();
     return;
   }
@@ -1935,7 +1935,7 @@ async function maybeCpuTrap() {
     target.tags.push("逆置き被弾");
     log(`ジンの伏せスリッパ！ 「${target.name}」の導線が乱された。`);
     announce(`実況: ジンの妨害！ 「${target.name}」が逆置き被弾！`, "danger");
-    await showImportantCommentary("伏せスリッパ公開", `松葉迅の妨害が発動。「${target.name}」の導線と品格が下がった。`, "danger");
+    showTrapResolutionNotice("松葉迅", "妨害工作", `「${target.name}」の導線と品格が下がった。`, "danger");
     showAudienceReaction("湿度読みか！？", "danger");
     setMessage("ジンの妨害工作。こちらの導線と品格が少し下がった。");
     render();
@@ -2026,7 +2026,7 @@ async function useCounter(index = 0) {
   triggerSlipperEvent("onReveal", { side: "player", slipper: trap });
   if (trap?.effectId && trap.effectId !== "humidity_counter") {
     log(`伏せスリッパ「${trap.name}」を公開した。`);
-    await showImportantCommentary("伏せスリッパ公開", `${trap.name}発動。${trap.text || "読み合いが動いた。"}`, "good");
+    showTrapResolutionNotice("寿立覇王", trap.name, trap.text || "読み合いが動いた。", "good");
     render();
     state.phaseTimeout = setTimeout(resolveCpuTurn, 1100);
     return;
@@ -2038,7 +2038,7 @@ async function useCounter(index = 0) {
     target.tags.push("湿度被弾");
     log(`湿度カウンター発動！ 「${target.name}」の高速導線が湿気で鈍る。`);
     announce(`実況: 湿度カウンター命中！ 「${target.name}」の導線が鈍った！`, "good");
-    await showImportantCommentary("効果発動", `湿度カウンター成功。「${target.name}」の導線を下げた。`, "good");
+    showTrapResolutionNotice("寿立覇王", "湿度カウンター", `「${target.name}」の導線を下げた。`, "good");
     showAudienceReaction("カウンター通ったァ！", "good");
     setMessage("湿度カウンター成功。ジンの導線を下げた。");
   } else {
@@ -3339,6 +3339,13 @@ function stripSpeaker(text) {
 
 function logTyped(kind, text) {
   if (text) log(`[${kind}] ${text}`);
+}
+
+function showTrapResolutionNotice(owner, trapName, effectText, tone = "") {
+  const summary = `${owner}が伏せ「${trapName}」をオープン。${effectText}`;
+  log(`[伏せ] ${summary}`);
+  announce(`甲斐刹那: 伏せスリッパ、オープン！ ${trapName}が来たーッ！`, tone);
+  showJudgePopup(`半田磨流蔵: 処理完了。${effectText}`, tone === "danger" ? "warn" : "good");
 }
 
 function showImportantCommentary(title, text, tone = "") {
