@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.01-se-landscape-fit-v15";
+const APP_VERSION = "2026.06.02-landscape-title-share-v16";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -1156,6 +1156,23 @@ function currentFeedbackPayload() {
   };
 }
 
+function buildFeedbackShareText(payload = currentFeedbackPayload()) {
+  const comment = payload.comment || "まだひとことは未入力です。";
+  return [
+    "KOS βテスト感想",
+    "",
+    `端末：${payload.device}`,
+    `楽しさ：${payload.fun}/5`,
+    `見やすさ：${payload.readability}/5`,
+    `操作しやすさ：${payload.control}/5`,
+    "",
+    "ひとこと：",
+    comment,
+    "",
+    "#キングオブスリッパ #KOS",
+  ].join("\n");
+}
+
 function renderFeedbackList() {
   const root = byId("feedbackList");
   const records = loadFeedbackRecords().slice().reverse();
@@ -1186,14 +1203,24 @@ function saveFeedback() {
 }
 
 async function copyFeedbackSummary() {
-  const records = loadFeedbackRecords();
-  const text = JSON.stringify(records, null, 2);
+  const text = buildFeedbackShareText();
   try {
     await navigator.clipboard.writeText(text);
-    byId("feedbackStatus").textContent = "感想まとめをクリップボードへコピーしました。";
+    byId("feedbackStatus").textContent = "X投稿向けの感想まとめをコピーしました。";
   } catch {
     byId("feedbackStatus").textContent = text || "コピーできませんでした。";
   }
+}
+
+function shareFeedbackToX() {
+  const text = buildFeedbackShareText();
+  const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+  const opened = window.open(url, "_blank", "noopener,noreferrer");
+  if (!opened) {
+    window.location.href = url;
+    return;
+  }
+  byId("feedbackStatus").textContent = "Xの投稿画面を開きました。";
 }
 
 function openFeedback() {
@@ -4234,6 +4261,7 @@ byId("leaveRoomBtn").addEventListener("click", leaveRoom);
 byId("startOnlineMatchBtn").addEventListener("click", () => startOnlineMatch(true));
 byId("saveFeedbackBtn").addEventListener("click", saveFeedback);
 byId("copyFeedbackBtn").addEventListener("click", copyFeedbackSummary);
+byId("shareFeedbackXBtn").addEventListener("click", shareFeedbackToX);
 document.addEventListener("pointerdown", unlockAudio, { once: true });
 window.addEventListener("resize", applyDeviceMode);
 window.addEventListener("orientationchange", () => setTimeout(applyDeviceMode, 150));
