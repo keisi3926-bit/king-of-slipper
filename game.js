@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.01-insider-details-v13";
+const APP_VERSION = "2026.06.01-turn-header-v14";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -1773,11 +1773,13 @@ function showIdle() {
 function startTimer() {
   clearInterval(state.interval);
   state.timer = 45;
+  updateTurnTimerDisplay();
   startHaouTheme();
   state.interval = setInterval(() => {
     if (state.gameOver || state.turn !== "player" || state.cutinActive) return;
     state.timer -= 1;
     byId("timer").textContent = state.timer;
+    updateTurnTimerDisplay();
     if (state.timer <= 0) endPlayerTurn();
   }, 1000);
 }
@@ -2715,6 +2717,23 @@ function getTurnLabel() {
   return labels[state.turn] || "進行中";
 }
 
+function turnTimerLabel() {
+  if (!state.started || state.gameOver) return "残り --秒";
+  if (state.turn === "player") return `残り ${Math.max(0, state.timer)}秒`;
+  if (state.turn === "counter-window") return "伏せ確認";
+  if (["cpu", "cpu-placing", "judge-cpu"].includes(state.turn)) return "相手ターン";
+  return "処理中";
+}
+
+function updateTurnTimerDisplay() {
+  const timerNode = byId("mobileCpuScore");
+  if (!timerNode) return;
+  const urgent = state.started && !state.gameOver && state.turn === "player" && state.timer <= 3 && state.timer > 0;
+  timerNode.textContent = turnTimerLabel();
+  timerNode.classList.toggle("turn-countdown-urgent", urgent);
+  byId("mobileBattle")?.classList.toggle("turn-countdown-urgent", urgent);
+}
+
 function getPhaseHint() {
   if (!state.started) return "待機";
   const labels = {
@@ -2946,13 +2965,12 @@ function renderMobileBattle() {
   mobileRoot.classList.toggle("trap-open", state.mobileTrapOpen);
   mobileRoot.dataset.handSide = state.mobileHandSide || "player";
   byId("mobilePlayerScore").textContent = state.playerScore;
-  byId("mobileCpuScore").textContent = state.turnNumber || 0;
+  updateTurnTimerDisplay();
   byId("mobilePlayerInsiderCount").textContent = `${Math.min(5, state.playerScore)}/5`;
   byId("mobileCpuInsiderCount").textContent = `${Math.min(5, state.cpuScore)}/5`;
   updateMobileInsiderIcons(".mobile-insider-panel.player", state.playerScore, "player");
   updateMobileInsiderIcons(".mobile-insider-panel.rival", state.cpuScore, "cpu");
   byId("mobilePlayerMeta").textContent = `Rating ${profile.rating}`;
-  byId("mobileCpuMeta").textContent = "ターン";
   byId("mobileGameLabel").textContent = `GAME ${state.matchRound || 0}/BO3 ${state.playerRoundWins}-${state.cpuRoundWins}`;
   byId("mobileTurnLabel").textContent = getTurnLabel();
   byId("mobileTimeLabel").textContent = formatClock(state.matchSeconds || MATCH_SECONDS);

@@ -5945,6 +5945,108 @@ body.mobile-ui.landscape-ui .mobile-actions button.active {
     0 0 18px rgba(216, 182, 90, 0.24);
 }
 
+body.mobile-ui.landscape-ui .mobile-hud-rival {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  padding-left: clamp(8px, 1vw, 12px);
+}
+
+body.mobile-ui.landscape-ui .mobile-hud-rival::before {
+  display: none;
+}
+
+body.mobile-ui.landscape-ui .turn-head-name {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+body.mobile-ui.landscape-ui .turn-head-name.player {
+  justify-items: end;
+  text-align: right;
+}
+
+body.mobile-ui.landscape-ui .turn-head-name span {
+  color: var(--gold);
+  font-size: clamp(7px, 1.2vw, 10px);
+  font-weight: 1000;
+  letter-spacing: 0;
+}
+
+body.mobile-ui.landscape-ui .turn-head-name strong {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  color: #fff;
+  font-size: clamp(13px, 2.2vw, 20px);
+}
+
+body.mobile-ui.landscape-ui .turn-head-name.player strong {
+  flex-direction: row-reverse;
+}
+
+body.mobile-ui.landscape-ui .turn-head-name img {
+  display: inline-block;
+  width: clamp(20px, 3.8vw, 30px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(216, 182, 90, 0.5);
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+body.mobile-ui.landscape-ui #mobileCpuScore {
+  width: auto;
+  min-width: clamp(92px, 16vw, 150px);
+  aspect-ratio: auto;
+  padding: 7px 12px;
+  border-radius: 999px;
+  color: #1b1306;
+  font-size: clamp(15px, 2.8vw, 24px);
+  white-space: nowrap;
+  background: linear-gradient(180deg, #f5dc83, #c99d38);
+  text-shadow: none;
+}
+
+body.mobile-ui.landscape-ui .mobile-battle.player-turn .mobile-hud-rival {
+  border-color: rgba(66, 197, 255, 0.72);
+  box-shadow: 0 0 22px rgba(66, 197, 255, 0.16), inset 0 0 16px rgba(66, 197, 255, 0.08);
+}
+
+body.mobile-ui.landscape-ui .mobile-battle.rival-turn .mobile-hud-rival {
+  border-color: rgba(255, 100, 79, 0.78);
+  box-shadow: 0 0 22px rgba(255, 100, 79, 0.16), inset 0 0 16px rgba(255, 100, 79, 0.08);
+}
+
+body.mobile-ui.landscape-ui #mobileCpuScore.turn-countdown-urgent {
+  animation: turnCountdownBark 0.34s ease-in-out infinite alternate;
+  background: linear-gradient(180deg, #fff2a8, #ff5147);
+  color: #130706;
+  box-shadow: 0 0 0 3px rgba(255, 81, 71, 0.2), 0 0 26px rgba(255, 81, 71, 0.55);
+}
+
+body.mobile-ui.landscape-ui .mobile-battle.turn-countdown-urgent .mobile-hud-rival {
+  animation: turnHeaderFlash 0.34s ease-in-out infinite alternate;
+}
+
+@keyframes turnCountdownBark {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.13);
+  }
+}
+
+@keyframes turnHeaderFlash {
+  from {
+    filter: brightness(1);
+  }
+  to {
+    filter: brightness(1.22);
+  }
+}
+
 body.mobile-ui.landscape-ui .mobile-log-panel {
   position: fixed;
   top: max(8px, env(safe-area-inset-top));
