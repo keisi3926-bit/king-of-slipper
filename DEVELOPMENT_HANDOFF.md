@@ -1,6 +1,8 @@
 # King of Slipper / TSG 開発引き継ぎ資料
 
-最終確認時点: `2026.06.02-mobile-header-insiders-v17`
+最終確認時点: `2026.06.02-cutin-safe-area-v20`
+
+最新反映コミット: `4ac9003 Respect safe area in cutins`
 
 この資料は、現行ブラウザ版の実装を次の開発室へ引き継ぐための技術整理です。ストーリー設定、未実装キャラクター設定、世界観メモは対象外とし、現在のゲーム実装と開発に必要な情報のみを記載します。
 
@@ -11,9 +13,11 @@
 - 静的HTML/CSS/JavaScriptで動作するブラウザゲーム。
 - GitHub Pages / Vercel / Netlify などの静的ホスティングで公開可能。
 - スマホは横画面プレイ前提。
+- iPhone SE相当の横画面をスマホUIの下限基準とする。
 - PCブラウザ版も存在するが、直近の優先度はスマホ横画面UI。
 - Service Worker と `version.json` により、起動時に公開版の更新判定を行う。
 - localStorage を使って、構築、Rating、ランキング、CPU難易度、感想、あいことば対戦モック状態を保存する。
+- Xアプリ内ブラウザ疑いの環境では直接プレイ前提にせず、Safariで開く/ホーム画面追加の案内を出す。
 
 ### 1.2 ゲーム基本要件
 
@@ -39,6 +43,8 @@
   - 下: 手持ちパネル展開時のみ表示
 - 左インサイダーの進捗は、数値ではなく5つのアイコンのカラー/グレーで表示。
 - 上部プレイヤー情報は1行固定。
+- カットイン演出は左寄せの迫力を維持しつつ、キャラ名/セリフ/重要テキストは safe-area を考慮して右へ逃がす。
+- 実況、ジャッジ、スリップインサイダー反応、カットインは、読める速度を優先して標準表示時間を延長済み。
 - タイトル画面も横画面前提で、縦画面では横向き案内を表示。
 - テスト感想画面は localStorage 保存、コピー、X共有に対応。
 
@@ -60,7 +66,8 @@
 | `styles.css` | 全UI、レスポンシブ、演出、スマホ横画面最適化 |
 | `game.js` | ゲーム状態、ルール、描画、イベント、保存、通信モック |
 | `assets/` | 画像、音声、スリッパ素材、キャラ画像 |
-| `manifest.webmanifest` | PWA用設定 |
+| `manifest.json` | PWA用設定。GitHub Pages配下でも動く相対パス前提 |
+| `manifest.webmanifest` | 旧/互換用PWA設定 |
 | `sw.js` | Service Worker / キャッシュ管理 |
 | `version.json` | 公開版更新判定用のバージョン情報 |
 | `README.md` | 公開/起動説明 |
@@ -107,15 +114,18 @@ Title Screen
 | `mobile-short` | 横画面で高さが低い端末向け |
 | `mobile-narrow` | 横画面で幅が狭い端末向け |
 | `mobile-se` | iPhone SE相当の下限調整 |
+| `x-inapp-ui` | iOS + X/Twitterアプリ内ブラウザ疑い。Safari起動案内を強く表示 |
 
 CSSはこのクラスを使ってスマホ横画面を段階的に圧縮する。
 
+X内ブラウザ判定は完全判定ではなく、`detectXInAppBrowser()` による疑い検出。判定結果は `sessionStorage` の `kos_x_inapp_browser` にも保持する。
+
 ### 2.4 更新判定
 
-- `APP_VERSION` は `game.js` 先頭で定義。
+- `APP_VERSION` は `game.js` 先頭で定義。現行は `2026.06.02-cutin-safe-area-v20`。
 - `version.json` の `version` と比較する。
 - 新しい版が検出された場合、Service Worker更新処理を試行し、クエリを付けて再読み込みする。
-- `sw.js` の `CACHE_NAME` はバージョン更新時に上げる必要がある。
+- `sw.js` の `CACHE_NAME` はバージョン更新時に上げる必要がある。現行は `king-of-slipper-tsg-v39`。
 
 ## 3. 詳細設計
 
@@ -134,6 +144,7 @@ CSSはこのクラスを使ってスマホ横画面を段階的に圧縮する�
 | `MAX_SHOE_RACK_SIZE` | 3 |
 | `MAX_ENTRANCE_SAME_NAME` | 同名スリッパはエントランス内2足まで |
 | `ELO_K` | 64 |
+| `performanceTimingProfiles` | 演出速度プロファイル。現行UIは `standard` を使用 |
 
 ### 3.2 localStorageキー
 
@@ -146,6 +157,7 @@ CSSはこのクラスを使ってスマホ横画面を段階的に圧縮する�
 | `kos_room_online_beta_v1` | あいことば対戦オンラインβ状態 |
 | `kos_cpu_difficulty_v1` | CPU難易度 |
 | `kos_feedback_v1` | テスト感想 |
+| `kos_x_inapp_browser` | X/Twitterアプリ内ブラウザ疑いの判定キャッシュ |
 
 ### 3.3 ゲーム状態
 
@@ -174,6 +186,9 @@ CSSはこのクラスを使ってスマホ横画面を段階的に圧縮する�
 | `sideboardSeconds` | Shoe Rack Change残り秒数 |
 | `sideboardSwaps` | 交換回数 |
 | `ratingDelta` | マッチ後Rating変動 |
+| `cutinActive` | カットイン表示中か |
+| `insiderVerdicts` | 直近のインサイダー判定/反応 |
+| `insiderDetail` | 長押しで表示するインサイダー詳細 |
 
 ### 3.4 スリッパデータ
 
@@ -340,6 +355,63 @@ Feedback Dialogで入力する。
 - X投稿用テキストコピー
 - `https://twitter.com/intent/tweet?text=` によるX共有
 
+### 3.12 演出タイミング
+
+直近調整で、演出が読めない/見えない速度にならないよう標準表示時間を延長した。現行は `settings.performanceSpeed = "standard"` を前提にしている。
+
+主な関数:
+
+- `performanceTiming()`
+- `displayMsForText(text, base, perChar, max)`
+- `showInsiderThoughts()`
+- `showCommentaryPopup()`
+- `showJudgePopup()`
+- `showAudienceReaction()`
+- `showCutin()`
+
+標準プロファイルの目安:
+
+| 対象 | 標準値/方針 |
+| --- | --- |
+| スリップインサイダー通常表示 | 最低約2.0秒 |
+| スリップインサイダー成功表示 | 約2.5秒 |
+| スリップインサイダー失敗表示 | 約2.1秒 |
+| 実況テキスト | 文字数に応じて約1.7秒から最大約3.2秒 |
+| ジャッジテキスト | 文字数に応じて約1.8秒から最大約3.2秒 |
+| 観客反応 | 約1.6秒 |
+| 画像なしカットイン | 約2.1秒 |
+| 画像ありカットイン | 約2.9秒 |
+
+画像ありカットインでは、イラスト単体を約0.9秒見せてから文字を重ねる。文字表示は約1.45秒を目安にし、絵を鑑賞する余白を残す。
+
+将来的に設定画面へ「高速 / 標準 / ゆっくり」を出す前提でプロファイル化済み。ただし、現時点では設定UIとしての演出速度選択は未実装。
+
+### 3.13 カットイン safe-area 方針
+
+iPhone横画面、特にカメラ枠/ノッチのある端末で、左寄せカットインのキャラ名やセリフが見切れる問題を避けるため、演出背景とテキストの扱いを分離した。
+
+方針:
+
+- 背景帯、斜め演出、画像の迫力は左端まで使ってよい。
+- キャラ名、セリフ、重要テキストは `env(safe-area-inset-left)` を考慮して内側へ逃がす。
+- 左寄せ演出そのものは中央寄せにしない。
+- iPhone SE相当の横画面でも、最低 `56px` 前後の安全余白を確保する。
+
+実装上の主な対象:
+
+- `.cutin-copy`
+- `.commentary-stack`
+- `.judge-popup-stack`
+- `.insider-popup`
+
+代表的なCSS方針:
+
+```css
+padding-left: max(56px, env(safe-area-inset-left));
+```
+
+右側についても、必要に応じて `env(safe-area-inset-right)` を使い、テキスト幅がノッチ/ホームインジケータ周辺へ食い込まないようにする。
+
 ## 4. 画面仕様
 
 ### 4.1 Boot Screen
@@ -363,6 +435,8 @@ Feedback Dialogで入力する。
 - メインメニュー。
 - スマホでは横画面前提。
 - 縦画面では横向き案内を表示。
+- Xアプリ内ブラウザ疑いの場合、Safariで開く/ホーム画面追加を案内する。
+- PWA起動時は `standalone` 表示を前提に、横持ちゲーム機的に見えることを優先する。
 
 主要DOM:
 
@@ -377,6 +451,7 @@ Feedback Dialogで入力する。
 - `#titleHelpBtn`
 - `#cpuDifficultySelect`
 - `.title-orientation-notice`
+- `.x-browser-notice`
 
 ### 4.3 Tutorial Screen
 
@@ -454,8 +529,11 @@ Feedback Dialogで入力する。
 
 補足:
 
-- 上部プレイヤー情報は1行固定。
-- 左インサイダーは5アイコン進捗のみ。
+- iPhone SE相当の横画面を下限基準とし、Pro Maxでは間延びしすぎないよう `clamp()` / `vh` / `vw` で調整する。
+- 上部プレイヤー情報は1行固定。左に相手、中央にターン残り秒数/現在ターン、右に自分を置き、名前は `nowrap` + `ellipsis` で処理する。
+- 左インサイダーは5アイコン進捗のみ。`0/5` のような大きな数値カウンターはスマホUIでは表示しない。
+- 達成済みインサイダーはカラー、未達成/脱落はグレーまたは低彩度で表現する。
+- カットインや実況系の左側テキストは safe-area を考慮して、ノッチ/カメラ枠に被らないよう内側へ逃がす。
 - 長押しでスリッパ/伏せ/インサイダー詳細を表示。
 
 ### 4.7 PC Battle
@@ -636,14 +714,19 @@ type WearEvaluationResult = {
 | 優先度 | タスク | 内容 |
 | --- | --- | --- |
 | 高 | スマホ実機の継続QA | iPhone SE / Pro Max / Android横画面でUI崩れ確認 |
+| 高 | safe-area実機確認 | iPhone横画面でカメラ枠/ノッチにカットイン文字、実況、インサイダー反応が被らないか確認 |
+| 高 | X内ブラウザ導線確認 | X投稿リンクから開いた時、Safari起動/ホーム画面追加案内が表示され、ゲームが壊れて見えないことを確認 |
 | 高 | PC版とスマホ版UIの責務整理 | CSS上書きが増えているため、モバイル専用CSSを分離したい |
 | 高 | あいことば対戦の同期安定化 | 現状β。ターン進行/伏せ/配置/勝敗の同期仕様を確定する |
 | 高 | 伏せ効果の網羅テスト | 効果処理が非ブロッキング化されたため、ログ/盤面反映の漏れを確認 |
+| 中 | 演出速度設定UI | `performanceTimingProfiles` は実装済み。設定画面で高速/標準/ゆっくりを選ぶUIは未実装 |
+| 中 | 演出テンポの実機調整 | 現在は標準を長めに調整済み。実機プレイで実況/カットイン/インサイダー表示時間を再調整する |
 | 中 | Shoe Rack ChangeのUX改善 | 交換中の選択状態、詳細、時間切れ確定の分かりやすさ改善 |
 | 中 | エントランス構築の操作改善 | 未完成/重複/保存時のバリデーションをさらに明確化 |
 | 中 | CPUの難易度差の検証 | パラメータはあるが、体感差の調整が必要 |
 | 中 | Rating履歴 | 現在はプロフィール/ランキング中心。履歴表示は未実装 |
 | 中 | 非同期対戦用データ出力 | 他人の構築をCPU代理で遊ぶ形式は未実装 |
+| 低 | PWAアイコン最適化 | manifestは追加済みだが、公開用アイコンのサイズ/見栄えは追加整理余地あり |
 | 低 | メール共有 | 感想共有のmailtoは未実装。X共有を優先済み |
 | 低 | アセット管理整理 | 画像/音声が増えているため、用途別manifest化すると保守しやすい |
 
@@ -670,6 +753,8 @@ type WearEvaluationResult = {
 ### 7.3 ブラウザ自動検証が環境依存
 
 Codex側のブラウザ接続が失敗することがある。静的チェックだけではUI崩れを見落としやすい。
+
+直近でも Browser 検証が `windows sandbox failed: spawn setup refresh` 系で失敗することがあったため、最終判断は実機確認を優先する。
 
 推奨:
 
@@ -710,6 +795,28 @@ Gun.js公開リレーを使うβ実装であり、正式な同期保証はない
 
 X共有は `twitter.com/intent/tweet?text=` を開くだけ。投稿成功の検知はしない。
 
+### 7.9 safe-areaは実機差が出る
+
+カットイン、実況、ジャッジ、インサイダー反応のテキストは safe-area を考慮しているが、iPhoneの機種、ブラウザ、PWA起動状態で `env(safe-area-inset-*)` の効き方に差が出る可能性がある。
+
+特に確認すべき条件:
+
+- iPhone SE相当の横画面
+- iPhone Pro Max系の横画面
+- Safari通常表示
+- ホーム画面追加後のPWA表示
+- Xアプリ内ブラウザからの起動導線
+
+### 7.10 X内ブラウザ判定は完全ではない
+
+`detectXInAppBrowser()` はユーザーエージェント等による疑い判定。X/Twitterアプリ側の仕様変更で検出精度が変わる可能性がある。
+
+検出できなかった場合でも、縦画面案内内にSafari起動/ホーム画面追加の文言を表示して、プレイヤーが回避手段を理解できるようにしている。
+
+### 7.11 演出速度設定UIは未実装
+
+`performanceTimingProfiles` により高速/標準/ゆっくりの土台はあるが、設定画面から変更するUIはまだない。現行は標準プロファイルをやや長めに調整している。
+
 ## 8. 開発時チェックリスト
 
 変更後は最低限以下を実行する。
@@ -718,13 +825,15 @@ X共有は `twitter.com/intent/tweet?text=` を開くだけ。投稿成功の検
 node --check game.js
 node --check sw.js
 python -m json.tool version.json
+python -m json.tool manifest.json
+python -m json.tool manifest.webmanifest
 .\.tools\PortableGit\cmd\git.exe diff --check
 ```
 
 公開反映時:
 
 ```powershell
-.\.tools\PortableGit\cmd\git.exe add index.html game.js styles.css sw.js version.json
+.\.tools\PortableGit\cmd\git.exe add index.html game.js styles.css sw.js version.json manifest.json manifest.webmanifest DEVELOPMENT_HANDOFF.md
 .\.tools\PortableGit\cmd\git.exe commit -m "変更内容"
 .\.tools\PortableGit\cmd\git.exe push origin main
 ```
@@ -732,10 +841,15 @@ python -m json.tool version.json
 UI変更時の実機確認:
 
 - スマホ縦画面で横向き案内が出る。
+- Xアプリ内ブラウザ疑いではSafari起動/ホーム画面追加案内が出る。
 - スマホ横画面でタイトルが見切れない。
 - スマホ横画面で対戦UIが画面内に収まる。
 - 左インサイダー5枠が常に見える。
+- 左インサイダーの大きな `0/5` カウンターがスマホUIに出ていない。
+- 上部プレイヤー名札が1行で収まり、盤面に重ならない。
 - 右ボタン4系統が押せる。
 - 伏せ/手持ち/ログパネルが通常レイアウトを押し広げない。
+- カットイン、実況、ジャッジ、インサイダー反応の左側テキストがiPhone横画面のノッチ/カメラ枠に被らない。
+- スリップインサイダー反応、実況、カットインが初見でも読める表示時間になっている。
+- Safari通常表示とホーム画面追加後のPWA表示で起動導線が破綻しない。
 - Service Worker更新後に最新版が入る。
-
