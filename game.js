@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.02-cutin-safe-area-v20";
+const APP_VERSION = "2026.06.03-match-rating-ux-v21";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -901,6 +901,30 @@ function calculateRatingChange(rating, opponentRating, result, k = ELO_K) {
   return Math.round(k * (result - calculateExpectedScore(rating, opponentRating)));
 }
 
+function clampRatingDelta(delta) {
+  if (delta === 0) return 0;
+  const capped = Math.max(-40, Math.min(40, delta));
+  if (capped > 0 && capped < 15) return 15;
+  if (capped < 0 && capped > -15) return -15;
+  return capped;
+}
+
+function calculateMatchRatingChanges(playerRating, opponentRating, result) {
+  if (result === 0.5) {
+    const playerDelta = clampRatingDelta(calculateRatingChange(playerRating, opponentRating, result));
+    return {
+      playerDelta,
+      opponentDelta: -playerDelta,
+    };
+  }
+  const baseDelta = calculateRatingChange(playerRating, opponentRating, result);
+  const playerDelta = clampRatingDelta(baseDelta);
+  return {
+    playerDelta,
+    opponentDelta: -playerDelta,
+  };
+}
+
 function loadRankingRecords() {
   let stored = [];
   try {
@@ -953,8 +977,7 @@ function updateLocalRating(result) {
   const profile = loadPlayerProfile();
   const opponentRating = officialPlayers.find((player) => player.name.includes("松葉"))?.rating || 1980;
   const before = profile.rating;
-  const delta = calculateRatingChange(before, opponentRating, result);
-  const opponentDelta = calculateRatingChange(opponentRating, before, 1 - result);
+  const { playerDelta: delta, opponentDelta } = calculateMatchRatingChanges(before, opponentRating, result);
   const after = before + delta;
   profile.rating = after;
   profile.bestRating = Math.max(profile.bestRating || after, after);
@@ -976,7 +999,48 @@ function updateLocalRating(result) {
   state.cpuRatingAfter = opponentRating + opponentDelta;
   state.ratingDelta = delta;
   state.cpuRatingDelta = opponentDelta;
-  return { before, after, delta, profile };
+  return {
+    before,
+    after,
+    delta,
+    opponentBefore: opponentRating,
+    opponentAfter: opponentRating + opponentDelta,
+    opponentDelta,
+    profile,
+  };
+}
+
+function formatSignedDelta(delta) {
+  return `${delta >= 0 ? "+" : ""}${delta}`;
+}
+
+function formatRatingLines(ratingResult) {
+  return {
+    text: `Rating ${ratingResult.before} → ${ratingResult.after} (${formatSignedDelta(ratingResult.delta)}) / 松葉迅 ${ratingResult.opponentBefore} → ${ratingResult.opponentAfter} (${formatSignedDelta(ratingResult.opponentDelta)})`,
+    html: `Rating<br>${ratingResult.before} → ${ratingResult.after} (${formatSignedDelta(ratingResult.delta)})<br><br>松葉迅<br>${ratingResult.opponentBefore} → ${ratingResult.opponentAfter} (${formatSignedDelta(ratingResult.opponentDelta)})`,
+  };
+}
+
+function resetRatingProfile() {
+  const ok = window.confirm("Ratingと戦績を初期値へ戻しますか？");
+  if (!ok) return;
+  const current = loadPlayerProfile();
+  localStorage.removeItem(PROFILE_STORAGE_KEY);
+  let records = [];
+  try {
+    records = JSON.parse(localStorage.getItem(RANKING_STORAGE_KEY) || "[]");
+  } catch {
+    records = [];
+  }
+  localStorage.setItem(RANKING_STORAGE_KEY, JSON.stringify(records.filter((record) => record.name !== current.name)));
+  const profile = loadPlayerProfile();
+  Object.assign(state, {
+    playerRatingBefore: profile.rating,
+    ratingDelta: 0,
+  });
+  render();
+  const status = byId("ratingResetStatus");
+  if (status) status.textContent = "Ratingと戦績を1600へリセットしました。";
 }
 
 function renderRanking() {
@@ -2404,7 +2468,12 @@ async function checkWinner() {
     else state.cpuRoundWins += 1;
     state.firstPlayer = win ? "cpu" : "player";
     render();
-    await showImportantCommentary("試合終了", `${win ? "覇王" : "松葉迅"}がこのゲームを獲得。GAME ${state.playerRoundWins}-${state.cpuRoundWins}`, win ? "good" : "danger");
+    await showImportantCommentary(
+      "試合終了",
+      `${win ? "覇王" : "松葉迅"}がこのゲームを獲得。GAME ${state.playerRoundWins}-${state.cpuRoundWins}`,
+      win ? "good" : "danger",
+      { autoCloseMs: 900 },
+    );
     if (state.playerRoundWins >= MATCH_WIN_TARGET) {
       await showCutin("寿立覇王", `GAME WIN ${state.playerRoundWins}-${state.cpuRoundWins}`, "2本先取、マッチを制した。");
       await finishMatch("win", "score");
@@ -2430,24 +2499,26 @@ async function finishMatch(result, reason = "score") {
   stopHaouTheme();
   stopJinTheme();
   const ratingResult = updateLocalRating(result === "win" ? 1 : result === "draw" ? 0.5 : 0);
-  const jinRatingText = `松葉迅 ${state.cpuRatingBefore} → ${state.cpuRatingAfter}`;
-  const ratingText = `Rating ${ratingResult.delta >= 0 ? "+" : ""}${ratingResult.delta} / ${ratingResult.before} → ${ratingResult.after} / ${jinRatingText}`;
+  if (result === "loss") startJinVictoryTheme();
+  const ratingLines = formatRatingLines(ratingResult);
+  const ratingText = ratingLines.text;
   log(`MATCH ${result.toUpperCase()} / 勝ち点 ${state.matchPoints} / ${ratingText}`);
   await showImportantCommentary(
     result === "draw" ? "MATCH DRAW" : result === "win" ? "MATCH WIN" : "MATCH LOSS",
     ratingText,
     result === "win" ? "good" : "danger",
+    { autoCloseMs: result === "loss" ? 2000 : 1200 },
   );
   if (result === "win") {
-    byId("victoryRatingText").textContent = `MATCH WIN / 勝ち点 ${state.matchPoints} / ${ratingText}`;
+    byId("victoryRatingText").innerHTML = `MATCH WIN / 勝ち点 ${state.matchPoints}<br>${ratingLines.html}`;
     byId("victoryRestartBtn").textContent = "再戦";
     await showVictory();
   } else if (result === "loss") {
-    byId("defeatRatingText").textContent = `MATCH LOSS / 勝ち点 ${state.matchPoints} / ${ratingText}`;
+    byId("defeatRatingText").innerHTML = `MATCH LOSS / 勝ち点 ${state.matchPoints}<br>${ratingLines.html}`;
     byId("defeatRestartBtn").textContent = "再戦";
     await showDefeat();
   } else {
-    byId("drawRatingText").textContent = ratingText;
+    byId("drawRatingText").innerHTML = ratingLines.html;
     await showDraw();
   }
   if (reason === "time" && result === "draw") {
@@ -3574,9 +3645,9 @@ function showTrapResolutionNotice(owner, trapName, effectText, tone = "") {
   showJudgePopup(`半田磨流蔵: 処理完了。${effectText}`, tone === "danger" ? "warn" : "good");
 }
 
-function showImportantCommentary(title, text, tone = "") {
+function showImportantCommentary(title, text, tone = "", options = {}) {
   return new Promise((resolve) => {
-    importantQueue.push({ title, text, tone, resolve });
+    importantQueue.push({ title, text, tone, resolve, options });
     runImportantNoticeQueue();
   });
 }
@@ -3591,19 +3662,25 @@ function runImportantNoticeQueue() {
   byId("importantNoticeType").textContent = item.tone === "danger" ? "CRITICAL" : "IMPORTANT";
   byId("importantNoticeTitle").textContent = item.title || "重要情報";
   byId("importantNoticeText").textContent = item.text || "";
+  const button = byId("importantNoticeBtn");
+  button.hidden = Boolean(item.options?.autoCloseMs);
   notice.className = `important-notice show ${item.tone || ""}`.trim();
   notice.setAttribute("aria-hidden", "false");
   const finish = () => {
-    byId("importantNoticeBtn").removeEventListener("click", finish);
+    button.removeEventListener("click", finish);
     notice.classList.remove("show");
     notice.setAttribute("aria-hidden", "true");
+    button.hidden = false;
     importantNoticeActive = false;
     state.cutinActive = false;
     render();
     item.resolve();
     runImportantNoticeQueue();
   };
-  byId("importantNoticeBtn").addEventListener("click", finish);
+  button.addEventListener("click", finish);
+  if (item.options?.autoCloseMs) {
+    setTimeout(finish, item.options.autoCloseMs);
+  }
 }
 const audienceLines = [
   "ざわ……",
@@ -3913,8 +3990,10 @@ function stopHaouTheme() {
 
 function startHaouVictoryTheme() {
   initAudio();
+  stopJinVictoryTheme();
   const theme = byId("haouVictoryTheme");
   theme.volume = Math.min(1, settings.bgmVolume + 0.08);
+  if (!theme.paused && !theme.ended) return;
   theme.currentTime = 0;
   const playPromise = theme.play();
   if (playPromise) playPromise.catch(() => {});
@@ -3943,8 +4022,10 @@ function stopJinTheme() {
 
 function startJinVictoryTheme() {
   initAudio();
+  stopHaouVictoryTheme();
   const theme = byId("jinVictoryTheme");
   theme.volume = Math.min(1, settings.bgmVolume + 0.06);
+  if (!theme.paused && !theme.ended) return;
   theme.currentTime = 0;
   const playPromise = theme.play();
   if (playPromise) playPromise.catch(() => {});
@@ -4327,6 +4408,7 @@ byId("seVolume").addEventListener("input", (event) => {
 });
 byId("thoughtSpeed").addEventListener("change", (event) => updateThoughtSpeed(event.target.value));
 byId("screenSize").addEventListener("change", (event) => updateScreenSize(event.target.value));
+byId("ratingResetBtn").addEventListener("click", resetRatingProfile);
 byId("startBtn").addEventListener("click", startMatchFromButton);
 byId("newGameBtn").addEventListener("click", startMatchFromButton);
 byId("victoryRestartBtn").addEventListener("click", startMatchFromButton);

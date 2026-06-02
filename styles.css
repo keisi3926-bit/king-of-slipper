@@ -2287,6 +2287,22 @@ button.danger {
   font-weight: 800;
 }
 
+.option-row button {
+  min-height: 42px;
+  border: 1px solid rgba(216, 182, 90, 0.42);
+  border-radius: 8px;
+  background: #2a2d34;
+  color: var(--ink);
+  font-weight: 900;
+}
+
+.dialog-note {
+  min-height: 1.2em;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
 .sideboard-screen {
   position: fixed;
   inset: 0;
