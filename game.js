@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.02-x-browser-pwa-v19";
+const APP_VERSION = "2026.06.02-cutin-safe-area-v20";
 const VERSION_URL = "version.json";
 
 const slippers = [
