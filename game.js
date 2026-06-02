@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.02-performance-timing-v18";
+const APP_VERSION = "2026.06.02-x-browser-pwa-v19";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -692,16 +692,30 @@ function detectDeviceMode() {
   return touch && (narrow || mobileAgent) ? "mobile" : "pc";
 }
 
+function detectXInAppBrowser() {
+  const ua = navigator.userAgent || "";
+  const referrer = document.referrer || "";
+  const isIOS = /iPhone|iPad|iPod/i.test(ua);
+  const xSignature = /Twitter|TwitterAndroid|Twitter for iPhone|X\/|Tweetbot/i.test(ua);
+  const xReferrer = /(^|\/\/)(t\.co|x\.com|twitter\.com)\b/i.test(referrer);
+  const looksLikeIOSWebView = isIOS && /Mobile\//i.test(ua) && !/Version\/[\d.]+.*Safari/i.test(ua);
+  const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+  return isIOS && !standalone && (xSignature || xReferrer || looksLikeIOSWebView);
+}
+
 function applyDeviceMode() {
   const mode = detectDeviceMode();
+  const xInApp = detectXInAppBrowser();
   const orientation = window.matchMedia("(orientation: landscape)").matches ? "landscape" : "portrait";
   const width = window.innerWidth || document.documentElement.clientWidth || 0;
   const height = window.innerHeight || document.documentElement.clientHeight || 0;
   const dpr = window.devicePixelRatio || 1;
   sessionStorage.setItem("kos_device_mode", mode);
   sessionStorage.setItem("kos_orientation_mode", orientation);
+  sessionStorage.setItem("kos_x_inapp_browser", xInApp ? "1" : "0");
   document.body.dataset.deviceMode = mode;
   document.body.dataset.orientationMode = orientation;
+  document.body.dataset.xInappBrowser = xInApp ? "true" : "false";
   document.body.dataset.viewportWidth = String(width);
   document.body.dataset.viewportHeight = String(height);
   document.body.dataset.devicePixelRatio = String(Math.round(dpr * 100) / 100);
@@ -710,6 +724,7 @@ function applyDeviceMode() {
   document.documentElement.style.setProperty("--mobile-dpr", `${dpr}`);
   document.body.classList.toggle("mobile-ui", mode === "mobile");
   document.body.classList.toggle("pc-ui", mode !== "mobile");
+  document.body.classList.toggle("x-inapp-ui", mode === "mobile" && xInApp);
   document.body.classList.toggle("landscape-ui", orientation === "landscape");
   document.body.classList.toggle("portrait-ui", orientation === "portrait");
   document.body.classList.toggle("mobile-compact", mode === "mobile" && (width < 820 || height < 410 || dpr >= 3));
