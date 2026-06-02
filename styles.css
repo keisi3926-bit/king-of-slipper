@@ -6669,3 +6669,157 @@ body.mobile-ui.landscape-ui .title-buttons button {
     line-height: 1.1;
   }
 }
+
+/* Mobile battle readability: player header stays one line, insider progress is icon-only. */
+body.mobile-ui.landscape-ui .mobile-hud-rival {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  overflow: hidden;
+  min-height: clamp(32px, 7.8dvh, 46px);
+  padding: 3px clamp(6px, 1vw, 10px);
+}
+
+body.mobile-ui.landscape-ui .turn-head-name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+body.mobile-ui.landscape-ui .turn-head-name.rival {
+  justify-self: start;
+}
+
+body.mobile-ui.landscape-ui .turn-head-name.player {
+  justify-self: end;
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+body.mobile-ui.landscape-ui .turn-head-name span {
+  display: inline-block;
+  flex: 0 0 auto;
+  color: var(--gold);
+  font-size: clamp(8px, 1.25vw, 11px);
+  font-weight: 1000;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+body.mobile-ui.landscape-ui .turn-head-name strong {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+  color: #fff;
+  font-size: clamp(12px, 2vw, 17px);
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.mobile-ui.landscape-ui .turn-head-name.player strong {
+  flex-direction: row-reverse;
+}
+
+body.mobile-ui.landscape-ui .turn-head-name img {
+  flex: 0 0 auto;
+  width: clamp(18px, 3.2vw, 26px);
+}
+
+body.mobile-ui.landscape-ui #mobileCpuScore {
+  justify-self: center;
+  max-width: min(42vw, 230px);
+  min-width: 0;
+  overflow: hidden;
+  padding: 5px 10px;
+  font-size: clamp(11px, 1.8vw, 15px);
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.mobile-ui.landscape-ui .mobile-insider-panel {
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 3px;
+  overflow: hidden;
+}
+
+body.mobile-ui.landscape-ui .mobile-insider-panel span,
+body.mobile-ui.landscape-ui .mobile-insider-panel b {
+  display: none !important;
+}
+
+body.mobile-ui.landscape-ui .mobile-insider-panel strong {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: clamp(11px, 1.9vw, 15px);
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.mobile-ui.landscape-ui .mobile-insider-icons {
+  align-content: center;
+  justify-items: center;
+  gap: clamp(2px, 0.8dvh, 4px);
+}
+
+body.mobile-ui.landscape-ui .mobile-insider-icons i {
+  width: clamp(20px, min(4vw, 5.2dvh), 32px);
+}
+
+@media (orientation: landscape) and (max-width: 700px), (orientation: landscape) and (max-height: 390px) {
+  body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle {
+    grid-template-columns: clamp(40px, 6.7vw, 50px) minmax(0, 1fr) clamp(42px, 6.8vw, 52px);
+  }
+
+  body.mobile-ui.landscape-ui .mobile-hud-rival {
+    min-height: clamp(28px, 7.2dvh, 36px);
+    padding: 2px 5px;
+  }
+
+  body.mobile-ui.landscape-ui .turn-head-name {
+    gap: 3px;
+  }
+
+  body.mobile-ui.landscape-ui .turn-head-name span {
+    font-size: 8px;
+  }
+
+  body.mobile-ui.landscape-ui .turn-head-name strong {
+    gap: 3px;
+    font-size: clamp(9px, 1.7vw, 12px);
+  }
+
+  body.mobile-ui.landscape-ui .turn-head-name img {
+    width: clamp(15px, 2.7vw, 19px);
+  }
+
+  body.mobile-ui.landscape-ui #mobileCpuScore {
+    max-width: 38vw;
+    padding: 3px 6px;
+    font-size: clamp(9px, 1.7vw, 12px);
+  }
+
+  body.mobile-ui.landscape-ui .mobile-insider-panel {
+    padding: 3px 1px;
+    gap: 2px;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-insider-panel strong {
+    font-size: clamp(10px, 1.75vw, 12px);
+  }
+
+  body.mobile-ui.landscape-ui .mobile-insider-icons {
+    gap: 2px;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-insider-icons i {
+    width: clamp(16px, min(3.2vw, 4.5dvh), 21px);
+  }
+}

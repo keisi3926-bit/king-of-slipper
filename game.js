@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.02-landscape-title-share-v16";
+const APP_VERSION = "2026.06.02-mobile-header-insiders-v17";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -2747,7 +2747,7 @@ function getTurnLabel() {
 
 function turnTimerLabel() {
   if (!state.started || state.gameOver) return "残り --秒";
-  if (state.turn === "player") return `残り ${Math.max(0, state.timer)}秒`;
+  if (state.turn === "player") return `あなたのターン 残り ${Math.max(0, state.timer)}秒`;
   if (state.turn === "counter-window") return "伏せ確認";
   if (["cpu", "cpu-placing", "judge-cpu"].includes(state.turn)) return "相手ターン";
   return "処理中";
