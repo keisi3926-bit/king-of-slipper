@@ -3088,7 +3088,7 @@ button.danger {
 }
 
 .cutin.with-image .cutin-image {
-  animation: imageCutin 1.25s ease both;
+  animation: imageCutin var(--cutin-duration, 2.9s) ease both;
 }
 
 .cutin.with-image::after {
@@ -3102,11 +3102,11 @@ button.danger {
 }
 
 .cutin.with-image.show::after {
-  animation: cutinFlash 1.25s ease both;
+  animation: cutinFlash var(--cutin-duration, 2.9s) ease both;
 }
 
 .cutin.show::before {
-  animation: cutinFlash 1.25s ease both;
+  animation: cutinFlash var(--cutin-duration, 2.1s) ease both;
 }
 
 .cutin-slice {
@@ -3129,11 +3129,11 @@ button.danger {
 }
 
 .cutin.show .cutin-slice-a {
-  animation: slashIn 1.25s cubic-bezier(0.18, 0.78, 0.18, 1) both;
+  animation: slashIn var(--cutin-duration, 2.1s) cubic-bezier(0.18, 0.78, 0.18, 1) both;
 }
 
 .cutin.show .cutin-slice-b {
-  animation: slashIn 1.25s 0.04s cubic-bezier(0.18, 0.78, 0.18, 1) both;
+  animation: slashIn var(--cutin-duration, 2.1s) 0.04s cubic-bezier(0.18, 0.78, 0.18, 1) both;
 }
 
 .cutin-copy {
@@ -3151,7 +3151,7 @@ button.danger {
 }
 
 .cutin.show .cutin-copy {
-  animation: copySnap 1.25s ease both;
+  animation: copySnap var(--cutin-copy-duration, 1.45s) var(--cutin-copy-delay, 0ms) ease both;
 }
 
 .cutin-copy span {

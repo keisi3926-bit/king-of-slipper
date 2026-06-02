@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.02-mobile-header-insiders-v17";
+const APP_VERSION = "2026.06.02-performance-timing-v18";
 const VERSION_URL = "version.json";
 
 const slippers = [
@@ -504,10 +504,65 @@ let audioContext = null;
 const settings = {
   bgmVolume: 0.42,
   seVolume: 1,
-  thoughtDelay: 1000,
+  thoughtDelay: 2200,
+  performanceSpeed: "standard",
   screenSize: "hd",
   cpuDifficulty: loadCpuDifficulty(),
 };
+
+const performanceTimingProfiles = {
+  fast: {
+    insiderMin: 1700,
+    insiderWon: 2100,
+    insiderLost: 1800,
+    commentaryBase: 1600,
+    commentaryPerChar: 22,
+    commentaryMax: 2600,
+    judgeBase: 1600,
+    judgePerChar: 20,
+    judgeMax: 2600,
+    audience: 1200,
+    cutinNoImage: 1700,
+    cutinImage: 2450,
+  },
+  standard: {
+    insiderMin: 2000,
+    insiderWon: 2500,
+    insiderLost: 2100,
+    commentaryBase: 1700,
+    commentaryPerChar: 30,
+    commentaryMax: 3200,
+    judgeBase: 1800,
+    judgePerChar: 28,
+    judgeMax: 3200,
+    audience: 1600,
+    cutinNoImage: 2100,
+    cutinImage: 2900,
+  },
+  slow: {
+    insiderMin: 2400,
+    insiderWon: 3100,
+    insiderLost: 2600,
+    commentaryBase: 2200,
+    commentaryPerChar: 38,
+    commentaryMax: 4200,
+    judgeBase: 2200,
+    judgePerChar: 34,
+    judgeMax: 4200,
+    audience: 2100,
+    cutinNoImage: 2600,
+    cutinImage: 3600,
+  },
+};
+
+function performanceTiming() {
+  return performanceTimingProfiles[settings.performanceSpeed] || performanceTimingProfiles.standard;
+}
+
+function displayMsForText(text, base, perChar, max) {
+  const normalized = String(text || "").replace(/\s+/g, "");
+  return Math.min(max, Math.max(base, base + normalized.length * perChar));
+}
 
 const state = {
   started: false,
@@ -3549,10 +3604,12 @@ function showCommentaryPopup(text, tone = "") {
   lastCommentaryAt = Date.now();
   const toast = document.createElement("div");
   toast.className = `toast ${tone}`.trim();
+  const toastDuration = displayMsForText(stripSpeaker(text), performanceTiming().commentaryBase, performanceTiming().commentaryPerChar, performanceTiming().commentaryMax);
+  toast.style.animationDuration = `${toastDuration}ms`;
   const cleanText = text.replace(/^実況[:：]\s*/, "").replace(/^螳滓ｳ[:：]\s*/, "");
   toast.innerHTML = `<span>${cleanText}</span><img src="assets/kai-setsuna.png" alt="" />`;
   byId("toastStack").prepend(toast);
-  setTimeout(() => toast.remove(), document.body.classList.contains("mobile-ui") ? 3400 : 3800);
+  setTimeout(() => toast.remove(), toastDuration + 180);
 }
 function showJudgePopup(text, tone = "") {
   if (!text) return;
@@ -3561,9 +3618,11 @@ function showJudgePopup(text, tone = "") {
   setTimeout(() => {
     const taunt = document.createElement("div");
     taunt.className = `judge-taunt ${tone}`.trim();
+    const judgeDuration = displayMsForText(stripSpeaker(text), performanceTiming().judgeBase, performanceTiming().judgePerChar, performanceTiming().judgeMax);
+    taunt.style.animationDuration = `${judgeDuration}ms`;
     taunt.innerHTML = `<img src="assets/judge-tsg.png" alt="" /><strong>JUDGE</strong><span>${text.replace(/^ジャッジ[:：]\s*/, "")}</span>`;
     byId("judgeTauntStack").prepend(taunt);
-    setTimeout(() => taunt.remove(), document.body.classList.contains("mobile-ui") ? 3200 : 3800);
+    setTimeout(() => taunt.remove(), judgeDuration + 180);
   }, delay);
 }
 
@@ -3571,8 +3630,10 @@ function showAudienceReaction(text = "", tone = "") {
   const reaction = document.createElement("div");
   reaction.className = `audience-reaction ${tone}`.trim();
   reaction.textContent = text || audienceLines[Math.floor(Math.random() * audienceLines.length)];
+  const audienceDuration = performanceTiming().audience;
+  reaction.style.animationDuration = `${audienceDuration}ms`;
   byId("audienceReactionStack").prepend(reaction);
-  setTimeout(() => reaction.remove(), document.body.classList.contains("mobile-ui") ? 1100 : 1450);
+  setTimeout(() => reaction.remove(), audienceDuration + 120);
 }
 
 function announce(text, tone = "", options = {}) {
@@ -3607,8 +3668,10 @@ async function showInsiderThoughts(verdicts, side) {
     popup.classList.remove("show");
     void popup.offsetWidth;
     popup.classList.add("show");
-    const mobileThoughtDelay = verdict.won ? 3000 : 2200;
-    await wait(document.body.classList.contains("mobile-ui") ? mobileThoughtDelay : settings.thoughtDelay);
+    const timing = performanceTiming();
+    const thoughtDelay = Math.max(settings.thoughtDelay, verdict.won ? timing.insiderWon : timing.insiderLost, timing.insiderMin);
+    popup.style.animationDuration = `${Math.max(1200, thoughtDelay - 180)}ms`;
+    await wait(thoughtDelay);
     popup.classList.remove("show");
     await wait(130);
   }
@@ -3897,14 +3960,24 @@ function showCutin(actor, title, text, options = {}) {
   void cutin.offsetWidth;
   cutin.classList.add("show");
   return new Promise((resolve) => {
+    const timing = performanceTiming();
+    const baseDuration = options.image ? timing.cutinImage : timing.cutinNoImage;
+    const textBonus = Math.min(450, String(text || "").length * 18);
+    const duration = baseDuration + textBonus;
+    cutin.style.setProperty("--cutin-duration", `${duration}ms`);
+    cutin.style.setProperty("--cutin-copy-delay", options.image ? "900ms" : "0ms");
+    cutin.style.setProperty("--cutin-copy-duration", options.image ? "1450ms" : `${Math.max(1250, duration - 120)}ms`);
     setTimeout(() => {
       cutin.classList.remove("show");
       cutin.classList.remove("with-image");
       image.removeAttribute("src");
+      cutin.style.removeProperty("--cutin-duration");
+      cutin.style.removeProperty("--cutin-copy-delay");
+      cutin.style.removeProperty("--cutin-copy-duration");
       state.cutinActive = false;
       render();
       resolve();
-    }, 1250);
+    }, duration);
   });
 }
 
