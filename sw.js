@@ -1,4 +1,4 @@
-const CACHE_NAME = "king-of-slipper-tsg-v41";
+const CACHE_NAME = "king-of-slipper-tsg-v42";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -9,6 +9,10 @@ const CORE_ASSETS = [
   "./version.json",
   "./manifest.json",
   "./manifest.webmanifest",
+  "./assets/app-icon-512.png",
+  "./assets/app-icon-192.png",
+  "./assets/apple-touch-icon.png",
+  "./assets/favicon-64.png",
   "./assets/main-slippers.png",
   "./assets/new-slippers.png",
   "./assets/coin-front.png",
