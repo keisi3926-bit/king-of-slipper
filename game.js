@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.03-match-rating-ux-v21";
+const APP_VERSION = "2026.06.03-web-layout-v22";
 const VERSION_URL = "version.json";
 
 const slippers = [
