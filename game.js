@@ -1,5 +1,30 @@
-const APP_VERSION = "2026.06.03-app-icon-v23";
+const APP_VERSION = "2026.06.04-character-select-v24";
 const VERSION_URL = "version.json";
+const PLAYER_CHARACTER_STORAGE_KEY = "kos_player_character_v1";
+const PLAYER_CHARACTERS = {
+  haou: {
+    key: "haou",
+    name: "寿立覇王",
+    reading: "ことぶきだて はおう",
+    role: "主人公 / バランス型",
+    type: "旅館型・総合型",
+    copy: "基本に忠実な王道プレイヤー。",
+    trend: "基本・安定・おもてなし型",
+    description: "基本に忠実な王道プレイヤー。",
+    image: "assets/haou-vs.png",
+  },
+  jin: {
+    key: "jin",
+    name: "松葉迅",
+    reading: "まつば じん",
+    role: "高速型 / 先攻速攻系",
+    type: "高速型 / 先攻速攻系",
+    copy: "玄関を駆け抜ける高速スリッパ使い",
+    trend: "低コスト・高速展開・早期決着型",
+    description: "素早い展開で相手の準備が整う前に攻め切る高速型プレイヤー。",
+    image: "assets/jin-vs.png",
+  },
+};
 
 const slippers = [
   {
@@ -650,6 +675,83 @@ const byId = (id) => document.getElementById(id);
 let serviceWorkerRegistration = null;
 let updateReloadPending = false;
 let tutorialIndex = 0;
+
+function loadSelectedPlayerKey() {
+  try {
+    const stored = localStorage.getItem(PLAYER_CHARACTER_STORAGE_KEY);
+    return PLAYER_CHARACTERS[stored] ? stored : "haou";
+  } catch {
+    return "haou";
+  }
+}
+
+let selectedPlayerKey = loadSelectedPlayerKey();
+
+function getPlayerCharacter() {
+  return PLAYER_CHARACTERS[selectedPlayerKey] || PLAYER_CHARACTERS.haou;
+}
+
+function saveSelectedPlayerKey(key) {
+  selectedPlayerKey = PLAYER_CHARACTERS[key] ? key : "haou";
+  try {
+    localStorage.setItem(PLAYER_CHARACTER_STORAGE_KEY, selectedPlayerKey);
+  } catch {
+    // localStorage may be unavailable in strict/private contexts. The in-memory choice still works.
+  }
+}
+
+function setNameWithIcon(root, character) {
+  if (!root || !character) return;
+  root.replaceChildren();
+  const img = document.createElement("img");
+  img.src = character.image;
+  img.alt = "";
+  root.append(img, document.createTextNode(character.name));
+}
+
+function renderCharacterSelect() {
+  Object.values(PLAYER_CHARACTERS).forEach((character) => {
+    const button = document.querySelector(`[data-character-key="${character.key}"]`);
+    if (!button) return;
+    button.classList.toggle("selected", character.key === selectedPlayerKey);
+    button.setAttribute("aria-pressed", String(character.key === selectedPlayerKey));
+  });
+}
+
+function applyPlayerCharacterUi() {
+  const character = getPlayerCharacter();
+  renderCharacterSelect();
+  document.documentElement.style.setProperty("--player-character-icon", `url("${character.image}")`);
+
+  const heroCard = document.querySelector(".player-card.hero");
+  if (heroCard) {
+    const role = heroCard.querySelector(".role");
+    const name = heroCard.querySelector("h2");
+    const type = heroCard.querySelector("p");
+    if (role) role.textContent = character.role;
+    if (name) name.textContent = character.name;
+    if (type) type.textContent = character.type;
+  }
+
+  setNameWithIcon(document.querySelector(".turn-head-name.player strong"), character);
+  setNameWithIcon(document.querySelector(".mobile-hud-player strong"), character);
+
+  document.querySelectorAll(".mobile-insider-panel.player strong, .desktop-insider-panel.player strong").forEach((label) => {
+    label.textContent = character.key === "jin" ? "迅" : "覇王";
+  });
+
+  const vsHero = document.querySelector(".vs-panel.vs-hero");
+  if (vsHero) {
+    const img = vsHero.querySelector("img");
+    const name = vsHero.querySelector("span");
+    if (img) img.src = character.image;
+    if (name) name.textContent = character.name;
+  }
+
+  const coinPlayerName = document.querySelector(".coin-toss-names span:first-child");
+  if (coinPlayerName) coinPlayerName.textContent = character.name;
+}
+
 const slipperByName = (name) => slippers.find((slipper) => slipper.name === name);
 const slipperVisualNames = slippers.filter((slipper) => !slipper.counter).map((slipper) => slipper.name);
 const slipperVisualMap = {
@@ -1502,7 +1604,7 @@ function opponentSide(side) {
 }
 
 function sideLabel(side) {
-  return side === "player" ? "寿立覇王" : "松葉迅";
+  return side === "player" ? getPlayerCharacter().name : "松葉迅";
 }
 
 function applyScoreDamage(sourceSide, amount, sourceName) {
@@ -1901,7 +2003,7 @@ async function resetMatch() {
     state.coinTossWinner = state.firstPlayer === "remote" ? "cpu" : "player";
   }
   log("試合開始！ 狭小マンション玄関で、覇王とマッハのジンが向かい合う。");
-  log(`コイントス: ${state.coinTossWinner === "player" ? "寿立覇王" : "松葉迅"}が先攻。`);
+  log(`コイントス: ${state.coinTossWinner === "player" ? getPlayerCharacter().name : "松葉迅"}が先攻。`);
   log(`COM難易度: ${cpuProfile().label}`);
   setPhase("スリッパ配置", "第1ターンの配置上限は2足。履き数は配置数ではなく、玄関全体の評価で決まる。");
   setMessage("手持ちスリッパを選んで玄関に置こう。");
@@ -1916,7 +2018,7 @@ async function resetMatch() {
     await showCutin("松葉迅", "ENEMY FIRST", "疾履流、先に仕掛ける。");
     cpuSetupTurn();
   } else {
-    await showCutin("寿立覇王", "YOU FIRST", "玄関は、先に整えた方が強い。");
+    await showCutin(getPlayerCharacter().name, "YOU FIRST", "玄関は、先に整えた方が強い。");
     startTimer();
   }
   render();
@@ -2058,7 +2160,7 @@ async function endPlayerTurn() {
   log("ターンエンド！ 覇王は玄関から一歩下がった。");
   playSound("turn");
   render();
-  await showCutin("寿立覇王", "ターンエンド！", "さあ、履くか履かぬか。");
+  await showCutin(getPlayerCharacter().name, "ターンエンド！", "さあ、履くか履かぬか。");
   state.playerTurnsTaken += 1;
   await maybeCpuTrap();
   if (state.gameOver) return;
@@ -2173,7 +2275,7 @@ async function startPlayerTurn() {
   drawSlippers(2);
   startHaouTheme();
   render();
-  await showCutin("寿立覇王", "ターン開始！", "玄関を、もう一度整える。");
+  await showCutin(getPlayerCharacter().name, "ターン開始！", "玄関を、もう一度整える。");
   startTimer();
   setPhase("スリッパ配置", `配置上限は${maxPlacementsPerTurn()}足。履き数は配置数ではなく、玄関全体をインサイダーが見て決まる。`);
   setMessage("あなたのターン。2足補充した。");
@@ -2187,14 +2289,14 @@ async function useCounter(index = 0) {
   state.trapDetailIndex = null;
   state.selectedTrapIndex = null;
   const trap = drawTrapByIndexForSide("player", Number.isInteger(index) ? index : 0);
-  await showCutin("寿立覇王", "伏せスリッパオープン！", `${trap?.name || "湿度カウンター"}！`, {
+  await showCutin(getPlayerCharacter().name, "伏せスリッパオープン！", `${trap?.name || "湿度カウンター"}！`, {
     image: HAOU_COUNTER_IMAGE,
   });
   playSound("counter");
   triggerSlipperEvent("onReveal", { side: "player", slipper: trap });
   if (trap?.effectId && trap.effectId !== "humidity_counter") {
     log(`伏せスリッパ「${trap.name}」を公開した。`);
-    showTrapResolutionNotice("寿立覇王", trap.name, trap.text || "読み合いが動いた。", "good");
+    showTrapResolutionNotice(getPlayerCharacter().name, trap.name, trap.text || "読み合いが動いた。", "good");
     render();
     state.phaseTimeout = setTimeout(resolveCpuTurn, 1100);
     return;
@@ -2206,7 +2308,7 @@ async function useCounter(index = 0) {
     target.tags.push("湿度被弾");
     log(`湿度カウンター発動！ 「${target.name}」の高速導線が湿気で鈍る。`);
     announce(`実況: 湿度カウンター命中！ 「${target.name}」の導線が鈍った！`, "good");
-    showTrapResolutionNotice("寿立覇王", "湿度カウンター", `「${target.name}」の導線を下げた。`, "good");
+    showTrapResolutionNotice(getPlayerCharacter().name, "湿度カウンター", `「${target.name}」の導線を下げた。`, "good");
     showAudienceReaction("カウンター通ったァ！", "good");
     setMessage("湿度カウンター成功。ジンの導線を下げた。");
   } else {
@@ -2475,13 +2577,13 @@ async function checkWinner() {
       { autoCloseMs: 900 },
     );
     if (state.playerRoundWins >= MATCH_WIN_TARGET) {
-      await showCutin("寿立覇王", `GAME WIN ${state.playerRoundWins}-${state.cpuRoundWins}`, "2本先取、マッチを制した。");
+      await showCutin(getPlayerCharacter().name, `GAME WIN ${state.playerRoundWins}-${state.cpuRoundWins}`, "2本先取、マッチを制した。");
       await finishMatch("win", "score");
     } else if (state.cpuRoundWins >= MATCH_WIN_TARGET) {
       await showCutin("松葉迅", `GAME WIN ${state.playerRoundWins}-${state.cpuRoundWins}`, "疾履流、マッチを奪取。");
       await finishMatch("loss", "score");
     } else {
-      await showCutin(win ? "寿立覇王" : "松葉迅", `GAME WIN ${state.playerRoundWins}-${state.cpuRoundWins}`, win ? "この玄関、まずは取った。" : "疾風流、まず一勝。");
+      await showCutin(win ? getPlayerCharacter().name : "松葉迅", `GAME WIN ${state.playerRoundWins}-${state.cpuRoundWins}`, win ? "この玄関、まずは取った。" : "疾風流、まず一勝。");
       await openSideboardTime();
     }
   }
@@ -2579,7 +2681,7 @@ async function beginNextRound() {
   setupRound();
   applyPendingRoundStartEffects();
   await showVsScreen({ auto: true, delay: 1200 });
-  await showCutin("寿立覇王", `Round ${state.matchRound} 開始！`, "履き替えたなら、もう一度玄関へ。");
+  await showCutin(getPlayerCharacter().name, `Round ${state.matchRound} 開始！`, "履き替えたなら、もう一度玄関へ。");
   setPhase("スリッパ配置", `配置上限は${maxPlacementsPerTurn()}足。Shoe Rack後の玄関全体で履きを取りに行く。`);
   setMessage(`Round ${state.matchRound}/${MATCH_ROUNDS} 開始。手スリッパから配置しよう。`);
   if (state.firstPlayer === "cpu") {
@@ -2834,13 +2936,15 @@ function returnToTitleFromSideboard() {
 }
 
 function render() {
+  const playerCharacter = getPlayerCharacter();
+  applyPlayerCharacterUi();
   const gameApp = byId("gameApp");
   gameApp.classList.toggle("player-turn", state.started && state.turn === "player" && !state.gameOver);
   gameApp.classList.toggle("rival-turn", state.started && ["cpu-placing", "judge-cpu"].includes(state.turn) && !state.gameOver);
   byId("playerScore").textContent = state.playerScore;
   byId("cpuScore").textContent = state.cpuScore;
   byId("matchLabel").textContent = `Round ${state.matchRound || 0}/${MATCH_ROUNDS}  勝敗 ${state.playerRoundWins}-${state.cpuRoundWins}`;
-  byId("officialMatchLabel").textContent = `GAME ${state.matchRound || 0} / BO3  寿立覇王 ${state.playerRoundWins} - ${state.cpuRoundWins} 松葉迅`;
+  byId("officialMatchLabel").textContent = `GAME ${state.matchRound || 0} / BO3  ${playerCharacter.name} ${state.playerRoundWins} - ${state.cpuRoundWins} 松葉迅`;
   updateMatchTimerLabel();
   const profile = loadPlayerProfile();
   byId("playerRatingLabel").textContent = `Rating ${profile.rating}${isRatingExpired(profile.lastMatchAt) ? " / 失効" : ""}`;
@@ -3189,7 +3293,7 @@ function renderMobileBoard(id, board, side) {
   const root = byId(id);
   root.innerHTML = "";
   root.dataset.side = side === "player" ? "YOU" : "OPP";
-  root.dataset.fieldLabel = side === "player" ? "寿立覇王の玄関" : "松葉迅の玄関";
+  root.dataset.fieldLabel = side === "player" ? `${getPlayerCharacter().name}の玄関` : "松葉迅の玄関";
   const canOperate = side === "player" && state.turn === "player" && !state.gameOver && !state.cutinActive;
   const hasActive = Boolean(state.activeHandUid);
   for (let i = 0; i < field.maxBoard; i += 1) {
@@ -3227,13 +3331,14 @@ function mobileSlotBadge(index, side) {
 function mobileFieldIdentity(side) {
   const identity = document.createElement("div");
   const isPlayer = side === "player";
+  const playerCharacter = getPlayerCharacter();
   identity.className = `mobile-field-identity ${isPlayer ? "you" : "opp"}`;
   identity.innerHTML = `
     <span class="mobile-role-icon">${isPlayer ? "YOU" : "OPP"}</span>
-    <img src="${isPlayer ? "assets/haou-vs.png" : "assets/jin-vs.png"}" alt="" />
+    <img src="${isPlayer ? playerCharacter.image : "assets/jin-vs.png"}" alt="" />
     <div>
       <strong>${isPlayer ? "自分フィールド" : "相手フィールド"}</strong>
-      <small>${isPlayer ? "寿立覇王" : "松葉迅"}</small>
+      <small>${isPlayer ? playerCharacter.name : "松葉迅"}</small>
     </div>
   `;
   return identity;
@@ -3783,6 +3888,7 @@ function wait(ms) {
 }
 
 function showVsScreen(options = {}) {
+  applyPlayerCharacterUi();
   const vs = byId("vsScreen");
   vs.classList.add("show");
   vs.setAttribute("aria-hidden", "false");
@@ -3810,6 +3916,8 @@ function showVsScreen(options = {}) {
 }
 
 function showCoinTossScreen(options = {}) {
+  applyPlayerCharacterUi();
+  const playerCharacter = getPlayerCharacter();
   const screen = byId("coinTossScreen");
   const button = byId("coinFlipBtn");
   const prompt = byId("coinPrompt");
@@ -3851,7 +3959,7 @@ function showCoinTossScreen(options = {}) {
         screen.classList.remove("flipping", "shake");
         screen.classList.add(winner === "player" ? "result-player" : "result-cpu");
         result.textContent = winner === "player" ? "スリッパ！ YOU FIRST" : "靴！ ENEMY FIRST";
-        prompt.textContent = winner === "player" ? "寿立覇王が先攻を選択" : "松葉迅が先攻を選択";
+        prompt.textContent = winner === "player" ? `${playerCharacter.name}が先攻を選択` : "松葉迅が先攻を選択";
         playSound("result");
 
         setTimeout(() => {
@@ -4080,6 +4188,8 @@ function showCutin(actor, title, text, options = {}) {
 async function showCharacterSelect() {
   requestPlayFullscreen();
   if (await ensureFreshBuildBeforePlay()) return;
+  renderCharacterSelect();
+  applyPlayerCharacterUi();
   byId("titleScreen").classList.add("screen-hidden");
   byId("tutorialScreen").classList.add("screen-hidden");
   byId("characterSelectScreen").classList.remove("screen-hidden");
@@ -4157,8 +4267,10 @@ async function returnToTitleFromBuilder() {
   byId("titleScreen").classList.remove("screen-hidden");
 }
 
-function enterMainScreen() {
+function enterMainScreen(characterKey = selectedPlayerKey) {
   requestPlayFullscreen();
+  saveSelectedPlayerKey(characterKey);
+  applyPlayerCharacterUi();
   byId("characterSelectScreen").classList.add("screen-hidden");
   byId("gameApp").classList.remove("screen-hidden");
   showIdle();
@@ -4401,7 +4513,8 @@ byId("builderBackBtn").addEventListener("click", returnToTitleFromBuilder);
 byId("saveDeckBtn").addEventListener("click", saveEditingEntrance);
 byId("copyDeckBtn").addEventListener("click", copyEditingEntrance);
 byId("newDeckBtn").addEventListener("click", createNewEntrance);
-byId("selectHaouBtn").addEventListener("click", enterMainScreen);
+byId("selectHaouBtn").addEventListener("click", () => enterMainScreen("haou"));
+byId("selectJinBtn").addEventListener("click", () => enterMainScreen("jin"));
 byId("bgmVolume").addEventListener("input", (event) => updateBgmVolume(event.target.value));
 byId("seVolume").addEventListener("input", (event) => {
   settings.seVolume = Number(event.target.value);
@@ -4445,5 +4558,6 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 applyDeviceMode();
 initHandDrag();
 setCpuDifficulty(settings.cpuDifficulty);
+applyPlayerCharacterUi();
 showIdle();
 checkBuildVersionOnBoot();
