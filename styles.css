@@ -327,7 +327,7 @@ body[data-screen-size="hdd"] .card {
 
 .builder-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-columns: minmax(0, 1fr) minmax(170px, 220px) auto auto auto;
   gap: 8px;
 }
 
@@ -339,6 +339,26 @@ body[data-screen-size="hdd"] .card {
   background: #22252b;
   color: var(--ink);
   font-weight: 800;
+}
+
+.deck-owner-field {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.deck-owner-field select {
+  min-height: 42px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #22252b;
+  color: var(--ink);
+  font-weight: 900;
 }
 
 .builder-columns {
@@ -376,6 +396,17 @@ body[data-screen-size="hdd"] .card {
   padding: 0 10px;
 }
 
+.build-item.invalid {
+  border-color: rgba(231, 111, 81, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(231, 111, 81, 0.22);
+}
+
+.build-item.invalid span::after {
+  content: " 使用不可";
+  color: #f2a191;
+  font-size: 11px;
+}
+
 .empty-build {
   border: 1px dashed #555b66;
   border-radius: 8px;
@@ -391,6 +422,20 @@ body[data-screen-size="hdd"] .card {
   border-radius: 8px;
   padding: 10px;
   background: #20252e;
+}
+
+.pool-card.restricted {
+  border-color: rgba(231, 111, 81, 0.62);
+  filter: grayscale(0.35);
+  opacity: 0.74;
+}
+
+.pool-card.restricted::after {
+  content: attr(data-restricted-message);
+  grid-column: 1 / -1;
+  color: #f2a191;
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .pool-card strong,

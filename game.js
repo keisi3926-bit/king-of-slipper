@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.04-character-reference-v25";
+const APP_VERSION = "2026.06.05-entrance-owner-v26";
 const VERSION_URL = "version.json";
 const PLAYER_CHARACTER_STORAGE_KEY = "kos_player_character_v1";
 const PLAYER_CHARACTERS = {
@@ -51,6 +51,14 @@ const PLAYER_CHARACTERS = {
 };
 PLAYER_CHARACTERS.jin = PLAYER_CHARACTERS.matsuba_jin;
 
+const ENTRANCE_OWNER_CHARACTERS = [
+  { id: "haou", displayName: "寿立覇王", type: "バランス型" },
+  { id: "matsuba_jin", displayName: "松葉迅", type: "高速型 / 先攻速攻系" },
+  { id: "tatamino_shizuma", displayName: "畳野静馬", type: "静音・所作型" },
+  { id: "momota_kinichiro", displayName: "百田均一郎", type: "百均・実用型" },
+  { id: "doujouin_reika", displayName: "堂上院麗華", type: "格式・高級型" },
+];
+
 const slippers = [
   {
     name: "来客用レザー",
@@ -78,6 +86,25 @@ const slippers = [
     dignity: 1,
     tags: ["速度", "子供", "EVA"],
     text: "軽い。速い。狭い玄関でとにかく先に並ぶ。",
+  },
+  {
+    id: "slipper_matsuba_jin_signature",
+    name: "疾風の松葉スリッパ",
+    style: "高速型",
+    type: "entrance",
+    ownerType: "character",
+    allowedCharacterIds: ["matsuba_jin"],
+    comfort: 2,
+    flow: 5,
+    dignity: 2,
+    attack: 2,
+    defense: 1,
+    speed: 5,
+    walkValue: 2,
+    tags: ["松葉迅専用", "速度", "先攻速攻"],
+    text: "松葉迅専用。高速展開用の専用スリッパ。",
+    visualSet: "new",
+    visualIndex: 4,
   },
   {
     name: "健康サンダル",
@@ -457,6 +484,7 @@ const sampleEntrances = [
   {
     id: "sample-haou",
     name: "寿立覇王サンプル",
+    ownerCharacterId: "haou",
     entrance: [
       "来客用レザー",
       "来客用レザー",
@@ -473,9 +501,10 @@ const sampleEntrances = [
     shoeRack: ["トレードバースト", "リザーブガード", "ロックチェンジャー"],
   },
   {
-    id: "sample-jin",
-    name: "松葉迅サンプル",
-    entrance: [...cpuDeckNames],
+    id: "deck_matsuba_jin_default",
+    name: "松葉迅エントランス",
+    ownerCharacterId: "matsuba_jin",
+    entrance: ["疾風の松葉スリッパ", ...cpuDeckNames.slice(0, MAX_ENTRANCE_SIZE - 1)],
     traps: ["瞬間逆置き", "瞬間逆置き", "瞬間逆置き"],
     shoeRack: ["トレードバースト", "ブラフマスター", "シャドウリンク"],
   },
@@ -1586,6 +1615,31 @@ function fillUnique(names, candidates, size, shouldFill) {
   return next;
 }
 
+function normalizeOwnerCharacterId(ownerCharacterId) {
+  if (ownerCharacterId === "jin") return "matsuba_jin";
+  return ENTRANCE_OWNER_CHARACTERS.some((character) => character.id === ownerCharacterId) ? ownerCharacterId : "haou";
+}
+
+function entranceOwnerLabel(ownerCharacterId) {
+  const owner = ENTRANCE_OWNER_CHARACTERS.find((character) => character.id === normalizeOwnerCharacterId(ownerCharacterId));
+  return owner ? owner.displayName : "寿立覇王";
+}
+
+function slipperAllowedForOwner(slipperOrName, ownerCharacterId) {
+  const slipper = typeof slipperOrName === "string" ? slipperByName(slipperOrName) : slipperOrName;
+  const allowed = slipper?.allowedCharacterIds;
+  if (!Array.isArray(allowed) || allowed.length === 0) return true;
+  return allowed.includes(normalizeOwnerCharacterId(ownerCharacterId));
+}
+
+function restrictedSlippersForDeck(deck) {
+  if (!deck) return [];
+  const ownerCharacterId = normalizeOwnerCharacterId(deck.ownerCharacterId);
+  return [...(deck.entrance || []), ...(deck.traps || []), ...(deck.shoeRack || [])]
+    .filter((name, index, list) => list.indexOf(name) === index)
+    .filter((name) => !slipperAllowedForOwner(name, ownerCharacterId));
+}
+
 function normalizeEntrance(deck) {
   const normalNames = slippers.filter((slipper) => !slipper.counter).map((slipper) => slipper.name);
   const allNames = slippers.map((slipper) => slipper.name);
@@ -1594,6 +1648,9 @@ function normalizeEntrance(deck) {
   const oldFullRack = Array.isArray(deck?.shoeRack) && deck.shoeRack.length >= MAX_SHOE_RACK_SIZE;
   return {
     ...deck,
+    id: deck?.id === "sample-jin" ? "deck_matsuba_jin_default" : deck?.id,
+    name: deck?.id === "sample-jin" && deck?.name === "松葉迅サンプル" ? "松葉迅エントランス" : deck?.name,
+    ownerCharacterId: deck?.id === "sample-jin" ? "matsuba_jin" : normalizeOwnerCharacterId(deck?.ownerCharacterId),
     entrance: fillLimitedEntrance(deck?.entrance, normalNames, oldFullEntrance),
     traps: fillUnique(deck?.traps, allNames, MAX_TRAP_SIZE, oldFullTraps),
     shoeRack:
@@ -1872,7 +1929,13 @@ function loadSavedEntrances() {
     const raw = localStorage.getItem(ENTRANCE_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) return parsed.slice(0, MAX_SAVED_ENTRANCES).map(normalizeEntrance);
+      if (Array.isArray(parsed) && parsed.length) {
+        const normalized = parsed.slice(0, MAX_SAVED_ENTRANCES).map(normalizeEntrance);
+        structuredClone(sampleEntrances).map(normalizeEntrance).forEach((sample) => {
+          if (normalized.length < MAX_SAVED_ENTRANCES && !normalized.some((deck) => deck.id === sample.id)) normalized.push(sample);
+        });
+        return normalized;
+      }
     }
   } catch {
     // Fall through to samples.
@@ -1892,9 +1955,25 @@ function getSelectedEntrance() {
   return savedEntrances.find((deck) => deck.id === selectedEntranceId) || savedEntrances[0] || sampleEntrances[0];
 }
 
+function selectEntranceForOwner(ownerCharacterId) {
+  const owner = normalizeOwnerCharacterId(ownerCharacterId);
+  const selected = getSelectedEntrance();
+  if (selected && normalizeOwnerCharacterId(selected.ownerCharacterId) === owner && isCompleteEntrance(selected)) return;
+  const matching = savedEntrances.find((deck) => normalizeOwnerCharacterId(deck.ownerCharacterId) === owner && isCompleteEntrance(deck));
+  if (matching) {
+    selectedEntranceId = matching.id;
+    editingEntranceId = matching.id;
+    persistEntrances();
+  }
+}
+
 function validateEntrance(deck) {
   if (!deck) return ["エントランスが設定されていません。"];
   const messages = [];
+  const restricted = restrictedSlippersForDeck(deck);
+  if (restricted.length) {
+    messages.push(`このエントランスには、${entranceOwnerLabel(deck.ownerCharacterId)}では使用できない専用スリッパが含まれています: ${restricted.join("、")}`);
+  }
   const duplicateMessages = [];
   const overLimitEntrance = uniqueNames(deck.entrance).filter((name) => countName(deck.entrance, name) > MAX_ENTRANCE_SAME_NAME);
   if (overLimitEntrance.length) duplicateMessages.push(`同名スリッパはエントランスに2足までです: ${overLimitEntrance.join("、")}`);
@@ -1953,6 +2032,7 @@ function makeBlankEntrance() {
   return {
     id: `deck-${Date.now()}`,
     name: `エントランス${Math.min(savedEntrances.length + 1, MAX_SAVED_ENTRANCES)}`,
+    ownerCharacterId: "haou",
     entrance: [],
     traps: [],
     shoeRack: [],
@@ -1962,6 +2042,9 @@ function makeBlankEntrance() {
 async function resetMatch() {
   const selectedEntrance = getSelectedEntrance();
   const errors = validateEntrance(selectedEntrance);
+  if (selectedEntrance && normalizeOwnerCharacterId(selectedEntrance.ownerCharacterId) !== normalizeOwnerCharacterId(selectedPlayerKey)) {
+    errors.unshift(`${playerDisplayName()}用のエントランスを選択してください。現在の選択: ${entranceOwnerLabel(selectedEntrance.ownerCharacterId)}用`);
+  }
   if (errors.length) {
     await showBuilderDialog(
       "構築が未完成です",
@@ -4341,6 +4424,7 @@ async function returnToTitleFromBuilder() {
 function enterMainScreen(characterKey = selectedPlayerKey) {
   requestPlayFullscreen();
   saveSelectedPlayerKey(characterKey);
+  selectEntranceForOwner(selectedPlayerKey);
   applyPlayerCharacterUi();
   byId("characterSelectScreen").classList.add("screen-hidden");
   byId("gameApp").classList.remove("screen-hidden");
@@ -4357,6 +4441,7 @@ function renderEntranceBuilder() {
   const current = getEditingEntrance();
   byId("deckSlotCount").textContent = `${savedEntrances.length}/${MAX_SAVED_ENTRANCES}`;
   byId("deckNameInput").value = current?.name || "";
+  renderDeckOwnerSelect(current);
   byId("entranceCount").textContent = `${current?.entrance.length || 0}/${MAX_ENTRANCE_SIZE}`;
   byId("trapBuildCount").textContent = `${current?.traps.length || 0}/${MAX_TRAP_SIZE}`;
   byId("shoeRackBuildCount").textContent = `${current?.shoeRack.length || 0}/${MAX_SHOE_RACK_SIZE}`;
@@ -4368,7 +4453,7 @@ function renderEntranceBuilder() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `saved-deck ${deck.id === editingEntranceId ? "active" : ""} ${deck.id === selectedEntranceId ? "selected" : ""} ${complete ? "" : "incomplete"}`;
-    button.innerHTML = `<strong>${deck.name}</strong><span>${deck.entrance.length}/10 足・伏せ ${deck.traps.length}/3・Rack ${deck.shoeRack?.length || 0}/3 ${complete ? "" : "未完成"}</span>`;
+    button.innerHTML = `<strong>${deck.name}</strong><span>${entranceOwnerLabel(deck.ownerCharacterId)} / ${deck.entrance.length}/10 足・伏せ ${deck.traps.length}/3・Rack ${deck.shoeRack?.length || 0}/3 ${complete ? "" : "未完成"}</span>`;
     button.addEventListener("click", async () => {
       editingEntranceId = deck.id;
       if (complete) {
@@ -4385,13 +4470,26 @@ function renderEntranceBuilder() {
     deckList.append(button);
   });
 
-  renderBuildList("entranceBuildList", current?.entrance || [], "entrance");
-  renderBuildList("trapBuildList", current?.traps || [], "traps");
-  renderBuildList("shoeRackBuildList", current?.shoeRack || [], "shoeRack");
+  renderBuildList("entranceBuildList", current?.entrance || [], "entrance", current);
+  renderBuildList("trapBuildList", current?.traps || [], "traps", current);
+  renderBuildList("shoeRackBuildList", current?.shoeRack || [], "shoeRack", current);
   renderOwnedPool(current);
 }
 
-function renderBuildList(id, names, kind) {
+function renderDeckOwnerSelect(deck) {
+  const select = byId("deckOwnerSelect");
+  if (!select) return;
+  select.innerHTML = "";
+  ENTRANCE_OWNER_CHARACTERS.forEach((character) => {
+    const option = document.createElement("option");
+    option.value = character.id;
+    option.textContent = `${character.displayName} / ${character.type}`;
+    select.append(option);
+  });
+  select.value = normalizeOwnerCharacterId(deck?.ownerCharacterId);
+}
+
+function renderBuildList(id, names, kind, deck) {
   const root = byId(id);
   root.innerHTML = "";
   if (!names.length) {
@@ -4400,7 +4498,8 @@ function renderBuildList(id, names, kind) {
   }
   names.forEach((name, index) => {
     const item = document.createElement("div");
-    item.className = "build-item";
+    const invalid = !slipperAllowedForOwner(name, deck?.ownerCharacterId);
+    item.className = `build-item ${invalid ? "invalid" : ""}`;
     item.innerHTML = `${slipperArt(name, "build-art")}<span>${name}</span><button type="button">外す</button>`;
     item.querySelector("button").addEventListener("click", () => removeFromBuild(kind, index));
     root.append(item);
@@ -4411,19 +4510,21 @@ function renderOwnedPool(current) {
   const root = byId("ownedSlipperPool");
   root.innerHTML = "";
   slippers.forEach((slipper) => {
+    const allowedForOwner = slipperAllowedForOwner(slipper, current?.ownerCharacterId);
     const inEntrance = current?.entrance.filter((name) => name === slipper.name).length || 0;
     const inTraps = current?.traps.filter((name) => name === slipper.name).length || 0;
     const inRack = current?.shoeRack?.filter((name) => name === slipper.name).length || 0;
     const card = document.createElement("article");
-    card.className = "pool-card";
+    card.className = `pool-card ${allowedForOwner ? "" : "restricted"}`;
+    if (!allowedForOwner) card.dataset.restrictedMessage = `${entranceOwnerLabel(current?.ownerCharacterId)}では使用できない専用スリッパです`;
     card.innerHTML = `
       ${slipperArt(slipper, "pool-art")}
       <div><strong>${slipper.name}</strong><span>${slipper.style} / 所持 ∞ / 採用 ${inEntrance + inTraps + inRack}</span></div>
       <p>${slipper.text}</p>
       <div class="pool-actions">
-        <button type="button" ${slipper.counter ? "disabled" : ""}>エントランスへ</button>
-        <button type="button">伏せへ</button>
-        <button type="button" ${slipper.counter ? "disabled" : ""}>Rackへ</button>
+        <button type="button" ${slipper.counter || !allowedForOwner ? "disabled" : ""}>エントランスへ</button>
+        <button type="button" ${!allowedForOwner ? "disabled" : ""}>伏せへ</button>
+        <button type="button" ${slipper.counter || !allowedForOwner ? "disabled" : ""}>Rackへ</button>
       </div>
     `;
     const [entranceButton, trapButton, rackButton] = card.querySelectorAll("button");
@@ -4442,6 +4543,10 @@ async function addToBuild(kind, name) {
   const limits = { entrance: MAX_ENTRANCE_SIZE, traps: MAX_TRAP_SIZE, shoeRack: MAX_SHOE_RACK_SIZE };
   const limit = limits[kind];
   if (!deck || deck[kind].length >= limit) return;
+  if (!slipperAllowedForOwner(name, deck.ownerCharacterId)) {
+    await showBuilderDialog("使用できません", `${entranceOwnerLabel(deck.ownerCharacterId)}では使用できない専用スリッパです。`, { confirmText: "OK", danger: true });
+    return;
+  }
   if (kind === "entrance") {
     if (countName(deck.entrance, name) >= MAX_ENTRANCE_SAME_NAME) {
       await showBuilderDialog("投入上限", "同名スリッパはエントランスに2足までです。", { confirmText: "OK" });
@@ -4453,6 +4558,22 @@ async function addToBuild(kind, name) {
   deck[kind].push(name);
   persistEntrances();
   renderEntranceBuilder();
+}
+
+async function changeEditingEntranceOwner(ownerCharacterId) {
+  const deck = getEditingEntrance();
+  if (!deck) return;
+  deck.ownerCharacterId = normalizeOwnerCharacterId(ownerCharacterId);
+  const restricted = restrictedSlippersForDeck(deck);
+  persistEntrances();
+  renderEntranceBuilder();
+  if (restricted.length) {
+    await showBuilderDialog(
+      "専用スリッパの制限",
+      `${entranceOwnerLabel(deck.ownerCharacterId)}では使用できない専用スリッパがあります。保存前に外してください。<br><br>${restricted.join("<br>")}`,
+      { confirmText: "OK", danger: true },
+    );
+  }
 }
 
 function removeFromBuild(kind, index) {
@@ -4467,6 +4588,16 @@ async function saveEditingEntrance() {
   const deck = getEditingEntrance();
   if (!deck) return;
   deck.name = byId("deckNameInput").value.trim() || deck.name;
+  const restricted = restrictedSlippersForDeck(deck);
+  if (restricted.length) {
+    await showBuilderDialog(
+      "保存できません",
+      `このエントランスには、選択中のキャラクターでは使用できない専用スリッパが含まれています。<br><br>${restricted.join("<br>")}`,
+      { confirmText: "OK", danger: true },
+    );
+    renderEntranceBuilder();
+    return;
+  }
   const errors = validateEntrance(deck);
   if (errors.length) {
     const confirmed = await showBuilderDialog(
@@ -4584,6 +4715,7 @@ byId("builderBackBtn").addEventListener("click", returnToTitleFromBuilder);
 byId("saveDeckBtn").addEventListener("click", saveEditingEntrance);
 byId("copyDeckBtn").addEventListener("click", copyEditingEntrance);
 byId("newDeckBtn").addEventListener("click", createNewEntrance);
+byId("deckOwnerSelect").addEventListener("change", (event) => changeEditingEntranceOwner(event.target.value));
 byId("selectHaouBtn").addEventListener("click", () => enterMainScreen("haou"));
 byId("selectJinBtn").addEventListener("click", () => enterMainScreen("matsuba_jin"));
 byId("bgmVolume").addEventListener("input", (event) => updateBgmVolume(event.target.value));
