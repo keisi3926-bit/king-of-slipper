@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.05-entrance-owner-v26";
+const APP_VERSION = "2026.06.05-room-state-v27";
 const VERSION_URL = "version.json";
 const PLAYER_CHARACTER_STORAGE_KEY = "kos_player_character_v1";
 const PLAYER_CHARACTERS = {
@@ -722,6 +722,10 @@ const roomSync = {
   code: null,
   role: null,
   online: false,
+  mode: "local_cpu",
+  status: "idle",
+  players: {},
+  initialGameStateReceived: false,
   seenActions: new Set(),
 };
 
@@ -1264,15 +1268,20 @@ function renderRanking() {
 }
 
 function createRoom() {
+  roomSync.mode = "online_private";
+  roomSync.status = "room_create";
   return connectRoom(generateRoomCode(), "host");
 }
 
 function joinRoom(roomCode) {
   const code = normalizeRoomCode(roomCode);
   if (!code) {
-    roomLog("Enter a room code first.");
+    roomLog("あいことばを入力してください");
+    renderRoomState({ code: "------", role: "-", status: "idle", players: [] });
     return null;
   }
+  roomSync.mode = "online_private";
+  roomSync.status = "room_join";
   return connectRoom(code, "guest");
 }
 
@@ -1284,6 +1293,10 @@ function leaveRoom() {
   roomSync.code = null;
   roomSync.role = null;
   roomSync.online = false;
+  roomSync.mode = "local_cpu";
+  roomSync.status = "idle";
+  roomSync.players = {};
+  roomSync.initialGameStateReceived = false;
   state.onlineMode = false;
   state.onlineRole = null;
   localStorage.removeItem(ROOM_STORAGE_KEY);
@@ -1295,6 +1308,9 @@ function leaveRoom() {
 function syncMatchState() {
   if (!roomSync.room) return null;
   const snapshot = {
+    mode: roomSync.mode,
+    status: roomSync.status,
+    turnOwner: state.turn,
     playerScore: state.playerScore,
     cpuScore: state.cpuScore,
     playerBoard: state.playerBoard,
@@ -1323,6 +1339,13 @@ async function receiveOpponentAction(message, id) {
   const { action } = message;
   if (action.type === "start") {
     roomLog("Opponent started the match.");
+    roomSync.initialGameStateReceived = Boolean(action.initialGameState);
+    const blocked = onlineMatchStartBlockReason();
+    if (blocked) {
+      roomDebug("match start blocked reason", { reason: blocked, source: "opponent-start" });
+      roomLog(`開始待機: ${blocked}`);
+      return;
+    }
     if (!state.started) startOnlineMatch(false);
     return;
   }
@@ -1384,6 +1407,44 @@ function generateRoomCode() {
   return Array.from({ length: 6 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
 }
 
+function setRoomStatus(status) {
+  roomSync.status = status;
+  if (roomSync.room && roomSync.code) {
+    roomSync.room.get("meta").put({ code: roomSync.code, status, updatedAt: Date.now() });
+  }
+}
+
+function activeRoomPlayers() {
+  return Object.values(roomSync.players || {}).filter(Boolean);
+}
+
+function hasOnlineOpponent() {
+  return Boolean(roomSync.role && roomSync.players?.host && roomSync.players?.guest);
+}
+
+function onlineMatchStartBlockReason() {
+  if (!roomSync.online || !roomSync.code || !roomSync.room) return "部屋に入っていません";
+  const players = activeRoomPlayers();
+  if (players.length < 2 || !roomSync.players.host || !roomSync.players.guest) return "対戦相手を待っています";
+  return "";
+}
+
+function roomDebug(label, extra = {}) {
+  const snapshot = {
+    label,
+    mode: roomSync.mode,
+    status: roomSync.status,
+    code: roomSync.code,
+    role: roomSync.role,
+    playersCount: activeRoomPlayers().length,
+    turnOwner: state.turn,
+    gameStarted: state.started,
+    ...extra,
+  };
+  console.info("[KOS room]", snapshot);
+  roomLog(`${label} / mode=${snapshot.mode} / state=${snapshot.status} / players=${snapshot.playersCount} / turn=${snapshot.turnOwner || "none"}`);
+}
+
 function connectRoom(code, role) {
   const gun = initRoomGun();
   if (!gun) {
@@ -1395,6 +1456,10 @@ function connectRoom(code, role) {
   roomSync.code = code;
   roomSync.role = role;
   roomSync.online = true;
+  roomSync.mode = "online_private";
+  roomSync.status = role === "host" ? "waiting_opponent" : "room_join";
+  roomSync.players = {};
+  roomSync.initialGameStateReceived = false;
   roomSync.seenActions.clear();
   roomSync.room = gun.get("king-of-slipper").get("rooms").get(code);
   localStorage.setItem(ROOM_SYNC_STORAGE_KEY, JSON.stringify({ code, role, updatedAt: new Date().toISOString() }));
@@ -1404,13 +1469,28 @@ function connectRoom(code, role) {
     ready: true,
     at: Date.now(),
   });
-  roomSync.room.get("meta").put({ code, status: "waiting", updatedAt: Date.now() });
-  roomSync.room.get("players").map().on(() => renderRoomState());
-  roomSync.room.get("meta").on(() => renderRoomState());
+  roomSync.room.get("meta").put({ code, status: roomSync.status, mode: roomSync.mode, updatedAt: Date.now() });
+  roomSync.room.get("players").map().on((player, playerRole) => {
+    if (player && player.role) roomSync.players[playerRole] = player;
+    else delete roomSync.players[playerRole];
+    if (hasOnlineOpponent() && roomSync.status !== "playing" && roomSync.status !== "ended") {
+      roomSync.status = "ready_check";
+      roomSync.room.get("meta").put({ code, status: "ready_check", mode: roomSync.mode, updatedAt: Date.now() });
+      roomSync.room.get("roles").put({ player1: "host", player2: "guest", updatedAt: Date.now() });
+    }
+    renderRoomState();
+    roomDebug("players count", { players: Object.keys(roomSync.players) });
+  });
+  roomSync.room.get("meta").on((meta) => {
+    if (meta?.status) roomSync.status = meta.status;
+    renderRoomState();
+  });
   roomSync.room.get("actions").map().on((action, id) => receiveOpponentAction(action, id));
-  const room = { code, role, status: "online-waiting", players: [roomPlayerName(role)], updatedAt: new Date().toISOString() };
+  const room = { code, role, status: roomSync.status, players: [roomPlayerName(role)], updatedAt: new Date().toISOString() };
   localStorage.setItem(ROOM_STORAGE_KEY, JSON.stringify(room));
-  roomLog(role === "host" ? `Room created: ${code}` : `Joined room: ${code}`);
+  roomLog(role === "host" ? `room created: ${code}` : `room joined: ${code}`);
+  roomLog(role === "host" ? `あいことば：${code} / 対戦相手を待っています……` : `あいことば：${code} / 入室しました。相手確認中……`);
+  roomDebug(role === "host" ? "room created" : "room joined");
   renderRoomState(room);
   return room;
 }
@@ -1429,14 +1509,25 @@ async function startOnlineMatch(announceStart = true) {
     roomLog("Create or join a room first.");
     return;
   }
+  const blocked = onlineMatchStartBlockReason();
+  if (blocked) {
+    roomDebug("match start blocked reason", { reason: blocked });
+    roomLog(`開始できません: ${blocked}`);
+    renderRoomState();
+    return;
+  }
+  roomSync.status = "playing";
+  roomSync.initialGameStateReceived = true;
+  setRoomStatus("playing");
   state.onlineMode = true;
   state.onlineRole = roomSync.role;
   byId("roomDialog").close();
   byId("titleScreen").classList.add("screen-hidden");
   byId("characterSelectScreen").classList.add("screen-hidden");
   byId("gameApp").classList.remove("screen-hidden");
-  if (announceStart) sendPlayerAction({ type: "start" });
+  roomDebug("current game state", { action: "startOnlineMatch", announceStart });
   await resetMatch();
+  if (announceStart) sendPlayerAction({ type: "start", initialGameState: syncMatchState() || { at: Date.now() } });
 }
 
 function serializeEntranceForAsync(entrance = getSelectedEntrance()) {
@@ -1461,10 +1552,32 @@ function renderRoomState(room = null) {
   }
   byId("roomCodeOutput").textContent = `CODE ${current?.code || "------"}`;
   const startButton = byId("startOnlineMatchBtn");
-  if (startButton) startButton.disabled = !roomSync.online || !roomSync.code;
+  const joinButton = byId("joinRoomBtn");
+  const codeInput = byId("roomCodeInput");
+  const blocked = onlineMatchStartBlockReason();
+  if (startButton) startButton.disabled = Boolean(blocked);
+  if (joinButton && codeInput) joinButton.disabled = !normalizeRoomCode(codeInput.value);
   byId("roomState").textContent = current
     ? `ONLINE β / 役割: ${current.role} / 状態: ${current.status} / 合言葉: ${current.code}`
     : "まだ部屋に入っていません。部屋を作るか、相手の合言葉を入力してください。";
+  refreshRoomStateText(current);
+}
+
+function refreshRoomStateText(room = null) {
+  let current = room;
+  if (!current) {
+    try {
+      current = JSON.parse(localStorage.getItem(ROOM_STORAGE_KEY) || "null");
+    } catch {
+      current = null;
+    }
+  }
+  const blocked = onlineMatchStartBlockReason();
+  const playersCount = activeRoomPlayers().length;
+  const status = roomSync.status || current?.status || "idle";
+  byId("roomState").textContent = current
+    ? `ONLINE β / 役割: ${current.role} / 状態: ${status} / 人数: ${playersCount}/2 / あいことば: ${current.code}${blocked ? ` / ${blocked}` : ""}`
+    : "まだ部屋に入っていません。部屋を作るか、相手のあいことばを入力してください。";
 }
 
 function loadFeedbackRecords() {
@@ -2307,6 +2420,13 @@ function removeSlipper(index) {
 
 async function endPlayerTurn() {
   if (!state.started || state.gameOver || state.turn !== "player" || state.cutinActive) return;
+  if (isOnlineMatch() && !hasOnlineOpponent()) {
+    roomDebug("match start blocked reason", { reason: "相手が接続されていません", action: "endTurn" });
+    setMessage("対戦相手を待っています。相手が接続されていません。");
+    roomLog("相手が接続されていません");
+    render();
+    return;
+  }
   state.turn = "judge-player";
   clearInterval(state.interval);
   byId("timer").textContent = "停止";
@@ -2749,6 +2869,7 @@ async function finishMatch(result, reason = "score") {
   state.matchResult = result;
   state.matchPoints = result === "win" ? 3 : result === "draw" ? 1 : 0;
   state.gameOver = true;
+  if (isOnlineMatch()) setRoomStatus("ended");
   clearInterval(state.interval);
   clearInterval(state.sideboardInterval);
   stopMatchTimer();
@@ -4742,6 +4863,7 @@ document.addEventListener("pointerdown", closeTransientPanelsOnOutside);
 byId("sideboardTitleBtn").addEventListener("click", returnToTitleFromSideboard);
 byId("sideboardDoneBtn").addEventListener("click", completeSideboard);
 byId("createRoomBtn").addEventListener("click", createRoom);
+byId("roomCodeInput").addEventListener("input", () => renderRoomState());
 byId("joinRoomBtn").addEventListener("click", () => joinRoom(byId("roomCodeInput").value));
 byId("leaveRoomBtn").addEventListener("click", leaveRoom);
 byId("startOnlineMatchBtn").addEventListener("click", () => startOnlineMatch(true));
