@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.07-firebase-room-v31";
+const APP_VERSION = "2026.06.08-judge-panel-v33";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -359,6 +359,7 @@ const ROOM_STORAGE_KEY = "kos_room_mock_v1";
 const ROOM_SYNC_STORAGE_KEY = "kos_room_online_beta_v1";
 const CPU_DIFFICULTY_STORAGE_KEY = "kos_cpu_difficulty_v1";
 const FEEDBACK_STORAGE_KEY = "kos_feedback_v1";
+const ROOM_STALE_MS = 60 * 60 * 1000;
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyCdODKnuBf6aXsXW_xS8bBN2kz_v1yidpU",
   authDomain: "king-of-slipper.firebaseapp.com",
@@ -758,6 +759,7 @@ const roomSync = {
   connectedAt: 0,
   pendingStartAction: false,
   listeners: [],
+  heartbeatId: null,
 };
 
 const byId = (id) => document.getElementById(id);
@@ -1301,6 +1303,7 @@ function renderRanking() {
 function createRoom() {
   roomSync.mode = "online_private";
   roomSync.status = "room_create";
+  cleanupStaleRooms();
   return connectRoom(generateRoomCode(), "host");
 }
 
@@ -1316,10 +1319,19 @@ function joinRoom(roomCode) {
   return connectRoom(code, "guest");
 }
 
-function leaveRoom() {
-  if (roomSync.room && roomSync.role) {
-    roomSync.room.child(`players/${roomSync.role}`).update({ connected: false, ready: false, lastSeen: firebaseTimestamp() });
+function clearRoomStorage() {
+  localStorage.removeItem(ROOM_STORAGE_KEY);
+  localStorage.removeItem(ROOM_SYNC_STORAGE_KEY);
+  try {
+    sessionStorage.removeItem(ROOM_STORAGE_KEY);
+    sessionStorage.removeItem(ROOM_SYNC_STORAGE_KEY);
+  } catch {
+    // sessionStorage may be unavailable in embedded/private contexts.
   }
+}
+
+function resetRoomLocalState({ renderState = true, writeLog = true } = {}) {
+  stopRoomHeartbeat();
   clearRoomListeners();
   roomSync.room = null;
   roomSync.code = null;
@@ -1332,12 +1344,42 @@ function leaveRoom() {
   roomSync.initialGameStateReceived = false;
   roomSync.pendingStartAction = false;
   roomSync.connectedAt = 0;
+  roomSync.latestActionId = null;
+  roomSync.seenActions.clear();
   state.onlineMode = false;
   state.onlineRole = null;
-  localStorage.removeItem(ROOM_STORAGE_KEY);
-  localStorage.removeItem(ROOM_SYNC_STORAGE_KEY);
-  renderRoomState(null);
-  roomLog("Left room.");
+  clearRoomStorage();
+  if (renderState) renderRoomState(null);
+  if (writeLog) roomLog("Left room.");
+}
+
+function leaveRoom(options = {}) {
+  const room = roomSync.room;
+  const role = roomSync.role;
+  const players = { ...(roomSync.players || {}) };
+  const shouldLog = !options.silent;
+  if (!room || !role) {
+    resetRoomLocalState({ writeLog: shouldLog });
+    return Promise.resolve();
+  }
+  clearRoomListeners();
+  let closePromise;
+  if (role === "host") {
+    closePromise = room.remove();
+  } else {
+    const hostMissing = !players.host || players.host.connected === false;
+    closePromise = hostMissing
+      ? room.remove()
+      : room
+          .child("players/guest")
+          .remove()
+          .then(() => room.update({ guestId: null, status: "waiting", updatedAt: firebaseTimestamp() }));
+  }
+  resetRoomLocalState({ writeLog: shouldLog });
+  return closePromise.catch((error) => {
+    console.warn("[KOS room] leave failed", error);
+    if (shouldLog) roomLog("Firebase room leave failed.");
+  });
 }
 
 function syncMatchState() {
@@ -1493,7 +1535,10 @@ function getRoomPlayerId() {
 }
 
 function clearRoomListeners() {
-  if (!roomSync.room || !Array.isArray(roomSync.listeners)) return;
+  if (!Array.isArray(roomSync.listeners)) {
+    roomSync.listeners = [];
+    return;
+  }
   roomSync.listeners.forEach(({ ref, event, handler }) => {
     try {
       ref.off(event, handler);
@@ -1504,9 +1549,64 @@ function clearRoomListeners() {
   roomSync.listeners = [];
 }
 
+function stopRoomHeartbeat() {
+  if (roomSync.heartbeatId) clearInterval(roomSync.heartbeatId);
+  roomSync.heartbeatId = null;
+}
+
 function listenRoomRef(ref, event, handler) {
   ref.on(event, handler);
   roomSync.listeners.push({ ref, event, handler });
+}
+
+function startRoomHeartbeat() {
+  stopRoomHeartbeat();
+  roomSync.heartbeatId = setInterval(() => {
+    if (!roomSync.room || !roomSync.role) return;
+    roomSync.room.update({ updatedAt: firebaseTimestamp() }).catch(() => {});
+    roomSync.room
+      .child(`players/${roomSync.role}`)
+      .update({ connected: true, lastSeen: firebaseTimestamp() })
+      .catch(() => {});
+  }, 30000);
+}
+
+function setupRoomDisconnectCleanup(playerRef) {
+  if (!roomSync.room || !roomSync.role) return;
+  try {
+    if (roomSync.role === "host") {
+      roomSync.room.onDisconnect().remove();
+      return;
+    }
+    playerRef.onDisconnect().remove();
+    roomSync.room.child("guestId").onDisconnect().remove();
+  } catch (error) {
+    console.warn("[KOS room] onDisconnect setup failed", error);
+  }
+}
+
+function cleanupStaleRooms() {
+  const db = initRoomFirebase();
+  if (!db) return Promise.resolve();
+  const threshold = Date.now() - ROOM_STALE_MS;
+  return db
+    .ref("rooms")
+    .once("value")
+    .then((snapshot) => {
+      const rooms = snapshot.val() || {};
+      const removals = Object.entries(rooms)
+        .filter(([, room]) => {
+          const updatedAt = Number(room?.updatedAt || room?.createdAt || 0);
+          return updatedAt > 0 && updatedAt < threshold;
+        })
+        .map(([code]) => db.ref(`rooms/${code}`).remove());
+      if (removals.length) roomLog(`Cleaned stale rooms: ${removals.length}`);
+      return Promise.allSettled(removals);
+    })
+    .catch((error) => {
+      console.warn("[KOS room] stale room cleanup failed", error);
+      return null;
+    });
 }
 
 function normalizeRoomCode(roomCode = "") {
@@ -1611,7 +1711,8 @@ function connectRoom(code, role) {
     console.warn("[KOS room] player write failed", error);
     roomLog("Firebase player write failed.");
   });
-  playerRef.onDisconnect?.().update({ connected: false, ready: false, lastSeen: firebaseTimestamp() });
+  setupRoomDisconnectCleanup(playerRef);
+  startRoomHeartbeat();
 
   listenRoomRef(roomSync.room.child("players"), "value", (snapshot) => {
     roomSync.players = snapshot.val() || {};
@@ -1619,6 +1720,9 @@ function connectRoom(code, role) {
       roomSync.status = "matched";
       roomSync.room.update({ status: "matched", updatedAt: firebaseTimestamp() });
       roomSync.room.child("roles").set({ player1: "host", player2: "guest", updatedAt: firebaseTimestamp() });
+    } else if (roomSync.role === "host" && roomSync.status === "matched") {
+      roomSync.status = "waiting";
+      roomSync.room.update({ guestId: null, status: "waiting", updatedAt: firebaseTimestamp() });
     }
     localStorage.setItem(ROOM_STORAGE_KEY, JSON.stringify({
       code,
@@ -1636,6 +1740,11 @@ function connectRoom(code, role) {
   });
 
   listenRoomRef(roomSync.room, "value", (snapshot) => {
+    if (!snapshot.exists()) {
+      resetRoomLocalState({ writeLog: false });
+      roomLog("Room closed.");
+      return;
+    }
     const remoteRoom = snapshot.val() || {};
     if (remoteRoom.status) roomSync.status = remoteRoom.status;
     renderRoomState();
@@ -1690,6 +1799,7 @@ async function startOnlineMatch(announceStart = true) {
   byId("gameApp").classList.remove("screen-hidden");
   roomDebug("current game state", { action: "startOnlineMatch", announceStart });
   await resetMatch();
+  resumeBattleTheme();
   if (announceStart) sendPlayerAction({ type: "start", initialGameState: syncMatchState() || { at: Date.now() } });
 }
 
@@ -3461,6 +3571,7 @@ function render() {
   renderTraps("cpuTraps", state.cpuTrapCount);
   renderHand();
   renderMobileBattle();
+  renderJudgePanels();
   renderStampPanel();
 }
 
@@ -3486,7 +3597,7 @@ function turnTimerLabel() {
 }
 
 function updateTurnTimerDisplay() {
-  const timerNode = byId("mobileCpuScore");
+  const timerNode = byId("mobileTurnTimer");
   if (!timerNode) return;
   const urgent = state.started && !state.gameOver && state.turn === "player" && state.timer <= 3 && state.timer > 0;
   timerNode.textContent = turnTimerLabel();
@@ -3679,6 +3790,152 @@ function renderInsiders(verdicts = insiders.map((insider) => ({ insider, won: fa
   byId("verdictLabel").textContent = `${wonCount}/5 履誘`;
 }
 
+function clampValue(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function winnerWarningText() {
+  if (state.playerScore >= 4 && state.playerScore < 5) return "あと1履き！";
+  if (state.cpuScore >= 4 && state.cpuScore < 5) return "危険！ あと1人で敗北！";
+  return "";
+}
+
+function biasLabel(key = "") {
+  const labels = {
+    comfort: "履き心地",
+    flow: "導線",
+    dignity: "品格",
+  };
+  return labels[key] || key || "評価";
+}
+
+function latestVerdict(index, side) {
+  return state.insiderVerdicts?.[side]?.[index] || null;
+}
+
+function judgeCommentFor(row) {
+  if (row.secured === "player") return "これは履きたい";
+  if (row.secured === "cpu") return "相手の玄関に傾いた";
+  if (row.diff > 3) return `${biasLabel(row.insider.bias)}が刺さっている`;
+  if (row.diff < -3) return `${biasLabel(row.insider.bias)}で相手優勢`;
+  if (Math.abs(row.diff) <= 1) return "まだ迷う…";
+  return row.diff > 0 ? "悪くない玄関だ" : "少し相手寄りだ";
+}
+
+function buildJudgeRows() {
+  const playerPressure = calcPressure(state.playerBoard, "player");
+  const cpuPressure = calcPressure(state.cpuBoard, "cpu");
+  const rows = insiders.map((insider, index) => {
+    const playerVerdict = latestVerdict(index, "player");
+    const cpuVerdict = latestVerdict(index, "cpu");
+    const playerValue = playerVerdict?.score ?? Math.round((playerPressure[insider.bias] || 0) / 2);
+    const cpuValue = cpuVerdict?.score ?? Math.round((cpuPressure[insider.bias] || 0) / 2);
+    const diff = playerValue - cpuValue;
+    const playerSecured = index < Math.min(5, state.playerScore);
+    const cpuSecured = index < Math.min(5, state.cpuScore);
+    let secured = "";
+    if (playerSecured || cpuSecured) {
+      if (playerSecured && !cpuSecured) secured = "player";
+      else if (cpuSecured && !playerSecured) secured = "cpu";
+      else secured = state.playerScore >= state.cpuScore ? "player" : "cpu";
+    }
+    const lean = secured || (diff > 1 ? "player" : diff < -1 ? "cpu" : "neutral");
+    const meter = clampValue(50 + diff * 4, 8, 92);
+    return {
+      insider,
+      index,
+      playerValue,
+      cpuValue,
+      diff,
+      secured,
+      lean,
+      meter,
+      reason: playerVerdict?.reasonText || cpuVerdict?.reasonText || "",
+    };
+  });
+  const focus =
+    rows.find((row) => !row.secured && Math.abs(row.diff) <= 2) ||
+    rows.find((row) => row.reason) ||
+    rows.reduce((best, row) => (Math.abs(row.diff) > Math.abs(best.diff) ? row : best), rows[0]);
+  rows.forEach((row) => {
+    row.focused = row.index === focus.index;
+    row.comment = judgeCommentFor(row);
+  });
+  return rows;
+}
+
+function renderJudgePanel(id, rows) {
+  const root = byId(id);
+  if (!root) return;
+  const warning = winnerWarningText();
+  root.innerHTML = `
+    <div class="judge-panel-head">
+      <span>先に5人を履かせたら勝利</span>
+      <strong>審判員の評価</strong>
+      <em class="${warning ? "warning" : ""}">${warning || "履き状況"}</em>
+    </div>
+    <div class="judge-scoreline">
+      <b class="cpu">松葉迅 ${state.cpuScore}/5</b>
+      <b class="player">${playerResultName()} ${state.playerScore}/5</b>
+    </div>
+    <div class="judge-row-list">
+      ${rows
+        .map((row) => {
+          const leanText = row.secured
+            ? row.secured === "player"
+              ? "獲得"
+              : "相手獲得"
+            : row.lean === "player"
+              ? "自分寄り"
+              : row.lean === "cpu"
+                ? "相手寄り"
+                : "迷い中";
+          const sideClass = row.secured ? `secured-${row.secured}` : `${row.lean}-lean`;
+          const tags = [biasLabel(row.insider.bias), ...row.insider.wants].slice(0, 4);
+          return `
+            <article class="judge-eval-row ${sideClass} ${row.focused ? "focused" : ""}" style="--judge-pos:${row.meter}%">
+              <div class="judge-eval-avatar">${row.index + 1}</div>
+              <div class="judge-eval-main">
+                <div class="judge-eval-title">
+                  <strong>${escapeHtml(row.insider.name)}</strong>
+                  <span>${leanText}</span>
+                </div>
+                <div class="judge-eval-meter"><i></i></div>
+                <div class="judge-eval-tags">
+                  ${tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}
+                </div>
+                ${row.focused ? `<p class="judge-eval-speech">${escapeHtml(row.comment)}</p>` : ""}
+              </div>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function renderJudgementSummary(rows) {
+  const root = byId("mobileJudgementSummary");
+  if (!root) return;
+  const focus = rows.find((row) => row.focused) || rows[0];
+  if (!focus) {
+    root.textContent = "";
+    return;
+  }
+  const leader = focus.lean === "player" ? playerShortName() : focus.lean === "cpu" ? "迅" : "互角";
+  root.innerHTML = `
+    <strong>${escapeHtml(focus.insider.name)}</strong>
+    <span>${escapeHtml(focus.comment)} / ${biasLabel(focus.insider.bias)} ${leader}</span>
+  `;
+}
+
+function renderJudgePanels() {
+  const rows = buildJudgeRows();
+  renderJudgePanel("desktopJudgePanel", rows);
+  renderJudgePanel("mobileJudgePanel", rows);
+  renderJudgementSummary(rows);
+}
+
 function statPill(label, value) {
   return `<span class="stat-pill"><b>${label}</b><i>${value}</i></span>`;
 }
@@ -3724,16 +3981,17 @@ function renderMobileBattle() {
   mobileRoot.classList.toggle("log-open", state.mobileLogOpen);
   mobileRoot.classList.toggle("trap-open", state.mobileTrapOpen);
   mobileRoot.dataset.handSide = state.mobileHandSide || "player";
-  byId("mobilePlayerScore").textContent = state.playerScore;
+  byId("mobilePlayerScore").textContent = `${state.playerScore}/5`;
+  byId("mobileCpuScore").textContent = `${state.cpuScore}/5`;
   updateTurnTimerDisplay();
   byId("mobilePlayerInsiderCount").textContent = `${Math.min(5, state.playerScore)}/5`;
   byId("mobileCpuInsiderCount").textContent = `${Math.min(5, state.cpuScore)}/5`;
   updateMobileInsiderIcons(".mobile-insider-panel.player", state.playerScore, "player");
   updateMobileInsiderIcons(".mobile-insider-panel.rival", state.cpuScore, "cpu");
   byId("mobilePlayerMeta").textContent = `Rating ${profile.rating}`;
-  byId("mobileGameLabel").textContent = `GAME ${state.matchRound || 0}/BO3 ${state.playerRoundWins}-${state.cpuRoundWins}`;
+  byId("mobileGameLabel").textContent = `BO ${state.playerRoundWins}-${state.cpuRoundWins}`;
   byId("mobileTurnLabel").textContent = getTurnLabel();
-  byId("mobileTimeLabel").textContent = formatClock(state.matchSeconds || MATCH_SECONDS);
+  byId("mobileTimeLabel").textContent = `残り ${formatClock(state.matchSeconds || MATCH_SECONDS)}`;
   byId("mobileStartBtn").hidden = state.started;
   byId("mobileStartBtn").disabled = state.cutinActive || state.started;
   byId("mobileEndTurnBtn").disabled = state.turn !== "player" || state.gameOver || state.cutinActive;
@@ -4666,6 +4924,17 @@ function playSound(kind) {
   });
 }
 
+function resumeBattleTheme() {
+  if (!state.started || state.gameOver) return;
+  if (state.turn === "player") {
+    startHaouTheme();
+    return;
+  }
+  if (state.turn === "online-waiting" || state.turn === "cpu-placing" || state.turn === "judge-cpu") {
+    startJinTheme();
+  }
+}
+
 function startHaouTheme() {
   initAudio();
   stopJinTheme();
@@ -5185,6 +5454,12 @@ byId("shareFeedbackXBtn").addEventListener("click", shareFeedbackToX);
 document.addEventListener("pointerdown", unlockAudio, { once: true });
 window.addEventListener("resize", applyDeviceMode);
 window.addEventListener("orientationchange", () => setTimeout(applyDeviceMode, 150));
+window.addEventListener("beforeunload", () => {
+  if (roomSync.online) leaveRoom({ silent: true });
+});
+window.addEventListener("pagehide", () => {
+  if (roomSync.online) leaveRoom({ silent: true });
+});
 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   navigator.serviceWorker.register("sw.js").then((registration) => {

@@ -264,10 +264,13 @@
         <div class="mobile-center">
           <span id="mobileGameLabel">GAME 0 / BO3</span>
           <strong id="mobileTurnLabel">開始前</strong>
+          <em id="mobileTurnTimer">残り --秒</em>
           <span id="mobileTimeLabel">15:00</span>
         </div>
 
         <div id="mobilePlayerBoard" class="mobile-board player-board"></div>
+        <aside id="mobileJudgePanel" class="judge-evaluation-panel mobile-judge-panel" aria-label="審判員の評価"></aside>
+        <div id="mobileJudgementSummary" class="judgement-summary" aria-live="polite"></div>
 
         <div class="mobile-hud mobile-hud-player">
           <div>
@@ -407,6 +410,7 @@
               </div>
             </div>
           </section>
+          <aside id="desktopJudgePanel" class="judge-evaluation-panel desktop-judge-panel" aria-label="審判員の評価"></aside>
           <aside class="log-panel" aria-label="TSG log">
             <div class="log-head">
               <div>

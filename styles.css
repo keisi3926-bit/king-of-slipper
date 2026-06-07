@@ -7475,3 +7475,494 @@ body.mobile-ui.landscape-ui .mobile-insider-icons i {
     width: clamp(16px, min(3.2vw, 4.5dvh), 21px);
   }
 }
+/* Judge-first battle readout: KOS is a race for five slip insiders. */
+.judge-evaluation-panel {
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgba(216, 182, 90, 0.52);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 16% 0%, rgba(216, 182, 90, 0.16), transparent 32%),
+    linear-gradient(180deg, rgba(22, 19, 14, 0.95), rgba(9, 10, 12, 0.94));
+  box-shadow:
+    inset 0 0 22px rgba(216, 182, 90, 0.08),
+    0 0 22px rgba(0, 0, 0, 0.32);
+  color: #f8f2df;
+}
+
+.judge-panel-head {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1px;
+  padding: clamp(5px, 1dvh, 8px) clamp(7px, 1vw, 10px);
+  border-bottom: 1px solid rgba(216, 182, 90, 0.25);
+  text-align: center;
+}
+
+.judge-panel-head span,
+.judge-panel-head em {
+  color: rgba(246, 226, 170, 0.86);
+  font-size: clamp(7px, 1.35vw, 11px);
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.judge-panel-head strong {
+  color: var(--gold);
+  font-size: clamp(12px, 2vw, 19px);
+  line-height: 1.1;
+}
+
+.judge-panel-head em.warning {
+  color: #fff;
+  text-shadow: 0 0 10px rgba(255, 78, 52, 0.72);
+  animation: judgeWarningPulse 0.56s ease-in-out infinite alternate;
+}
+
+.judge-scoreline {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  padding: 5px 7px;
+  border-bottom: 1px solid rgba(216, 182, 90, 0.18);
+}
+
+.judge-scoreline b {
+  min-width: 0;
+  overflow: hidden;
+  padding: 4px 6px;
+  border-radius: 7px;
+  font-size: clamp(9px, 1.6vw, 13px);
+  line-height: 1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.judge-scoreline .cpu {
+  color: #ff8f7d;
+  background: rgba(134, 29, 20, 0.38);
+}
+
+.judge-scoreline .player {
+  color: #8bd8ff;
+  background: rgba(24, 82, 132, 0.4);
+}
+
+.judge-row-list {
+  display: grid;
+  gap: clamp(4px, 0.8dvh, 7px);
+  min-height: 0;
+  padding: clamp(5px, 1dvh, 8px);
+}
+
+.judge-eval-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: clamp(26px, 4.8dvh, 42px) minmax(0, 1fr);
+  gap: clamp(5px, 0.9vw, 8px);
+  align-items: center;
+  min-height: 0;
+  padding: clamp(4px, 0.9dvh, 7px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.judge-eval-row.cpu-lean,
+.judge-eval-row.secured-cpu {
+  border-color: rgba(255, 93, 70, 0.48);
+  background: linear-gradient(90deg, rgba(107, 25, 18, 0.36), rgba(255, 255, 255, 0.025));
+}
+
+.judge-eval-row.player-lean,
+.judge-eval-row.secured-player {
+  border-color: rgba(55, 183, 255, 0.48);
+  background: linear-gradient(90deg, rgba(15, 80, 133, 0.34), rgba(255, 255, 255, 0.025));
+}
+
+.judge-eval-row.neutral-lean {
+  border-color: rgba(170, 170, 170, 0.24);
+}
+
+.judge-eval-row.focused {
+  box-shadow: 0 0 0 1px rgba(216, 182, 90, 0.45), 0 0 15px rgba(216, 182, 90, 0.12);
+}
+
+.judge-eval-avatar {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  border: 2px solid rgba(216, 182, 90, 0.62);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 40% 28%, rgba(255, 255, 255, 0.23), transparent 28%),
+    linear-gradient(135deg, #342611, #090909);
+  color: var(--gold);
+  font-size: clamp(13px, 2.1vw, 19px);
+  font-weight: 1000;
+}
+
+.judge-eval-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.judge-eval-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  min-width: 0;
+}
+
+.judge-eval-title strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: clamp(9px, 1.6vw, 13px);
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.judge-eval-title span {
+  flex: 0 0 auto;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: clamp(7px, 1.2vw, 10px);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.judge-eval-meter {
+  position: relative;
+  height: clamp(7px, 1.4dvh, 11px);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, #d5402f 0 45%, #3b3b3b 45% 55%, #1e95d7 55% 100%);
+}
+
+.judge-eval-meter i {
+  position: absolute;
+  top: -3px;
+  left: var(--judge-pos, 50%);
+  width: 3px;
+  height: calc(100% + 6px);
+  border-radius: 3px;
+  background: #ffe090;
+  box-shadow: 0 0 7px rgba(255, 224, 144, 0.8);
+  transform: translateX(-50%);
+}
+
+.judge-eval-tags {
+  display: flex;
+  gap: 3px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.judge-eval-tags span {
+  padding: 2px 4px;
+  border: 1px solid rgba(216, 182, 90, 0.28);
+  border-radius: 5px;
+  color: rgba(246, 226, 170, 0.82);
+  font-size: clamp(6px, 1.05vw, 9px);
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.judge-eval-speech {
+  margin: 2px 0 0;
+  padding: 4px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+  font-size: clamp(8px, 1.3vw, 11px);
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.judgement-summary {
+  overflow: hidden;
+  border: 1px solid rgba(216, 182, 90, 0.35);
+  border-radius: 9px;
+  background: rgba(12, 13, 15, 0.88);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.judgement-summary strong,
+.judgement-summary span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes judgeWarningPulse {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.08);
+  }
+}
+
+body.pc-ui .play-layout {
+  grid-template-columns:
+    clamp(78px, 7vw, 112px)
+    minmax(520px, 1fr)
+    clamp(300px, 28vw, 460px)
+    clamp(72px, 5.8vw, 96px);
+  align-items: stretch;
+}
+
+body.pc-ui .battlefield {
+  grid-template-rows: minmax(180px, 1fr) minmax(180px, 1fr);
+  gap: 8px;
+}
+
+body.pc-ui .judges {
+  display: none;
+}
+
+body.pc-ui .opponent-lane {
+  order: 1;
+}
+
+body.pc-ui .player-lane {
+  order: 2;
+}
+
+body.pc-ui .desktop-judge-panel {
+  grid-column: 3;
+  grid-row: 1;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  height: 100%;
+}
+
+body.pc-ui .log-panel {
+  display: none;
+}
+
+body.pc-ui .desktop-action-rail {
+  grid-column: 4;
+}
+
+body.pc-ui .board {
+  padding-inline: clamp(8px, 1.2vw, 14px);
+}
+
+body.pc-ui .slot {
+  min-height: 0;
+}
+
+body.pc-ui .slot p,
+body.pc-ui .slot .tags,
+body.pc-ui .slot .mini-stats {
+  display: none;
+}
+
+body.pc-ui .slot-art {
+  width: min(82px, 58%);
+  max-height: 58%;
+}
+
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle {
+  grid-template-columns:
+    clamp(40px, 6.5vw, 60px)
+    minmax(0, 1fr)
+    clamp(170px, 27vw, 300px)
+    clamp(42px, 6.8vw, 58px);
+  grid-template-rows:
+    clamp(32px, 7.8dvh, 46px)
+    minmax(66px, 1fr)
+    clamp(28px, 6.2dvh, 38px)
+    minmax(66px, 1fr)
+    clamp(92px, 21dvh, 124px);
+}
+
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle.hand-closed {
+  grid-template-rows:
+    clamp(32px, 7.8dvh, 46px)
+    minmax(92px, 1fr)
+    clamp(28px, 6.2dvh, 38px)
+    minmax(92px, 1fr)
+    0;
+}
+
+body.mobile-ui.landscape-ui .mobile-insider-rail {
+  grid-column: 1;
+  grid-row: 1 / 6;
+}
+
+body.mobile-ui.landscape-ui .mobile-hud-rival {
+  grid-column: 2 / 4;
+  grid-row: 1;
+}
+
+body.mobile-ui.landscape-ui .rival-board {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+body.mobile-ui.landscape-ui .mobile-center {
+  grid-column: 2;
+  grid-row: 3;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
+body.mobile-ui.landscape-ui .mobile-center em {
+  color: #ffe090;
+  font-size: clamp(8px, 1.5vw, 11px);
+  font-style: normal;
+  font-weight: 1000;
+  white-space: nowrap;
+}
+
+body.mobile-ui.landscape-ui .player-board {
+  grid-column: 2;
+  grid-row: 4;
+}
+
+body.mobile-ui.landscape-ui .mobile-judge-panel {
+  grid-column: 3;
+  grid-row: 2 / 5;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+body.mobile-ui.landscape-ui .judgement-summary {
+  grid-column: 3;
+  grid-row: 3;
+  z-index: 2;
+  display: grid;
+  gap: 1px;
+  align-content: center;
+  padding: 4px 6px;
+  pointer-events: none;
+}
+
+body.mobile-ui.landscape-ui .judgement-summary strong {
+  color: var(--gold);
+  font-size: clamp(8px, 1.4vw, 11px);
+}
+
+body.mobile-ui.landscape-ui .judgement-summary span {
+  font-size: clamp(7px, 1.15vw, 10px);
+}
+
+body.mobile-ui.landscape-ui .mobile-hand {
+  grid-column: 2 / 4;
+  grid-row: 5;
+}
+
+body.mobile-ui.landscape-ui .mobile-actions {
+  grid-column: 4;
+  grid-row: 1 / 6;
+}
+
+body.mobile-ui.landscape-ui .mobile-board {
+  padding-top: clamp(15px, 2.8dvh, 22px);
+}
+
+body.mobile-ui.landscape-ui .mobile-slot-art {
+  width: min(54px, 48%);
+  max-height: 54%;
+}
+
+body.mobile-ui.landscape-ui .judge-panel-head {
+  padding: 4px 5px;
+}
+
+body.mobile-ui.landscape-ui .judge-row-list {
+  gap: 3px;
+  padding: 4px;
+}
+
+body.mobile-ui.landscape-ui .judge-eval-row {
+  grid-template-columns: clamp(22px, 5.2dvh, 34px) minmax(0, 1fr);
+  gap: 4px;
+  padding: 3px 4px;
+}
+
+body.mobile-ui.landscape-ui .judge-eval-tags span:nth-child(n + 3) {
+  display: none;
+}
+
+@media (orientation: landscape) and (max-width: 700px), (orientation: landscape) and (max-height: 390px) {
+  body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle,
+  body.mobile-ui.landscape-ui.mobile-compact #gameApp:not(.screen-hidden) .mobile-battle,
+  body.mobile-ui.landscape-ui.mobile-tiny #gameApp:not(.screen-hidden) .mobile-battle,
+  body.mobile-ui.landscape-ui.mobile-short #gameApp:not(.screen-hidden) .mobile-battle {
+    grid-template-columns:
+      clamp(34px, 6.3vw, 46px)
+      minmax(0, 1fr)
+      clamp(132px, 27vw, 185px)
+      clamp(36px, 6.5vw, 46px);
+    grid-template-rows:
+      clamp(28px, 7.4dvh, 36px)
+      minmax(54px, 1fr)
+      clamp(22px, 5.4dvh, 29px)
+      minmax(54px, 1fr)
+      clamp(74px, 19dvh, 94px);
+  }
+
+  body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle.hand-closed,
+  body.mobile-ui.landscape-ui.mobile-compact #gameApp:not(.screen-hidden) .mobile-battle.hand-closed,
+  body.mobile-ui.landscape-ui.mobile-tiny #gameApp:not(.screen-hidden) .mobile-battle.hand-closed,
+  body.mobile-ui.landscape-ui.mobile-short #gameApp:not(.screen-hidden) .mobile-battle.hand-closed {
+    grid-template-rows:
+      clamp(28px, 7.4dvh, 36px)
+      minmax(78px, 1fr)
+      clamp(22px, 5.4dvh, 29px)
+      minmax(78px, 1fr)
+      0;
+  }
+
+  body.mobile-ui.landscape-ui .judge-panel-head span {
+    display: none;
+  }
+
+  body.mobile-ui.landscape-ui .judge-panel-head strong {
+    font-size: 10px;
+  }
+
+  body.mobile-ui.landscape-ui .judge-scoreline {
+    gap: 3px;
+    padding: 3px 4px;
+  }
+
+  body.mobile-ui.landscape-ui .judge-scoreline b {
+    padding: 3px;
+    font-size: 8px;
+  }
+
+  body.mobile-ui.landscape-ui .judge-eval-row {
+    grid-template-columns: 20px minmax(0, 1fr);
+    padding: 2px 3px;
+  }
+
+  body.mobile-ui.landscape-ui .judge-eval-title strong {
+    font-size: 8px;
+  }
+
+  body.mobile-ui.landscape-ui .judge-eval-title span,
+  body.mobile-ui.landscape-ui .judge-eval-tags span {
+    font-size: 7px;
+  }
+
+  body.mobile-ui.landscape-ui .judge-eval-speech {
+    padding: 2px 4px;
+    font-size: 7px;
+  }
+
+  body.mobile-ui.landscape-ui .mobile-actions button {
+    font-size: 8px;
+  }
+}

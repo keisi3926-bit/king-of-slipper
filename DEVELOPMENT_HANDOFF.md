@@ -1,9 +1,9 @@
 # King of Slipper / TSG Development Handoff
 
-Last updated: 2026-06-05
-Current pushed commit: `457e883 Fix private room start gating`
-Current app version: `2026.06.05-room-state-v27`
-Current service worker cache: `king-of-slipper-tsg-v46`
+Last updated: 2026-06-08
+Current pushed commit: pending this handoff update
+Current app version: `2026.06.08-room-cleanup-v32`
+Current service worker cache: `king-of-slipper-tsg-v51`
 
 This document is a technical handoff for continuing development in a new workspace/thread. It intentionally excludes story lore and unimplemented character setting notes. It covers only current game implementation, data structures, UI behavior, known issues, and next tasks.
 
@@ -17,7 +17,7 @@ Primary files:
 | --- | --- |
 | `index.html` | DOM structure, dialogs, title/menu, builder, battle UI roots |
 | `styles.css` | PC/mobile responsive UI, battle layout, dialogs, PWA/landscape handling |
-| `game.js` | Game state, rules, UI rendering, audio, room mock/sync, persistence |
+| `game.js` | Game state, rules, UI rendering, audio, Firebase room sync, persistence |
 | `sw.js` | Service Worker cache |
 | `version.json` | Client update detection |
 | `manifest.json` / `manifest.webmanifest` | PWA install metadata |
@@ -44,7 +44,8 @@ Implemented:
 - Selected player character is used across most battle UI/log/cutin/result references.
 - Entrance builder with saved entrance slots.
 - Character-owned entrance decks and character-specific slipper restrictions.
-- Aikotoba/private-room beta with start gating so matches do not begin without two participants.
+- Aikotoba/private-room beta through Firebase Realtime Database, with start gating so matches do not begin without two participants.
+- Firebase room cleanup for explicit leave, browser close, and stale room removal.
 
 ## 3. Version / Cache Update Rules
 
@@ -59,10 +60,10 @@ Current values:
 
 ```js
 // game.js
-const APP_VERSION = "2026.06.05-room-state-v27";
+const APP_VERSION = "2026.06.08-room-cleanup-v32";
 
 // sw.js
-const CACHE_NAME = "king-of-slipper-tsg-v46";
+const CACHE_NAME = "king-of-slipper-tsg-v51";
 ```
 
 ## 4. Core Runtime State
@@ -349,6 +350,15 @@ Current behavior from Firebase room migration:
 - Receiving remote `start` is also blocked unless both players exist.
 - `endPlayerTurn()` refuses to proceed online if the opponent is missing.
 - Online match end sets room status to `ended`.
+- Room creation writes `createdAt` / `updatedAt`.
+- Host/guest player records write `connected`, `ready`, `joinedAt`, and `lastSeen`.
+- `startRoomHeartbeat()` refreshes `updatedAt` and the current player `lastSeen` every 30 seconds.
+- `setupRoomDisconnectCleanup()` uses Firebase `onDisconnect`.
+- Host disconnect or explicit leave removes the entire room.
+- Guest explicit leave removes `players.guest`, clears `guestId`, and returns room status to `waiting`.
+- Guest browser disconnect removes `players.guest` and `guestId`; the host listener moves a matched room back to `waiting`.
+- `leaveRoom()` clears local room state, storage, listeners, heartbeat timers, and online mode flags.
+- `cleanupStaleRooms()` removes non-playing rooms whose `updatedAt`/`createdAt` is older than `ROOM_STALE_MS` (currently 1 hour).
 
 Important helpers:
 
@@ -356,6 +366,12 @@ Important helpers:
 - `activeRoomPlayers()`
 - `hasOnlineOpponent()`
 - `onlineMatchStartBlockReason()`
+- `leaveRoom(options)`
+- `resetRoomLocalState(options)`
+- `startRoomHeartbeat()`
+- `stopRoomHeartbeat()`
+- `setupRoomDisconnectCleanup(playerRef)`
+- `cleanupStaleRooms()`
 - `roomDebug(label, extra)`
 - `syncMatchState()`
 - `sendPlayerAction(action)`
