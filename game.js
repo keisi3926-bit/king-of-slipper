@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.07-stamps-v30";
+const APP_VERSION = "2026.06.07-firebase-room-v31";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -359,7 +359,16 @@ const ROOM_STORAGE_KEY = "kos_room_mock_v1";
 const ROOM_SYNC_STORAGE_KEY = "kos_room_online_beta_v1";
 const CPU_DIFFICULTY_STORAGE_KEY = "kos_cpu_difficulty_v1";
 const FEEDBACK_STORAGE_KEY = "kos_feedback_v1";
-const ROOM_PEERS = ["https://relay.peer.ooo/gun"];
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCdODKnuBf6aXsXW_xS8bBN2kz_v1yidpU",
+  authDomain: "king-of-slipper.firebaseapp.com",
+  databaseURL: "https://king-of-slipper-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "king-of-slipper",
+  storageBucket: "king-of-slipper.firebasestorage.app",
+  messagingSenderId: "413758065735",
+  appId: "1:413758065735:web:d70cb4bc9420ec8b07f562",
+  measurementId: "G-GJP1ZR7HY0",
+};
 const ELO_K = 64;
 const MAX_ENTRANCE_SAME_NAME = 2;
 
@@ -733,10 +742,12 @@ let savedEntrances = loadSavedEntrances();
 let selectedEntranceId = savedEntrances[0]?.id || "sample-haou";
 let editingEntranceId = selectedEntranceId;
 const roomSync = {
-  gun: null,
+  firebaseApp: null,
+  db: null,
   room: null,
   code: null,
   role: null,
+  playerId: null,
   online: false,
   mode: "local_cpu",
   status: "idle",
@@ -746,6 +757,7 @@ const roomSync = {
   latestActionId: null,
   connectedAt: 0,
   pendingStartAction: false,
+  listeners: [],
 };
 
 const byId = (id) => document.getElementById(id);
@@ -1306,11 +1318,13 @@ function joinRoom(roomCode) {
 
 function leaveRoom() {
   if (roomSync.room && roomSync.role) {
-    roomSync.room.get("players").get(roomSync.role).put(null);
+    roomSync.room.child(`players/${roomSync.role}`).update({ connected: false, ready: false, lastSeen: firebaseTimestamp() });
   }
+  clearRoomListeners();
   roomSync.room = null;
   roomSync.code = null;
   roomSync.role = null;
+  roomSync.playerId = null;
   roomSync.online = false;
   roomSync.mode = "local_cpu";
   roomSync.status = "idle";
@@ -1339,22 +1353,23 @@ function syncMatchState() {
     turnNumber: state.turnNumber,
     at: Date.now(),
   };
-  roomSync.room.get("state").get(roomSync.role || "unknown").put(snapshot);
+  roomSync.room.child(`gameState/${roomSync.role || "unknown"}`).set(snapshot);
   return snapshot;
 }
 
 function sendPlayerAction(action) {
   if (!roomSync.room || !roomSync.role) return { queued: false, action };
-  const id = `${Date.now()}-${roomSync.role}-${Math.random().toString(36).slice(2, 8)}`;
+  const actionRef = roomSync.room.child("actions").push();
+  const id = actionRef.key || `${Date.now()}-${roomSync.role}-${Math.random().toString(36).slice(2, 8)}`;
   const payload = { id, role: roomSync.role, action, at: Date.now() };
   roomSync.seenActions.add(id);
-  roomSync.room.get("actions").get(id).put(payload);
-  roomSync.room.get("latestAction").put({
+  actionRef.set(payload).catch((error) => console.warn("[KOS room] send action failed", error));
+  roomSync.room.child("latestAction").set({
     id,
     role: roomSync.role,
     actionJson: JSON.stringify(action),
     at: Date.now(),
-  });
+  }).catch((error) => console.warn("[KOS room] latest action failed", error));
   return { queued: true, action };
 }
 
@@ -1442,14 +1457,56 @@ function roomLog(text) {
   while (root.children.length > 8) root.lastElementChild.remove();
 }
 
-function initRoomGun() {
-  if (roomSync.gun) return roomSync.gun;
-  if (!window.Gun) {
-    roomLog("GUN relay script is not loaded. Check network access.");
+function initRoomFirebase() {
+  if (roomSync.db) return roomSync.db;
+  if (!window.firebase?.initializeApp || !window.firebase?.database) {
+    roomLog("Firebase SDK is not loaded. Check network access.");
     return null;
   }
-  roomSync.gun = Gun({ peers: ROOM_PEERS });
-  return roomSync.gun;
+  try {
+    roomSync.firebaseApp = window.firebase.apps?.length ? window.firebase.app() : window.firebase.initializeApp(FIREBASE_CONFIG);
+    roomSync.db = window.firebase.database();
+    return roomSync.db;
+  } catch (error) {
+    console.warn("[KOS room] Firebase init failed", error);
+    roomLog("Firebase room sync failed to initialize.");
+    return null;
+  }
+}
+
+function firebaseTimestamp() {
+  return window.firebase?.database?.ServerValue?.TIMESTAMP || Date.now();
+}
+
+function getRoomPlayerId() {
+  const key = "kos_room_player_id_v1";
+  try {
+    let id = localStorage.getItem(key);
+    if (!id) {
+      id = `p-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem(key, id);
+    }
+    return id;
+  } catch {
+    return `p-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+
+function clearRoomListeners() {
+  if (!roomSync.room || !Array.isArray(roomSync.listeners)) return;
+  roomSync.listeners.forEach(({ ref, event, handler }) => {
+    try {
+      ref.off(event, handler);
+    } catch {
+      // Listener cleanup is best-effort.
+    }
+  });
+  roomSync.listeners = [];
+}
+
+function listenRoomRef(ref, event, handler) {
+  ref.on(event, handler);
+  roomSync.listeners.push({ ref, event, handler });
 }
 
 function normalizeRoomCode(roomCode = "") {
@@ -1464,22 +1521,27 @@ function generateRoomCode() {
 function setRoomStatus(status) {
   roomSync.status = status;
   if (roomSync.room && roomSync.code) {
-    roomSync.room.get("meta").put({ code: roomSync.code, status, updatedAt: Date.now() });
+    roomSync.room.update({ code: roomSync.code, status, updatedAt: firebaseTimestamp() });
   }
 }
 
 function activeRoomPlayers() {
-  return Object.values(roomSync.players || {}).filter(Boolean);
+  return Object.values(roomSync.players || {}).filter((player) => player && player.connected !== false);
 }
 
 function hasOnlineOpponent() {
-  return Boolean(roomSync.role && roomSync.players?.host && roomSync.players?.guest);
+  return Boolean(
+    roomSync.role
+      && roomSync.players?.host
+      && roomSync.players?.guest
+      && roomSync.players.host.connected !== false
+      && roomSync.players.guest.connected !== false,
+  );
 }
 
 function onlineMatchStartBlockReason() {
   if (!roomSync.online || !roomSync.code || !roomSync.room) return "部屋に入っていません";
-  const players = activeRoomPlayers();
-  if (players.length < 2 || !roomSync.players.host || !roomSync.players.guest) return "対戦相手を待っています";
+  if (!hasOnlineOpponent()) return "対戦相手を待っています";
   return "";
 }
 
@@ -1500,15 +1562,17 @@ function roomDebug(label, extra = {}) {
 }
 
 function connectRoom(code, role) {
-  const gun = initRoomGun();
-  if (!gun) {
+  const db = initRoomFirebase();
+  if (!db) {
     const fallback = { code, role, status: "offline", players: [roomPlayerName(role)], updatedAt: new Date().toISOString() };
     localStorage.setItem(ROOM_STORAGE_KEY, JSON.stringify(fallback));
     renderRoomState(fallback);
     return fallback;
   }
+  clearRoomListeners();
   roomSync.code = code;
   roomSync.role = role;
+  roomSync.playerId = getRoomPlayerId();
   roomSync.online = true;
   roomSync.mode = "online_private";
   roomSync.status = role === "host" ? "waiting_opponent" : "room_join";
@@ -1517,22 +1581,44 @@ function connectRoom(code, role) {
   roomSync.seenActions.clear();
   roomSync.latestActionId = null;
   roomSync.connectedAt = Date.now();
-  roomSync.room = gun.get("king-of-slipper").get("rooms").get(code);
+  roomSync.room = db.ref(`rooms/${code}`);
   localStorage.setItem(ROOM_SYNC_STORAGE_KEY, JSON.stringify({ code, role, updatedAt: new Date().toISOString() }));
-  roomSync.room.get("meta").put({ code, status: roomSync.status, mode: roomSync.mode, updatedAt: Date.now() });
-  roomSync.room.get("players").get(role).put({
-    name: role === "host" ? playerResultName() : "挑戦者",
-    role,
-    ready: true,
-    at: Date.now(),
+
+  const baseUpdate = { code, mode: roomSync.mode, updatedAt: firebaseTimestamp() };
+  if (role === "host") {
+    baseUpdate.status = "waiting";
+    baseUpdate.hostId = roomSync.playerId;
+    baseUpdate.createdAt = firebaseTimestamp();
+  } else {
+    baseUpdate.guestId = roomSync.playerId;
+  }
+  roomSync.room.update(baseUpdate).catch((error) => {
+    console.warn("[KOS room] room update failed", error);
+    roomLog("Firebase room update failed.");
   });
-  roomSync.room.get("players").map().on((player, playerRole) => {
-    if (player && player.role) roomSync.players[playerRole] = player;
-    else delete roomSync.players[playerRole];
+
+  const playerRef = roomSync.room.child(`players/${role}`);
+  playerRef.set({
+    playerId: roomSync.playerId,
+    name: role === "host" ? playerResultName() : "GUEST",
+    role,
+    characterId: selectedPlayerKey,
+    connected: true,
+    ready: true,
+    joinedAt: firebaseTimestamp(),
+    lastSeen: firebaseTimestamp(),
+  }).catch((error) => {
+    console.warn("[KOS room] player write failed", error);
+    roomLog("Firebase player write failed.");
+  });
+  playerRef.onDisconnect?.().update({ connected: false, ready: false, lastSeen: firebaseTimestamp() });
+
+  listenRoomRef(roomSync.room.child("players"), "value", (snapshot) => {
+    roomSync.players = snapshot.val() || {};
     if (hasOnlineOpponent() && roomSync.status !== "playing" && roomSync.status !== "ended") {
-      roomSync.status = "ready_check";
-      roomSync.room.get("meta").put({ code, status: "ready_check", mode: roomSync.mode, updatedAt: Date.now() });
-      roomSync.room.get("roles").put({ player1: "host", player2: "guest", updatedAt: Date.now() });
+      roomSync.status = "matched";
+      roomSync.room.update({ status: "matched", updatedAt: firebaseTimestamp() });
+      roomSync.room.child("roles").set({ player1: "host", player2: "guest", updatedAt: firebaseTimestamp() });
     }
     localStorage.setItem(ROOM_STORAGE_KEY, JSON.stringify({
       code,
@@ -1548,21 +1634,29 @@ function connectRoom(code, role) {
       startOnlineMatch(false);
     }
   });
-  roomSync.room.get("meta").on((meta) => {
-    if (meta?.status) roomSync.status = meta.status;
+
+  listenRoomRef(roomSync.room, "value", (snapshot) => {
+    const remoteRoom = snapshot.val() || {};
+    if (remoteRoom.status) roomSync.status = remoteRoom.status;
     renderRoomState();
   });
-  roomSync.room.get("actions").map().on((action, id) => receiveOpponentAction(action, id));
-  roomSync.room.get("latestAction").on((action) => receiveOpponentAction(action, action?.id));
+  listenRoomRef(roomSync.room.child("actions"), "child_added", (snapshot) => receiveOpponentAction(snapshot.val(), snapshot.key));
+  listenRoomRef(roomSync.room.child("latestAction"), "value", (snapshot) => {
+    const action = snapshot.val();
+    if (action?.id && action.id !== roomSync.latestActionId) {
+      roomSync.latestActionId = action.id;
+      receiveOpponentAction(action, action.id);
+    }
+  });
+
   const room = { code, role, status: roomSync.status, players: [roomPlayerName(role)], updatedAt: new Date().toISOString() };
   localStorage.setItem(ROOM_STORAGE_KEY, JSON.stringify(room));
   roomLog(role === "host" ? `room created: ${code}` : `room joined: ${code}`);
-  roomLog(role === "host" ? `あいことば：${code} / 対戦相手を待っています……` : `あいことば：${code} / 入室しました。相手確認中……`);
+  roomLog(role === "host" ? `Room ${code} / waiting opponent...` : `Room ${code} / joined. checking opponent...`);
   roomDebug(role === "host" ? "room created" : "room joined");
   renderRoomState(room);
   return room;
 }
-
 function isOnlineMatch() {
   return state.onlineMode && roomSync.online && roomSync.code;
 }
@@ -1603,8 +1697,10 @@ function roomStatusLabel(status) {
   const labels = {
     idle: "未入室",
     room_create: "部屋作成中",
+    waiting: "対戦相手待ち",
     waiting_opponent: "対戦相手待ち",
     room_join: "入室中",
+    matched: "マッチ成立",
     ready_check: "開始準備OK",
     playing: "対戦中",
     ended: "終了",

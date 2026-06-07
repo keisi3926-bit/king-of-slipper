@@ -306,16 +306,20 @@ Room sync state:
 
 ```js
 const roomSync = {
-  gun,
+  firebaseApp,
+  db,
   room,
   code,
   role,
+  playerId,
   online,
   mode,
   status,
   players,
   initialGameStateReceived,
-  seenActions
+  seenActions,
+  latestActionId,
+  listeners
 }
 ```
 
@@ -325,18 +329,21 @@ Supported status values:
 - `room_create`
 - `waiting_opponent`
 - `room_join`
+- `matched`
 - `ready_check`
 - `playing`
 - `ended`
 
-Current behavior from commit `457e883`:
+Current behavior from Firebase room migration:
 
 - `joinRoom(roomCode)` blocks empty/null/blank room codes.
 - Empty JOIN logs: `あいことばを入力してください`.
 - `createRoom()` moves to `room_create`, then `waiting_opponent`.
 - Creating a room does not start the match.
+- `connectRoom()` uses Firebase Realtime Database at `rooms/{roomCode}`.
 - `connectRoom()` writes player under `players.host` or `players.guest`.
-- When both `host` and `guest` exist, room moves to `ready_check`.
+- Host writes `hostId`; guest writes `guestId`.
+- When both connected `host` and `guest` exist, room moves to `matched`.
 - Roles metadata is written as `player1: "host"`, `player2: "guest"`.
 - `startOnlineMatch()` calls `onlineMatchStartBlockReason()` and refuses to start unless both players exist.
 - Receiving remote `start` is also blocked unless both players exist.

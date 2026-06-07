@@ -75,8 +75,8 @@ https://keisi3926-bit.github.io/king-of-slipper/public-qr.html
 3. 相手が同じCODEを入力して「部屋に入る」
 4. 「オンライン対戦開始」を押す
 
-β版では公開GUNリレーを使って、配置・外す・ターンエンドを同期します。  
-通信環境や公開リレーの状態によって遅延や切断が起きる可能性があります。
+β版ではFirebase Realtime Databaseを使って、部屋参加状態と対戦アクションを同期します。
+まずは別端末で `players: 2/2` と `status: matched` になることを優先しています。
 
 ## Audio Compression
 
