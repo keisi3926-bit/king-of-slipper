@@ -1,5 +1,19 @@
-const APP_VERSION = "2026.06.07-room-sync-v29";
+const APP_VERSION = "2026.06.07-stamps-v30";
 const VERSION_URL = "version.json";
+const STAMP_COOLDOWN_MS = 2000;
+const STAMP_DISPLAY_MS = 2600;
+const STAMP_SHEET_URL = "assets/stamps/battle-stamps.png";
+const BATTLE_STAMPS = [
+  { id: "yoroshiku", label: "よろしく！", col: 0, row: 0 },
+  { id: "arigatou", label: "ありがとう！", col: 1, row: 0 },
+  { id: "sugoi", label: "すごい！", col: 2, row: 0 },
+  { id: "mairimashita", label: "まいりました！", col: 0, row: 1 },
+  { id: "haita", label: "履いたァァァー！！", col: 1, row: 1 },
+  { id: "gomidesu", label: "スリッパはゴミです", col: 2, row: 1 },
+  { id: "genkan", label: "玄関が騒がしい！", col: 0, row: 2 },
+  { id: "handan", label: "判断するぞ", col: 1, row: 2 },
+  { id: "shoubu", label: "勝負だ！", col: 2, row: 2 },
+];
 const PLAYER_CHARACTER_STORAGE_KEY = "kos_player_character_v1";
 const PLAYER_CHARACTERS = {
   haou: {
@@ -674,6 +688,8 @@ const state = {
   mobileHandSide: "player",
   mobileLogOpen: false,
   mobileTrapOpen: false,
+  stampPanelOpen: false,
+  stampCooldownUntil: 0,
   selectedTrapIndex: null,
   trapDetailIndex: null,
   insiderDetail: null,
@@ -1380,6 +1396,10 @@ async function receiveOpponentAction(message, id) {
     }
     roomSync.pendingStartAction = false;
     if (!state.started) startOnlineMatch(false);
+    return;
+  }
+  if (action.type === "stamp") {
+    showBattleStamp(action.stampId, "cpu", { remote: true });
     return;
   }
   if (!isOnlineMatch()) return;
@@ -2302,6 +2322,8 @@ async function resetMatch() {
     mobileHandSide: "player",
     mobileLogOpen: false,
     mobileTrapOpen: false,
+    stampPanelOpen: false,
+    stampCooldownUntil: 0,
     selectedTrapIndex: null,
     trapDetailIndex: null,
     insiderDetail: null,
@@ -3331,6 +3353,8 @@ function render() {
   byId("counterBtn").disabled = state.turn !== "counter-window" || state.playerTrapCount <= 0 || state.gameOver || state.cutinActive;
   byId("counterBtn").textContent = `湿度カウンター (${state.playerTrapCount})`;
   byId("endTurnBtn").disabled = state.turn !== "player" || state.gameOver || state.cutinActive;
+  byId("stampBtn").disabled = state.cutinActive || Date.now() < state.stampCooldownUntil;
+  byId("stampBtn").classList.toggle("active", state.stampPanelOpen);
   byId("newGameBtn").disabled = !state.started || state.cutinActive;
   byId("startBtn").disabled = state.cutinActive;
   byId("playerPressure").textContent = `履き ${state.playerScore} / ${pressureLabel(calcPressure(state.playerBoard, "player"))}`;
@@ -3341,6 +3365,7 @@ function render() {
   renderTraps("cpuTraps", state.cpuTrapCount);
   renderHand();
   renderMobileBattle();
+  renderStampPanel();
 }
 
 function getTurnLabel() {
@@ -3620,6 +3645,9 @@ function renderMobileBattle() {
   byId("mobileCounterBtn").textContent = "伏せ";
   byId("mobileCounterBtn").classList.toggle("active", state.mobileTrapOpen);
   byId("mobileCounterBtn").setAttribute("aria-pressed", String(state.mobileTrapOpen));
+  byId("mobileStampBtn").disabled = state.cutinActive || Date.now() < state.stampCooldownUntil;
+  byId("mobileStampBtn").classList.toggle("active", state.stampPanelOpen);
+  byId("mobileStampBtn").setAttribute("aria-pressed", String(state.stampPanelOpen));
   byId("mobileRivalBtn").disabled = state.cutinActive;
   byId("mobilePlayerBtn").disabled = state.cutinActive;
   byId("mobileRivalBtn").textContent = "ログ";
@@ -3737,6 +3765,97 @@ function renderMobileHand() {
     attachDetailGesture(button, slipper.uid, () => !actionLocked);
     root.append(button);
   });
+}
+
+function stampById(stampId) {
+  return BATTLE_STAMPS.find((stamp) => stamp.id === stampId) || null;
+}
+
+function stampSpriteMarkup(stamp, className = "stamp-sprite") {
+  const x = stamp.col === 0 ? "0%" : stamp.col === 1 ? "50%" : "100%";
+  const y = stamp.row === 0 ? "0%" : stamp.row === 1 ? "50%" : "100%";
+  return `<span class="${className}" style="--stamp-x:${x};--stamp-y:${y}" aria-hidden="true"></span>`;
+}
+
+function renderStampPanel() {
+  const root = byId("stampPanel");
+  if (!root) return;
+  if (!state.stampPanelOpen) {
+    root.hidden = true;
+    root.innerHTML = "";
+    return;
+  }
+  const cooldownMs = Math.max(0, state.stampCooldownUntil - Date.now());
+  root.hidden = false;
+  root.innerHTML = `
+    <div class="stamp-panel-head">
+      <strong>対戦スタンプ</strong>
+      <button type="button" data-stamp-close>閉じる</button>
+    </div>
+    <div class="stamp-grid">
+      ${BATTLE_STAMPS.map((stamp) => `
+        <button type="button" data-stamp-id="${stamp.id}" ${cooldownMs > 0 ? "disabled" : ""}>
+          ${stampSpriteMarkup(stamp)}
+          <span>${escapeHtml(stamp.label)}</span>
+        </button>
+      `).join("")}
+    </div>
+    ${cooldownMs > 0 ? `<small class="stamp-cooldown">連打防止中 ${Math.ceil(cooldownMs / 1000)}秒</small>` : ""}
+  `;
+  root.querySelector("[data-stamp-close]")?.addEventListener("click", () => {
+    state.stampPanelOpen = false;
+    render();
+  });
+  root.querySelectorAll("[data-stamp-id]").forEach((button) => {
+    button.addEventListener("click", () => sendBattleStamp(button.dataset.stampId));
+  });
+}
+
+function toggleStampPanel() {
+  state.stampPanelOpen = !state.stampPanelOpen;
+  if (state.stampPanelOpen) {
+    state.mobileHandOpen = false;
+    state.mobileLogOpen = false;
+    state.mobileTrapOpen = false;
+    state.detailHandUid = null;
+    state.trapDetailIndex = null;
+  }
+  render();
+}
+
+function sendBattleStamp(stampId) {
+  const stamp = stampById(stampId);
+  if (!stamp) return;
+  const now = Date.now();
+  if (now < state.stampCooldownUntil) return;
+  state.stampCooldownUntil = now + STAMP_COOLDOWN_MS;
+  state.stampPanelOpen = false;
+  showBattleStamp(stampId, "player");
+  try {
+    if (isOnlineMatch()) sendPlayerAction({ type: "stamp", stampId });
+  } catch (error) {
+    console.warn("stamp send failed", error);
+  }
+  setTimeout(() => render(), STAMP_COOLDOWN_MS + 80);
+  render();
+}
+
+function showBattleStamp(stampId, side = "player", options = {}) {
+  const stamp = stampById(stampId);
+  const root = byId("stampDisplayLayer");
+  if (!stamp || !root) return;
+  const owner = side === "player" ? playerShortName() : "松葉迅";
+  log(`[スタンプ] ${owner}: ${stamp.label}`);
+  playSound("place");
+  root.querySelector(`.stamp-bubble.${side}`)?.remove();
+  const bubble = document.createElement("div");
+  bubble.className = `stamp-bubble ${side} ${options.remote ? "remote" : "local"}`;
+  bubble.innerHTML = `
+    ${stampSpriteMarkup(stamp, "stamp-bubble-art")}
+    <span>${escapeHtml(stamp.label)}</span>
+  `;
+  root.append(bubble);
+  setTimeout(() => bubble.remove(), STAMP_DISPLAY_MS);
 }
 
 function findDetailSlipper(uid) {
@@ -4073,6 +4192,10 @@ function closeTransientPanelsOnOutside(event) {
   if (state.mobileTrapOpen && !target.closest?.("#mobileTrapPanel, #mobileTrapDetail, #mobileCounterBtn")) {
     state.mobileTrapOpen = false;
     state.trapDetailIndex = null;
+    changed = true;
+  }
+  if (state.stampPanelOpen && !target.closest?.("#stampPanel, #stampBtn, #mobileStampBtn")) {
+    state.stampPanelOpen = false;
     changed = true;
   }
   if (state.trapDetailIndex != null && !target.closest?.("#mobileTrapDetail")) {
@@ -4944,9 +5067,11 @@ byId("defeatRestartBtn").addEventListener("click", startMatchFromButton);
 byId("drawRestartBtn").addEventListener("click", startMatchFromButton);
 byId("endTurnBtn").addEventListener("click", endPlayerTurn);
 byId("counterBtn").addEventListener("click", useCounter);
+byId("stampBtn").addEventListener("click", toggleStampPanel);
 byId("mobileStartBtn").addEventListener("click", startMatchFromButton);
 byId("mobileEndTurnBtn").addEventListener("click", endPlayerTurn);
 byId("mobileCounterBtn").addEventListener("click", toggleMobileTrapPanel);
+byId("mobileStampBtn").addEventListener("click", toggleStampPanel);
 byId("mobileRivalBtn").addEventListener("click", toggleMobileLog);
 byId("mobilePlayerBtn").addEventListener("click", () => toggleMobileHand("player"));
 byId("mobileRematchBtn").addEventListener("click", startMatchFromButton);

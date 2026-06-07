@@ -290,6 +290,7 @@
           <button id="mobileStartBtn" class="primary" type="button">開始</button>
           <button id="mobileEndTurnBtn" class="primary" type="button">END</button>
           <button id="mobileCounterBtn" type="button">伏せ</button>
+          <button id="mobileStampBtn" type="button">スタンプ</button>
           <button id="mobilePlayerBtn" type="button" disabled>覇王</button>
           <button id="mobileRematchBtn" type="button">再戦</button>
         </div>
@@ -419,6 +420,7 @@
           <aside class="desktop-action-rail" aria-label="Battle actions">
             <button id="endTurnBtn" class="primary" type="button">END</button>
             <button id="counterBtn" type="button">伏せ</button>
+            <button id="stampBtn" type="button">スタンプ</button>
             <button id="newGameBtn" type="button">再戦</button>
           </aside>
         </section>
@@ -595,6 +597,8 @@
     </div>
 
     <div id="toastStack" class="commentary-stack" aria-live="polite"></div>
+    <div id="stampPanel" class="stamp-panel" hidden></div>
+    <div id="stampDisplayLayer" class="stamp-display-layer" aria-live="polite"></div>
     <div id="judgeTauntStack" class="judge-popup-stack" aria-live="polite"></div>
     <div id="audienceReactionStack" class="audience-reaction-stack" aria-live="polite"></div>
 
