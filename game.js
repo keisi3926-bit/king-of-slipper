@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.08-judge-icons-v37";
+const APP_VERSION = "2026.06.08-judge-face-icons-v38";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -4144,7 +4144,7 @@ function renderJudgePanel(id, rows) {
           const bubble = state.judgeBubble && state.judgeBubble.index === row.index ? state.judgeBubble : null;
           return `
             <article class="judge-eval-row ${sideClass} ${row.focused ? "focused" : ""}" style="--judge-pos:${row.meter}%">
-              <div class="judge-eval-avatar sprite" style="${judgeIconSpriteStyle(row)}"><span>${row.index + 1}</span></div>
+              <div class="judge-eval-avatar sprite" style="${judgeIconSpriteStyle(row)}" aria-label="${escapeHtml(row.insider.name)}"></div>
               <div class="judge-eval-main">
                 <div class="judge-eval-title">
                   <strong>${escapeHtml(row.insider.name)}</strong>
