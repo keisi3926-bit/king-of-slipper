@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.08-online-sync-v42";
+const APP_VERSION = "2026.06.08-unified-battle-v43";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -1442,6 +1442,9 @@ function syncMatchState() {
     cpuScore: state.cpuScore,
     playerBoard: state.playerBoard,
     cpuBoard: state.cpuBoard,
+    playerTraps: state.playerTraps,
+    cpuTraps: state.cpuTraps,
+    insiderVerdicts: state.insiderVerdicts,
     turnNumber: state.turnNumber,
     at: Date.now(),
   };
@@ -1490,8 +1493,11 @@ async function resolvePendingOnlineTurnEnd() {
   clearTimeout(state.phaseTimeout);
   if (!action || state.gameOver) return;
   state.turn = "online-resolving";
-  state.cpuScore = Math.max(state.cpuScore, Number(action.score || 0));
+  const remoteScore = Number(action.score ?? action.playerScore ?? state.cpuScore ?? 0);
+  if (Number.isFinite(remoteScore)) state.cpuScore = clampValue(remoteScore, 0, 5);
   state.cpuBoard = Array.isArray(action.board) ? action.board.map(reviveRemoteSlipper) : state.cpuBoard;
+  if (Array.isArray(action.traps)) state.cpuTraps = [...action.traps];
+  if (Array.isArray(action.verdicts)) state.insiderVerdicts.cpu = action.verdicts;
   const remoteTurnNumber = Number(action.turnNumber || 0);
   if (Number.isFinite(remoteTurnNumber) && remoteTurnNumber > 0) {
     state.turnNumber = Math.max(state.turnNumber || 1, remoteTurnNumber);
@@ -1529,12 +1535,17 @@ function sendCounterAction(trap) {
   if (!isOnlineMatch()) return;
   sendPlayerAction({
     type: "counter",
+    trapIndex: trap?.trapIndex ?? null,
+    trapId: trap?.id || trap?.name || "",
     trapName: trap?.name || "",
     trap,
     playerScore: state.playerScore,
     cpuScore: state.cpuScore,
     playerBoard: state.playerBoard,
     cpuBoard: state.cpuBoard,
+    playerTraps: state.playerTraps,
+    cpuTraps: state.cpuTraps,
+    insiderVerdicts: state.insiderVerdicts,
     turnNumber: state.turnNumber,
   });
   syncMatchState();
@@ -1582,8 +1593,14 @@ async function receiveOpponentAction(message, id) {
   } else if (action.type === "counter") {
     if (Array.isArray(action.playerBoard)) state.cpuBoard = action.playerBoard.map(reviveRemoteSlipper);
     if (Array.isArray(action.cpuBoard)) state.playerBoard = action.cpuBoard.map(reviveRemoteSlipper);
-    state.cpuScore = Math.max(state.cpuScore, Number(action.playerScore || state.cpuScore || 0));
-    state.playerScore = Math.max(state.playerScore, Number(action.cpuScore || state.playerScore || 0));
+    if (Array.isArray(action.playerTraps)) state.cpuTraps = [...action.playerTraps];
+    if (Array.isArray(action.cpuTraps)) state.playerTraps = [...action.cpuTraps];
+    if (action.insiderVerdicts?.player) state.insiderVerdicts.cpu = action.insiderVerdicts.player;
+    if (action.insiderVerdicts?.cpu) state.insiderVerdicts.player = action.insiderVerdicts.cpu;
+    const opponentScore = Number(action.playerScore ?? state.cpuScore ?? 0);
+    const ownScore = Number(action.cpuScore ?? state.playerScore ?? 0);
+    if (Number.isFinite(opponentScore)) state.cpuScore = clampValue(opponentScore, 0, 5);
+    if (Number.isFinite(ownScore)) state.playerScore = clampValue(ownScore, 0, 5);
     announce(`ONLINE: ${opponentShortName()} opened ${action.trapName || "a hidden slipper"}!`, "danger");
     log(`${opponentResultName()} opened hidden slipper: ${action.trapName || "unknown"}`);
     playSound("counter");
@@ -2891,7 +2908,14 @@ async function endPlayerTurn() {
   announce(`実況: インサイダー、${playerShortName()}の玄関を凝視！`, "good");
   await resolveJudgement("player");
   if (isOnlineMatch()) {
-    sendPlayerAction({ type: "turnEnd", score: state.playerScore, board: state.playerBoard, turnNumber: state.turnNumber });
+    sendPlayerAction({
+      type: "turnEnd",
+      score: state.playerScore,
+      board: state.playerBoard,
+      traps: state.playerTraps,
+      verdicts: state.insiderVerdicts.player,
+      turnNumber: state.turnNumber,
+    });
     syncMatchState();
     if (!state.gameOver) {
       state.turn = "online-waiting";
@@ -3004,13 +3028,20 @@ async function startPlayerTurn() {
   render();
 }
 
-async function useCounter(index = 0) {
+async function useCounter(index = null) {
   if (state.gameOver || state.playerTrapCount <= 0 || state.turn !== "counter-window" || state.cutinActive) return;
+  if (!Number.isInteger(index) || index < 0 || index >= state.playerTraps.length) {
+    setMessage("発動する伏せスリッパを1枚選択してください。");
+    render();
+    return;
+  }
   clearTimeout(state.phaseTimeout);
+  const usedTrapIndex = index;
   state.mobileTrapOpen = false;
   state.trapDetailIndex = null;
   state.selectedTrapIndex = null;
-  const trap = drawTrapByIndexForSide("player", Number.isInteger(index) ? index : 0);
+  const trap = drawTrapByIndexForSide("player", usedTrapIndex);
+  if (trap) trap.trapIndex = usedTrapIndex;
   await showCutin(playerCutinLabel(), "伏せスリッパオープン！", `${trap?.name || "湿度カウンター"}！`, {
     image: playerCounterImage(),
   });
@@ -4633,6 +4664,11 @@ function trapSlipperAt(index) {
   const name = state.playerTraps[index];
   return name ? cloneSlipper(slipperByName(name) || { name, style: "伏せ", tags: [], text: "" }) : null;
 }
+function selectedTrapSlipper() {
+  if (!Number.isInteger(state.selectedTrapIndex)) return null;
+  if (state.selectedTrapIndex < 0 || state.selectedTrapIndex >= state.playerTraps.length) return null;
+  return trapSlipperAt(state.selectedTrapIndex);
+}
 
 function renderMobileTrapPanel() {
   const root = byId("mobileTrapPanel");
@@ -4648,9 +4684,8 @@ function renderMobileTrapPanel() {
     }
     return;
   }
-  if (state.selectedTrapIndex == null || state.selectedTrapIndex >= state.playerTraps.length) {
-    state.selectedTrapIndex = 0;
-  }
+  if (state.selectedTrapIndex != null && state.selectedTrapIndex >= state.playerTraps.length) state.selectedTrapIndex = null;
+  const hasSelectedTrap = Boolean(selectedTrapSlipper());
   root.hidden = false;
   root.innerHTML = `
     <div class="mobile-trap-head">
@@ -4661,6 +4696,11 @@ function renderMobileTrapPanel() {
     <button type="button" class="mobile-trap-open" data-mobile-trap-open>オープン</button>
   `;
   const list = root.querySelector(".mobile-trap-list");
+  const openButton = root.querySelector("[data-mobile-trap-open]");
+  if (openButton) {
+    openButton.disabled = !hasSelectedTrap;
+    openButton.textContent = "オープン";
+  }
   state.playerTraps.forEach((name, index) => {
     const slipper = trapSlipperAt(index);
     const button = document.createElement("button");
@@ -4685,7 +4725,12 @@ function renderMobileTrapPanel() {
     render();
   });
   root.querySelector("[data-mobile-trap-open]")?.addEventListener("click", () => {
-    useCounter(state.selectedTrapIndex ?? 0);
+    if (!selectedTrapSlipper()) {
+      setMessage("発動する伏せスリッパを1枚選択してください。");
+      renderMobileTrapPanel();
+      return;
+    }
+    useCounter(state.selectedTrapIndex);
   });
 }
 
@@ -4880,7 +4925,7 @@ function toggleMobileTrapPanel() {
     state.mobileHandOpen = false;
     state.mobileLogOpen = false;
     state.detailHandUid = null;
-    if (state.selectedTrapIndex == null || state.selectedTrapIndex >= state.playerTraps.length) state.selectedTrapIndex = 0;
+    if (state.selectedTrapIndex != null && state.selectedTrapIndex >= state.playerTraps.length) state.selectedTrapIndex = null;
   } else {
     state.trapDetailIndex = null;
   }
