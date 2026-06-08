@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.08-judge-icon-align-v40";
+const APP_VERSION = "2026.06.08-judge-clean-icons-v41";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -4093,18 +4093,8 @@ function judgeSpriteEmotionColumn(row) {
 function judgeIconSpriteStyle(row) {
   const col = judgeSpriteEmotionColumn(row);
   const spriteRow = judgeSpriteRow(row.insider.name);
-  const zoomX = 6.4;
-  const zoomY = 6.8;
-  const sheetLabelWidth = 0.2;
-  const sheetHeaderHeight = 0.095;
-  const cellWidth = (1 - sheetLabelWidth) / 4;
-  const cellHeight = (1 - sheetHeaderHeight) / 6;
   const emotionIndex = Math.max(0, col - 1);
-  const focusX = sheetLabelWidth + (emotionIndex + 0.5) * cellWidth;
-  const focusY = sheetHeaderHeight + (spriteRow + 0.5) * cellHeight;
-  const posX = ((zoomX * focusX - 0.5) / (zoomX - 1)) * 100;
-  const posY = ((zoomY * focusY - 0.5) / (zoomY - 1)) * 100;
-  return `--judge-bg-x:${posX.toFixed(2)}%;--judge-bg-y:${posY.toFixed(2)}%;`;
+  return `--judge-clean-col:${emotionIndex};--judge-clean-row:${spriteRow};`;
 }
 
 function judgeBubbleText(verdict) {
@@ -4155,6 +4145,7 @@ function renderJudgePanel(id, rows) {
           const sideClass = row.secured ? `secured-${row.secured}` : `${row.lean}-lean`;
           const tags = [biasLabel(row.insider.bias), ...row.insider.wants].slice(0, 4);
           const bubble = state.judgeBubble && state.judgeBubble.index === row.index ? state.judgeBubble : null;
+          const speech = bubble?.text || (row.focused ? row.comment : "");
           return `
             <article class="judge-eval-row ${sideClass} ${row.focused ? "focused" : ""}" style="--judge-pos:${row.meter}%">
               <div class="judge-eval-avatar sprite" style="${judgeIconSpriteStyle(row)}" aria-label="${escapeHtml(row.insider.name)}"></div>
@@ -4167,7 +4158,7 @@ function renderJudgePanel(id, rows) {
                 <div class="judge-eval-tags">
                   ${tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}
                 </div>
-                ${bubble ? `<p class="judge-eval-speech bubble">${escapeHtml(bubble.text)}</p>` : ""}
+                ${speech ? `<p class="judge-eval-speech bubble">${escapeHtml(speech)}</p>` : ""}
               </div>
             </article>
           `;

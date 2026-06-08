@@ -8234,9 +8234,9 @@ body.mobile-ui.landscape-ui .mobile-battle:not(.judge-collapsed) .judgement-summ
   position: relative;
   overflow: hidden;
   border: 2px solid rgba(216, 182, 90, 0.82);
-  background-image: url("assets/judge-insiders-sheet.png");
-  background-size: 500% 600%;
-  background-position: calc(var(--judge-col, 3) * 25%) calc(var(--judge-row, 0) * 20%);
+  background-image: url("assets/judge-insiders-clean.png");
+  background-size: 400% 600%;
+  background-position: calc(var(--judge-clean-col, 2) * 33.333333%) calc(var(--judge-clean-row, 0) * 20%);
   background-repeat: no-repeat;
   color: transparent;
   box-shadow:
@@ -8366,8 +8366,9 @@ body.mobile-ui.landscape-ui .judge-eval-avatar.sprite {
 }
 
 .judge-eval-avatar.sprite {
-  background-size: 640% 680%;
-  background-position: var(--judge-bg-x, 50%) var(--judge-bg-y, 50%);
+  background-image: url("assets/judge-insiders-clean.png");
+  background-size: 400% 600%;
+  background-position: calc(var(--judge-clean-col, 2) * 33.333333%) calc(var(--judge-clean-row, 0) * 20%);
   background-repeat: no-repeat;
   background-color: #080604;
 }

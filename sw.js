@@ -1,4 +1,4 @@
-const CACHE_NAME = "king-of-slipper-tsg-v59";
+const CACHE_NAME = "king-of-slipper-tsg-v60";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -24,6 +24,7 @@ const CORE_ASSETS = [
   "./assets/kai-setsuna.png",
   "./assets/judge-tsg.png",
   "./assets/judge-insiders-sheet.png",
+  "./assets/judge-insiders-clean.png",
   "./assets/haou-theme-mobile.mp3",
   "./assets/haou-victory-theme-mobile.mp3",
   "./assets/jin-theme-mobile.mp3",
