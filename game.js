@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.08-unified-battle-v43";
+const APP_VERSION = "2026.06.09-ui-cleanup-v44";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -4231,7 +4231,16 @@ function judgeIconSpriteStyle(row) {
   const col = judgeSpriteEmotionColumn(row);
   const spriteRow = judgeSpriteRow(row.insider.name);
   const emotionIndex = Math.max(0, col - 1);
-  return `--judge-clean-col:${emotionIndex};--judge-clean-row:${spriteRow};`;
+  const zoom = 1.08;
+  const x = spriteFocusPercent(emotionIndex, 4, zoom);
+  const y = spriteFocusPercent(spriteRow, 6, zoom);
+  return `--judge-clean-col:${emotionIndex};--judge-clean-row:${spriteRow};--judge-clean-zoom:${zoom};--judge-clean-x:${x.toFixed(2)}%;--judge-clean-y:${y.toFixed(2)}%;`;
+}
+
+function spriteFocusPercent(index, total, zoom) {
+  const denominator = 1 - total * zoom;
+  if (Math.abs(denominator) < 0.0001) return total > 1 ? (index / (total - 1)) * 100 : 50;
+  return ((0.5 - (index + 0.5) * zoom) / denominator) * 100;
 }
 
 function judgeBubbleText(verdict) {
@@ -4262,10 +4271,6 @@ function renderJudgePanel(id, rows) {
       <strong>審判員の評価</strong>
       <button type="button" class="judge-panel-toggle" aria-label="審判員パネルを閉じる" aria-expanded="true">×</button>
       <em class="${warning ? "warning" : ""}">${warning || "履き状況を判定中"}</em>
-    </div>
-    <div class="judge-scoreline">
-      <b class="cpu">${opponentResultName()} ${state.cpuScore}/5</b>
-      <b class="player">${playerResultName()} ${state.playerScore}/5</b>
     </div>
     <div class="judge-row-list">
       ${rows
@@ -4368,7 +4373,12 @@ function renderMobileBattle() {
   mobileRoot.classList.toggle("judge-collapsed", state.judgePanelOpen === false);
   mobileRoot.dataset.handSide = state.mobileHandSide || "player";
   byId("mobilePlayerScore").textContent = `${state.playerScore}/5`;
-  byId("mobileCpuScore").textContent = `${state.cpuScore}/5`;
+  const topStatus = byId("mobileCpuScore");
+  if (topStatus) {
+    const urgent = state.started && !state.gameOver && state.turn === "player" && state.timer <= 3 && state.timer > 0;
+    topStatus.textContent = `${opponentShortName()} ${Math.min(5, state.cpuScore)}/5 ｜ BO ${state.playerRoundWins}-${state.cpuRoundWins} ｜ ${getTurnLabel()} ｜ 残り ${formatClock(state.matchSeconds || MATCH_SECONDS)} ｜ ${playerShortName()} ${Math.min(5, state.playerScore)}/5`;
+    topStatus.classList.toggle("turn-countdown-urgent", urgent);
+  }
   updateTurnTimerDisplay();
   byId("mobilePlayerInsiderCount").textContent = `${Math.min(5, state.playerScore)}/5`;
   byId("mobileCpuInsiderCount").textContent = `${Math.min(5, state.cpuScore)}/5`;
