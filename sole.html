@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>KOS Sole Monitor</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #090908;
+        --panel: #15161a;
+        --line: rgba(216, 182, 90, 0.28);
+        --gold: #e6c65d;
+        --red: #ff6a55;
+        --blue: #4cc8ff;
+        --muted: #a8a196;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100dvh;
+        margin: 0;
+        padding: max(14px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+        background:
+          radial-gradient(circle at 12% 0%, rgba(216, 182, 90, 0.14), transparent 34%),
+          linear-gradient(180deg, #11100d, var(--bg));
+        color: #f6f1e6;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      main {
+        width: min(960px, 100%);
+        margin: 0 auto;
+        display: grid;
+        gap: 14px;
+      }
+
+      header,
+      section {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(21, 22, 26, 0.9);
+        box-shadow: 0 0 22px rgba(0, 0, 0, 0.24), inset 0 0 18px rgba(216, 182, 90, 0.04);
+      }
+
+      header {
+        padding: 16px;
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: clamp(28px, 8vw, 48px);
+        line-height: 1;
+      }
+
+      h2 {
+        color: var(--gold);
+        font-size: 16px;
+      }
+
+      .eyebrow {
+        color: var(--gold);
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .sub {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .status {
+        margin-top: 10px;
+        color: #fff;
+        font-size: 12px;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .stat {
+        padding: 14px;
+      }
+
+      .stat span {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .stat strong {
+        display: block;
+        margin-top: 4px;
+        color: #fff;
+        font-size: clamp(28px, 10vw, 44px);
+        line-height: 1;
+      }
+
+      .stat small {
+        color: rgba(246, 241, 230, 0.62);
+      }
+
+      .rooms {
+        padding: 14px;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      button {
+        border: 1px solid rgba(216, 182, 90, 0.45);
+        border-radius: 10px;
+        padding: 9px 12px;
+        background: rgba(216, 182, 90, 0.14);
+        color: var(--gold);
+        font-weight: 900;
+      }
+
+      .room-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .room {
+        display: grid;
+        gap: 6px;
+        padding: 11px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 11px;
+        background: rgba(255, 255, 255, 0.035);
+      }
+
+      .room.stale {
+        border-color: rgba(255, 106, 85, 0.58);
+        background: rgba(118, 28, 18, 0.22);
+      }
+
+      .room-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .room-id {
+        color: #fff;
+        font-size: 17px;
+        font-weight: 1000;
+        letter-spacing: 0.04em;
+      }
+
+      .pill {
+        border-radius: 999px;
+        padding: 4px 8px;
+        background: rgba(216, 182, 90, 0.14);
+        color: var(--gold);
+        font-size: 11px;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+
+      .pill.waiting {
+        color: var(--red);
+      }
+
+      .pill.matched,
+      .pill.playing,
+      .pill.in_game {
+        color: var(--blue);
+      }
+
+      .room-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 5px 10px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .room-grid b {
+        color: #fff;
+      }
+
+      .empty {
+        padding: 16px;
+        border: 1px dashed rgba(216, 182, 90, 0.25);
+        border-radius: 11px;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      .warn {
+        color: var(--red);
+      }
+
+      @media (min-width: 720px) {
+        .stats {
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">KOS Sole Monitor</p>
+        <h1>sole</h1>
+        <p class="sub">制作者用の簡易観測ページ。通常メニューからはリンクしません。</p>
+        <p id="connectionStatus" class="status">Firebaseへ接続中...</p>
+      </header>
+
+      <section class="stats" aria-label="今日の統計">
+        <article class="stat">
+          <span>今日のアクセス数</span>
+          <strong id="pageViews">--</strong>
+          <small id="soleViews">sole --</small>
+        </article>
+        <article class="stat">
+          <span>今日の部屋作成数</span>
+          <strong id="roomCreates">--</strong>
+        </article>
+        <article class="stat">
+          <span>今日の対戦開始数</span>
+          <strong id="matchStarts">--</strong>
+        </article>
+        <article class="stat">
+          <span>現在のrooms数</span>
+          <strong id="roomCount">--</strong>
+        </article>
+        <article class="stat">
+          <span>古いroom</span>
+          <strong id="staleCount">--</strong>
+        </article>
+      </section>
+
+      <section class="rooms">
+        <div class="section-head">
+          <div>
+            <h2>最新 room 一覧</h2>
+            <p class="sub">updatedAt が1時間以上前なら古いroomとして表示します。</p>
+          </div>
+          <button id="refreshBtn" type="button">更新</button>
+        </div>
+        <div id="roomList" class="room-list">
+          <p class="empty">読み込み中...</p>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+    <script>
+      const firebaseConfig = {
+        apiKey: "AIzaSyCdODKnuBf6aXsXW_xS8bBN2kz_v1yidpU",
+        authDomain: "king-of-slipper.firebaseapp.com",
+        databaseURL: "https://king-of-slipper-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "king-of-slipper",
+        storageBucket: "king-of-slipper.firebasestorage.app",
+        messagingSenderId: "413758065735",
+        appId: "1:413758065735:web:d70cb4bc9420ec8b07f562",
+        measurementId: "G-GJP1ZR7HY0",
+      };
+
+      const STALE_MS = 60 * 60 * 1000;
+      const $ = (id) => document.getElementById(id);
+      const todayKey = () => new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const asNumber = (value) => Number(value || 0);
+      const statusClass = (status = "") => String(status).replace(/[^a-zA-Z0-9_-]/g, "_");
+      const fmtTime = (value) => {
+        const n = Number(value || 0);
+        if (!n) return "--";
+        return new Date(n).toLocaleString("ja-JP", {
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+      };
+
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.database();
+      $("connectionStatus").textContent = `Firebase接続中 / ${todayKey()}`;
+
+      function incrementSoleView() {
+        const key = todayKey();
+        const ref = db.ref(`dailyStats/${key}`);
+        ref.update({ date: key, updatedAt: firebase.database.ServerValue.TIMESTAMP }).catch(console.warn);
+        ref.child("soleViews").transaction((value) => asNumber(value) + 1).catch(console.warn);
+      }
+
+      function renderStats(snapshot) {
+        const stats = snapshot.val() || {};
+        $("pageViews").textContent = asNumber(stats.pageViews);
+        $("soleViews").textContent = `sole ${asNumber(stats.soleViews)}`;
+        $("roomCreates").textContent = asNumber(stats.roomCreates);
+        $("matchStarts").textContent = asNumber(stats.matchStarts);
+      }
+
+      function playerCount(room) {
+        const players = room?.players || {};
+        return Object.values(players).filter((player) => player && player.connected !== false).length;
+      }
+
+      function renderRooms(snapshot) {
+        const rooms = snapshot.val() || {};
+        const now = Date.now();
+        const entries = Object.entries(rooms)
+          .map(([id, room]) => ({ id, room, updatedAt: Number(room?.updatedAt || room?.createdAt || 0) }))
+          .sort((a, b) => b.updatedAt - a.updatedAt);
+        const stale = entries.filter((entry) => entry.updatedAt && now - entry.updatedAt > STALE_MS);
+        $("roomCount").textContent = entries.length;
+        $("staleCount").textContent = stale.length;
+        const root = $("roomList");
+        if (!entries.length) {
+          root.innerHTML = `<p class="empty">現在残っているroomはありません。</p>`;
+          return;
+        }
+        root.innerHTML = entries
+          .slice(0, 30)
+          .map(({ id, room, updatedAt }) => {
+            const isStale = updatedAt && now - updatedAt > STALE_MS;
+            const count = playerCount(room);
+            const status = room?.status || "unknown";
+            const host = room?.players?.host?.connected !== false && room?.players?.host ? "host OK" : "host -";
+            const guest = room?.players?.guest?.connected !== false && room?.players?.guest ? "guest OK" : "guest -";
+            return `
+              <article class="room ${isStale ? "stale" : ""}">
+                <div class="room-top">
+                  <span class="room-id">${id}</span>
+                  <span class="pill ${statusClass(status)}">${status}</span>
+                </div>
+                <div class="room-grid">
+                  <span>players <b>${count}/2</b></span>
+                  <span>updated <b>${fmtTime(updatedAt)}</b></span>
+                  <span>${host}</span>
+                  <span>${guest}</span>
+                  <span>mode <b>${room?.mode || "-"}</b></span>
+                  <span>${isStale ? '<b class="warn">古いroom</b>' : "active"}</span>
+                </div>
+              </article>
+            `;
+          })
+          .join("");
+      }
+
+      function subscribe() {
+        db.ref(`dailyStats/${todayKey()}`).on("value", renderStats, (error) => {
+          $("connectionStatus").textContent = `dailyStats 読み込み失敗: ${error.message}`;
+        });
+        db.ref("rooms").on("value", renderRooms, (error) => {
+          $("connectionStatus").textContent = `rooms 読み込み失敗: ${error.message}`;
+        });
+      }
+
+      $("refreshBtn").addEventListener("click", () => {
+        $("connectionStatus").textContent = `更新中 / ${new Date().toLocaleTimeString("ja-JP")}`;
+        db.ref("rooms").once("value").then(renderRooms);
+        db.ref(`dailyStats/${todayKey()}`).once("value").then(renderStats);
+      });
+
+      incrementSoleView();
+      subscribe();
+    </script>
+  </body>
+</html>

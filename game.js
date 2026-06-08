@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.08-judge-panel-v33";
+const APP_VERSION = "2026.06.08-sole-monitor-v34";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -1304,6 +1304,7 @@ function createRoom() {
   roomSync.mode = "online_private";
   roomSync.status = "room_create";
   cleanupStaleRooms();
+  incrementDailyStat("roomCreates");
   return connectRoom(generateRoomCode(), "host");
 }
 
@@ -1518,6 +1519,25 @@ function initRoomFirebase() {
 
 function firebaseTimestamp() {
   return window.firebase?.database?.ServerValue?.TIMESTAMP || Date.now();
+}
+
+function dailyStatKey(date = new Date()) {
+  const japanTime = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  return japanTime.toISOString().slice(0, 10);
+}
+
+function incrementDailyStat(field) {
+  const db = initRoomFirebase();
+  if (!db || !field) return Promise.resolve();
+  const key = dailyStatKey();
+  const statRef = db.ref(`dailyStats/${key}`);
+  return statRef
+    .update({ date: key, updatedAt: firebaseTimestamp() })
+    .then(() => statRef.child(field).transaction((value) => (Number(value) || 0) + 1))
+    .catch((error) => {
+      console.warn("[KOS stats] increment failed", field, error);
+      return null;
+    });
 }
 
 function getRoomPlayerId() {
@@ -1791,6 +1811,7 @@ async function startOnlineMatch(announceStart = true) {
   roomSync.initialGameStateReceived = true;
   roomSync.pendingStartAction = false;
   setRoomStatus("playing");
+  if (announceStart || roomSync.role === "host") incrementDailyStat("matchStarts");
   state.onlineMode = true;
   state.onlineRole = roomSync.role;
   byId("roomDialog").close();
@@ -5467,6 +5488,7 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   }).catch(() => {});
 }
 
+incrementDailyStat("pageViews");
 applyDeviceMode();
 initHandDrag();
 setCpuDifficulty(settings.cpuDifficulty);

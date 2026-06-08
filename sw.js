@@ -1,4 +1,4 @@
-const CACHE_NAME = "king-of-slipper-tsg-v52";
+const CACHE_NAME = "king-of-slipper-tsg-v53";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -6,6 +6,7 @@ const CORE_ASSETS = [
   "./game.js",
   "./mobile-qr.html",
   "./public-qr.html",
+  "./sole.html",
   "./version.json",
   "./manifest.json",
   "./manifest.webmanifest",
