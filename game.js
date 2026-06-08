@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.08-judge-panel-toggle-v36";
+const APP_VERSION = "2026.06.08-judge-icons-v37";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -4064,6 +4064,113 @@ function showJudgeBubble(verdict) {
   state.judgeBubble = {
     index: index >= 0 ? index : 0,
     text: verdict.won ? "履きたい…！" : "まだ迷う…",
+  };
+  renderJudgePanels();
+  window.clearTimeout(state.judgeBubbleTimer);
+  state.judgeBubbleTimer = window.setTimeout(() => {
+    state.judgeBubble = null;
+    renderJudgePanels();
+  }, 2600);
+}
+
+function judgeSpriteRow(name = "") {
+  if (name.includes("元気な小学生")) return 0;
+  if (name.includes("会社帰り")) return 1;
+  if (name.includes("温泉好き")) return 2;
+  if (name.includes("玄関美学")) return 3;
+  if (name.includes("濡れ")) return 4;
+  if (name.includes("ふわもこ")) return 5;
+  return 0;
+}
+
+function judgeSpriteEmotionColumn(row) {
+  if (row.secured) return 4; // 楽: wore / secured.
+  if (row.lean === "cpu" || row.diff < -2) return 2; // 怒: opponent-favored / negative.
+  if (row.lean === "player" || row.diff > 2) return 1; // 喜: player-favored / positive.
+  return 3; // 哀: neutral / uncertain.
+}
+
+function judgeIconSpriteStyle(row) {
+  return `--judge-row:${judgeSpriteRow(row.insider.name)};--judge-col:${judgeSpriteEmotionColumn(row)};`;
+}
+
+function judgeBubbleText(verdict) {
+  if (verdict.won) return "履きたい…！";
+  if (verdict.score >= 24) return "悪くない";
+  if (verdict.reasonText?.includes("中央")) return "中央前、勝負に出たな！";
+  if (verdict.reasonText?.includes("静音")) return "静音性が気になる";
+  return "まだ迷う…";
+}
+
+function renderJudgePanel(id, rows) {
+  const root = byId(id);
+  if (!root) return;
+  const isOpen = state.judgePanelOpen !== false;
+  const warning = winnerWarningText();
+  root.classList.toggle("collapsed", !isOpen);
+  if (!isOpen) {
+    root.innerHTML = `
+      <button type="button" class="judge-panel-toggle collapsed" aria-label="審判員パネルを開く" aria-expanded="false">▼</button>
+      <strong class="judge-panel-closed-title">審判員の評価</strong>
+    `;
+    root.querySelector(".judge-panel-toggle")?.addEventListener("click", toggleJudgePanel);
+    return;
+  }
+  root.innerHTML = `
+    <div class="judge-panel-head">
+      <span>先に5人を履かせたら勝利</span>
+      <strong>審判員の評価</strong>
+      <button type="button" class="judge-panel-toggle" aria-label="審判員パネルを閉じる" aria-expanded="true">×</button>
+      <em class="${warning ? "warning" : ""}">${warning || "履き状況を判定中"}</em>
+    </div>
+    <div class="judge-scoreline">
+      <b class="cpu">松葉迅 ${state.cpuScore}/5</b>
+      <b class="player">${playerResultName()} ${state.playerScore}/5</b>
+    </div>
+    <div class="judge-row-list">
+      ${rows
+        .map((row) => {
+          const leanText = row.secured
+            ? row.secured === "player"
+              ? "獲得済み"
+              : "相手獲得"
+            : row.lean === "player"
+              ? "自分寄り"
+              : row.lean === "cpu"
+                ? "相手寄り"
+                : "迷い中";
+          const sideClass = row.secured ? `secured-${row.secured}` : `${row.lean}-lean`;
+          const tags = [biasLabel(row.insider.bias), ...row.insider.wants].slice(0, 4);
+          const bubble = state.judgeBubble && state.judgeBubble.index === row.index ? state.judgeBubble : null;
+          return `
+            <article class="judge-eval-row ${sideClass} ${row.focused ? "focused" : ""}" style="--judge-pos:${row.meter}%">
+              <div class="judge-eval-avatar sprite" style="${judgeIconSpriteStyle(row)}"><span>${row.index + 1}</span></div>
+              <div class="judge-eval-main">
+                <div class="judge-eval-title">
+                  <strong>${escapeHtml(row.insider.name)}</strong>
+                  <span>${leanText}</span>
+                </div>
+                <div class="judge-eval-meter"><i></i></div>
+                <div class="judge-eval-tags">
+                  ${tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}
+                </div>
+                ${bubble ? `<p class="judge-eval-speech bubble">${escapeHtml(bubble.text)}</p>` : ""}
+              </div>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+  root.querySelector(".judge-panel-toggle")?.addEventListener("click", toggleJudgePanel);
+}
+
+function showJudgeBubble(verdict) {
+  if (!verdict) return;
+  const index = insiders.findIndex((insider) => insider.name === verdict.insider.name);
+  state.judgeBubble = {
+    index: index >= 0 ? index : 0,
+    text: judgeBubbleText(verdict),
   };
   renderJudgePanels();
   window.clearTimeout(state.judgeBubbleTimer);
