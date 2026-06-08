@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.09-ui-cleanup-v44";
+const APP_VERSION = "2026.06.09-judge-ui-v45";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -4251,6 +4251,13 @@ function judgeBubbleText(verdict) {
   return "まだ迷う…";
 }
 
+function judgePanelStatusText() {
+  const warning = winnerWarningText();
+  if (warning) return warning;
+  const remaining = Math.max(0, 5 - Math.max(state.playerScore || 0, state.cpuScore || 0));
+  return `あと${remaining}履き！`;
+}
+
 function renderJudgePanel(id, rows) {
   const root = byId(id);
   if (!root) return;
@@ -4265,12 +4272,11 @@ function renderJudgePanel(id, rows) {
     root.querySelector(".judge-panel-toggle")?.addEventListener("click", toggleJudgePanel);
     return;
   }
+  const statusText = judgePanelStatusText();
   root.innerHTML = `
     <div class="judge-panel-head">
-      <span>先に5人を履かせたら勝利</span>
-      <strong>審判員の評価</strong>
+      <strong>審判員の評価<span>${escapeHtml(statusText)}</span></strong>
       <button type="button" class="judge-panel-toggle" aria-label="審判員パネルを閉じる" aria-expanded="true">×</button>
-      <em class="${warning ? "warning" : ""}">${warning || "履き状況を判定中"}</em>
     </div>
     <div class="judge-row-list">
       ${rows
@@ -4376,7 +4382,7 @@ function renderMobileBattle() {
   const topStatus = byId("mobileCpuScore");
   if (topStatus) {
     const urgent = state.started && !state.gameOver && state.turn === "player" && state.timer <= 3 && state.timer > 0;
-    topStatus.textContent = `${opponentShortName()} ${Math.min(5, state.cpuScore)}/5 ｜ BO ${state.playerRoundWins}-${state.cpuRoundWins} ｜ ${getTurnLabel()} ｜ 残り ${formatClock(state.matchSeconds || MATCH_SECONDS)} ｜ ${playerShortName()} ${Math.min(5, state.playerScore)}/5`;
+    topStatus.textContent = `${opponentResultName()} ｜ BO ${state.playerRoundWins}-${state.cpuRoundWins} ｜ ${getTurnLabel()} ｜ 残り ${formatClock(state.matchSeconds || MATCH_SECONDS)} ｜ ${playerResultName()}`;
     topStatus.classList.toggle("turn-countdown-urgent", urgent);
   }
   updateTurnTimerDisplay();
@@ -5010,6 +5016,11 @@ function showImportantCommentary(title, text, tone = "", options = {}) {
   });
 }
 
+function passiveImportantNoticeMs(title = "") {
+  const passiveTitles = ["履き判定", "Shoe Rack Change", "Shoe Rack効果"];
+  return passiveTitles.includes(title) ? 1800 : 0;
+}
+
 function runImportantNoticeQueue() {
   if (importantNoticeActive || !importantQueue.length) return;
   const item = importantQueue.shift();
@@ -5021,11 +5032,19 @@ function runImportantNoticeQueue() {
   byId("importantNoticeTitle").textContent = item.title || "重要情報";
   byId("importantNoticeText").textContent = item.text || "";
   const button = byId("importantNoticeBtn");
-  button.hidden = Boolean(item.options?.autoCloseMs);
+  const autoCloseMs = item.options?.autoCloseMs ?? passiveImportantNoticeMs(item.title);
+  button.hidden = Boolean(autoCloseMs);
   notice.className = `important-notice show ${item.tone || ""}`.trim();
   notice.setAttribute("aria-hidden", "false");
+  let done = false;
+  let autoCloseTimer = 0;
   const finish = () => {
+    if (done) return;
+    done = true;
+    window.clearTimeout(autoCloseTimer);
     button.removeEventListener("click", finish);
+    notice.removeEventListener("click", finish);
+    document.removeEventListener("keydown", onKeyDown);
     notice.classList.remove("show");
     notice.setAttribute("aria-hidden", "true");
     button.hidden = false;
@@ -5035,9 +5054,14 @@ function runImportantNoticeQueue() {
     item.resolve();
     runImportantNoticeQueue();
   };
+  const onKeyDown = (event) => {
+    if (event.key === "Enter" || event.key === " ") finish();
+  };
   button.addEventListener("click", finish);
-  if (item.options?.autoCloseMs) {
-    setTimeout(finish, item.options.autoCloseMs);
+  notice.addEventListener("click", finish);
+  document.addEventListener("keydown", onKeyDown);
+  if (autoCloseMs) {
+    autoCloseTimer = window.setTimeout(finish, autoCloseMs);
   }
 }
 const audienceLines = [

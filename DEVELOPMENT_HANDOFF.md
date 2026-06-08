@@ -1,9 +1,9 @@
 # King of Slipper / TSG Development Handoff
 
-Last updated: 2026-06-08
+Last updated: 2026-06-09
 Current pushed commit: pending this handoff update
-Current app version: `2026.06.08-room-cleanup-v32`
-Current service worker cache: `king-of-slipper-tsg-v51`
+Current app version: `2026.06.09-judge-ui-v45`
+Current service worker cache: `king-of-slipper-tsg-v64`
 
 This document is a technical handoff for continuing development in a new workspace/thread. It intentionally excludes story lore and unimplemented character setting notes. It covers only current game implementation, data structures, UI behavior, known issues, and next tasks.
 
@@ -60,11 +60,37 @@ Current values:
 
 ```js
 // game.js
-const APP_VERSION = "2026.06.08-room-cleanup-v32";
+const APP_VERSION = "2026.06.09-judge-ui-v45";
 
 // sw.js
-const CACHE_NAME = "king-of-slipper-tsg-v51";
+const CACHE_NAME = "king-of-slipper-tsg-v64";
 ```
+
+## 3.1 Current UI Direction
+
+The mobile landscape battle UI is now the canonical battle UI.
+
+- PC/Web should render the same mobile-landscape battle layout, centered if needed.
+- Do not add PC-only battle layouts.
+- Do not add permanent panels, lanes, bubble tracks, or duplicate score displays.
+- The battle view should fit in one screen without vertical scrolling.
+- The top HUD is for match state only: opponent name, BO score, phase/turn state, remaining time, player name.
+- Wear counts should not be duplicated in the top HUD and judge panel at the same time.
+- The right judge panel is for seeing insider reactions, not repeating score information.
+- Empty space between the entrance board and judge panel is intentional breathing room and may be used only for temporary overlay bubbles.
+- Judge bubbles are temporary overlays, not layout-flow content. They must not push judge rows down or create a permanent lane.
+- When the judge panel is collapsed, judge bubbles should not appear; use the existing central insider popup instead.
+- Judge face icons are a high-priority polish item. Use the existing `assets/judge-insiders-clean.png` sprite, crop each face cleanly, and avoid neighboring cell artifacts.
+- The five-slot entrance board remains LF / CF / RF / LB / RB with the three-front/two-back layout. Keep the five slippers visually centered within the entrance board area.
+
+Latest UI cleanup goals:
+
+1. Remove duplicate wear count text from the top HUD.
+2. Remove the always-visible "先に5人を履かせたら勝利" text from the judge panel.
+3. Compress the judge panel header to a short title plus "あとN履き" or warning text.
+4. Distribute freed vertical space into the five judge rows.
+5. Keep the entrance board slightly left-balanced so the board, judge panel, and action buttons breathe.
+6. Keep notifications non-blocking where player confirmation is not required.
 
 ## 4. Core Runtime State
 

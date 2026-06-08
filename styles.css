@@ -8663,3 +8663,116 @@ body.pc-ui .mobile-battle.judge-collapsed .judgement-summary {
   width: min(86%, 460px);
   pointer-events: none;
 }
+
+/* Judge panel declutter: the HUD owns match state, the panel owns reactions. */
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle,
+body.mobile-ui.landscape-ui.mobile-compact #gameApp:not(.screen-hidden) .mobile-battle,
+body.mobile-ui.landscape-ui.mobile-tiny #gameApp:not(.screen-hidden) .mobile-battle,
+body.mobile-ui.landscape-ui.mobile-short #gameApp:not(.screen-hidden) .mobile-battle,
+body.pc-ui #gameApp:not(.screen-hidden) .mobile-battle {
+  column-gap: clamp(6px, 1.1vw, 14px);
+}
+
+body.mobile-ui.landscape-ui .mobile-board,
+body.pc-ui .mobile-board {
+  padding-left: clamp(7px, 1.2vw, 14px);
+  padding-right: clamp(7px, 1.2vw, 14px);
+}
+
+body.mobile-ui.landscape-ui .judge-panel-head,
+body.pc-ui .judge-panel-head {
+  min-height: 0;
+  padding: clamp(3px, 0.7dvh, 6px) clamp(6px, 1vw, 10px);
+}
+
+body.mobile-ui.landscape-ui .judge-panel-head strong,
+body.pc-ui .judge-panel-head strong {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: center;
+  gap: clamp(5px, 1vw, 10px);
+  font-size: clamp(13px, 1.85vw, 20px);
+  white-space: nowrap;
+}
+
+body.mobile-ui.landscape-ui .judge-panel-head strong span,
+body.pc-ui .judge-panel-head strong span {
+  display: inline;
+  color: #fff4b8;
+  font-size: 0.58em;
+  font-weight: 1000;
+  text-shadow: 0 0 10px rgba(216, 182, 90, 0.38);
+}
+
+body.mobile-ui.landscape-ui .judge-panel-head em,
+body.mobile-ui.landscape-ui .judge-panel-head > span,
+body.pc-ui .judge-panel-head em,
+body.pc-ui .judge-panel-head > span {
+  display: none !important;
+}
+
+body.mobile-ui.landscape-ui .judge-row-list,
+body.pc-ui .judge-row-list {
+  overflow: visible;
+  gap: clamp(5px, 1dvh, 9px);
+}
+
+body.mobile-ui.landscape-ui .judge-eval-row,
+body.pc-ui .judge-eval-row {
+  position: relative;
+  overflow: visible;
+  grid-template-columns: clamp(44px, 6.2vw, 62px) minmax(0, 1fr);
+  padding-block: clamp(5px, 0.9dvh, 8px);
+}
+
+body.mobile-ui.landscape-ui .judge-eval-avatar.sprite,
+body.pc-ui .judge-eval-avatar.sprite {
+  width: clamp(42px, 6vw, 58px);
+  border-width: 2px;
+}
+
+body.mobile-ui.landscape-ui .judge-eval-speech.bubble,
+body.mobile-ui.landscape-ui.mobile-compact .judge-eval-speech.bubble,
+body.mobile-ui.landscape-ui.mobile-tiny .judge-eval-speech.bubble,
+body.mobile-ui.landscape-ui.mobile-short .judge-eval-speech.bubble,
+body.pc-ui .judge-eval-speech.bubble {
+  position: absolute !important;
+  right: calc(100% + clamp(8px, 1.1vw, 16px));
+  top: 50%;
+  z-index: 28;
+  width: clamp(150px, 22vw, 280px);
+  max-width: 32vw;
+  min-height: 0;
+  margin: 0;
+  padding: clamp(8px, 1.3dvh, 12px) clamp(10px, 1.5vw, 16px);
+  transform: translateY(-50%);
+  border: 2px solid rgba(255, 236, 177, 0.88);
+  border-radius: 12px;
+  background: rgba(4, 5, 8, 0.95) !important;
+  color: #fffdf5 !important;
+  font-size: clamp(12px, 1.55vw, 17px);
+  font-weight: 1000;
+  line-height: 1.35;
+  text-shadow: 0 1px 0 #000, 0 0 12px rgba(255, 236, 177, 0.22);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.46), 0 0 18px rgba(216, 182, 90, 0.22);
+  pointer-events: none;
+}
+
+body.mobile-ui.landscape-ui .judge-eval-speech.bubble::before,
+body.pc-ui .judge-eval-speech.bubble::before {
+  left: auto;
+  right: -9px;
+  top: 50%;
+  transform: translateY(-50%) rotate(45deg);
+  border: 0;
+  border-right: 2px solid rgba(255, 236, 177, 0.88);
+  border-top: 2px solid rgba(255, 236, 177, 0.88);
+  background: rgba(4, 5, 8, 0.95);
+}
+
+body.mobile-ui.landscape-ui #mobileCpuScore,
+body.pc-ui #mobileCpuScore {
+  max-width: min(44vw, 460px);
+  font-size: clamp(9px, 1.45vw, 14px);
+}
