@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.08-judge-clean-icons-v41";
+const APP_VERSION = "2026.06.08-online-sync-v42";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -702,6 +702,7 @@ const state = {
   stampCooldownUntil: 0,
   judgePanelOpen: true,
   judgeBubble: null,
+  pendingOnlineTurnEnd: null,
   selectedTrapIndex: null,
   trapDetailIndex: null,
   insiderDetail: null,
@@ -815,6 +816,51 @@ function playerCounterImage() {
 
 function playerWinImage() {
   return getPlayerCharacter().winImage || playerIcon();
+}
+
+function opponentRoomRole() {
+  if (roomSync.role === "host") return "guest";
+  if (roomSync.role === "guest") return "host";
+  return null;
+}
+
+function getOpponentRoomPlayer() {
+  const role = opponentRoomRole();
+  return role ? roomSync.players?.[role] || null : null;
+}
+
+function getOpponentCharacter() {
+  const remote = getOpponentRoomPlayer();
+  if (isOnlineMatch() && remote?.characterId) {
+    const key = normalizeCharacterKey(remote.characterId);
+    return PLAYER_CHARACTERS[key] || PLAYER_CHARACTERS.matsuba_jin;
+  }
+  return PLAYER_CHARACTERS.matsuba_jin;
+}
+
+function opponentDisplayName() {
+  const character = getOpponentCharacter();
+  return character.displayName || character.name || "松葉迅";
+}
+
+function opponentShortName() {
+  const character = getOpponentCharacter();
+  return character.shortName || opponentDisplayName();
+}
+
+function opponentResultName() {
+  const character = getOpponentCharacter();
+  return character.resultName || opponentDisplayName();
+}
+
+function opponentCutinLabel() {
+  const character = getOpponentCharacter();
+  return character.cutinLabel || opponentShortName();
+}
+
+function opponentIcon() {
+  const character = getOpponentCharacter();
+  return character.icon || character.image || "assets/jin-vs.png";
 }
 
 function saveSelectedPlayerKey(key) {
@@ -1390,6 +1436,7 @@ function syncMatchState() {
   const snapshot = {
     mode: roomSync.mode,
     status: roomSync.status,
+    role: roomSync.role,
     turnOwner: state.turn,
     playerScore: state.playerScore,
     cpuScore: state.cpuScore,
@@ -1399,6 +1446,7 @@ function syncMatchState() {
     at: Date.now(),
   };
   roomSync.room.child(`gameState/${roomSync.role || "unknown"}`).set(snapshot);
+  roomSync.room.child("gameState/latest").set(snapshot);
   return snapshot;
 }
 
@@ -1434,6 +1482,62 @@ function normalizeRemoteActionMessage(message, id) {
     }
   }
   return null;
+}
+
+async function resolvePendingOnlineTurnEnd() {
+  const action = state.pendingOnlineTurnEnd;
+  state.pendingOnlineTurnEnd = null;
+  clearTimeout(state.phaseTimeout);
+  if (!action || state.gameOver) return;
+  state.turn = "online-resolving";
+  state.cpuScore = Math.max(state.cpuScore, Number(action.score || 0));
+  state.cpuBoard = Array.isArray(action.board) ? action.board.map(reviveRemoteSlipper) : state.cpuBoard;
+  const remoteTurnNumber = Number(action.turnNumber || 0);
+  if (Number.isFinite(remoteTurnNumber) && remoteTurnNumber > 0) {
+    state.turnNumber = Math.max(state.turnNumber || 1, remoteTurnNumber);
+  }
+  syncMatchState();
+  render();
+  if (state.cpuScore >= 5) {
+    await checkWinner();
+  } else {
+    await startPlayerTurn();
+  }
+}
+
+function queueOnlineCounterWindow(action) {
+  state.pendingOnlineTurnEnd = action;
+  state.cpuBoard = Array.isArray(action.board) ? action.board.map(reviveRemoteSlipper) : state.cpuBoard;
+  const remoteTurnNumber = Number(action.turnNumber || 0);
+  if (Number.isFinite(remoteTurnNumber) && remoteTurnNumber > 0) {
+    state.turnNumber = Math.max(state.turnNumber || 1, remoteTurnNumber);
+  }
+  if (state.playerTrapCount > 0 && state.playerTraps.length > 0) {
+    state.turn = "counter-window";
+    byId("timer").textContent = "割込";
+    setPhase("伏せスリッパ確認", "相手の配置が確定した。伏せスリッパを開くか判断できる。");
+    setMessage(`伏せスリッパ使用可能。残り${state.playerTrapCount}足。`);
+    render();
+    clearTimeout(state.phaseTimeout);
+    state.phaseTimeout = setTimeout(resolvePendingOnlineTurnEnd, 5000);
+    return;
+  }
+  resolvePendingOnlineTurnEnd();
+}
+
+function sendCounterAction(trap) {
+  if (!isOnlineMatch()) return;
+  sendPlayerAction({
+    type: "counter",
+    trapName: trap?.name || "",
+    trap,
+    playerScore: state.playerScore,
+    cpuScore: state.cpuScore,
+    playerBoard: state.playerBoard,
+    cpuBoard: state.cpuBoard,
+    turnNumber: state.turnNumber,
+  });
+  syncMatchState();
 }
 
 async function receiveOpponentAction(message, id) {
@@ -1474,18 +1578,16 @@ async function receiveOpponentAction(message, id) {
     announce("ONLINE: opponent removed a slipper", "danger");
     render();
   } else if (action.type === "turnEnd") {
-    state.cpuScore = Math.max(state.cpuScore, Number(action.score || 0));
-    state.cpuBoard = Array.isArray(action.board) ? action.board.map(reviveRemoteSlipper) : state.cpuBoard;
-    state.turnNumber = Math.max(state.turnNumber || 1, Number(action.turnNumber || state.turnNumber || 1));
-    render();
-    if (state.cpuScore >= 5) {
-      await checkWinner();
-    } else {
-      await startPlayerTurn();
-    }
+    queueOnlineCounterWindow(action);
   } else if (action.type === "counter") {
-    announce("ONLINE: opponent countered!", "danger");
+    if (Array.isArray(action.playerBoard)) state.cpuBoard = action.playerBoard.map(reviveRemoteSlipper);
+    if (Array.isArray(action.cpuBoard)) state.playerBoard = action.cpuBoard.map(reviveRemoteSlipper);
+    state.cpuScore = Math.max(state.cpuScore, Number(action.playerScore || state.cpuScore || 0));
+    state.playerScore = Math.max(state.playerScore, Number(action.cpuScore || state.playerScore || 0));
+    announce(`ONLINE: ${opponentShortName()} opened ${action.trapName || "a hidden slipper"}!`, "danger");
+    log(`${opponentResultName()} opened hidden slipper: ${action.trapName || "unknown"}`);
     playSound("counter");
+    render();
   }
 }
 
@@ -1722,7 +1824,7 @@ function connectRoom(code, role) {
   const playerRef = roomSync.room.child(`players/${role}`);
   playerRef.set({
     playerId: roomSync.playerId,
-    name: role === "host" ? playerResultName() : "GUEST",
+    name: playerResultName(),
     role,
     characterId: selectedPlayerKey,
     connected: true,
@@ -1754,6 +1856,7 @@ function connectRoom(code, role) {
       updatedAt: new Date().toISOString(),
     }));
     renderRoomState();
+    if (state.started) render();
     roomDebug("players count", { players: Object.keys(roomSync.players) });
     if (roomSync.pendingStartAction && hasOnlineOpponent() && !state.started) {
       roomSync.pendingStartAction = false;
@@ -2185,7 +2288,7 @@ function opponentSide(side) {
 }
 
 function sideLabel(side) {
-  return side === "player" ? playerDisplayName() : "松葉迅";
+  return side === "player" ? playerDisplayName() : opponentDisplayName();
 }
 
 function applyScoreDamage(sourceSide, amount, sourceName) {
@@ -2555,6 +2658,7 @@ async function resetMatch() {
     stampCooldownUntil: 0,
     judgePanelOpen: state.judgePanelOpen !== false,
     judgeBubble: null,
+    pendingOnlineTurnEnd: null,
     selectedTrapIndex: null,
     trapDetailIndex: null,
     insiderDetail: null,
@@ -2614,7 +2718,7 @@ async function resetMatch() {
     state.coinTossWinner = state.firstPlayer === "remote" ? "cpu" : "player";
   }
   log(`試合開始！ 狭小マンション玄関で、${playerResultName()}とマッハのジンが向かい合う。`);
-  log(`コイントス: ${state.coinTossWinner === "player" ? playerResultName() : "松葉迅"}が先攻。`);
+  log(`コイントス: ${state.coinTossWinner === "player" ? playerResultName() : opponentResultName()}が先攻。`);
   log(`COM難易度: ${cpuProfile().label}`);
   setPhase("スリッパ配置", "第1ターンの配置上限は2足。履き数は配置数ではなく、玄関全体の評価で決まる。");
   setMessage("手持ちスリッパを選んで玄関に置こう。");
@@ -2916,7 +3020,8 @@ async function useCounter(index = 0) {
     log(`伏せスリッパ「${trap.name}」を公開した。`);
     showTrapResolutionNotice(playerResultName(), trap.name, trap.text || "読み合いが動いた。", "good");
     render();
-    state.phaseTimeout = setTimeout(resolveCpuTurn, 1100);
+    sendCounterAction(trap);
+    state.phaseTimeout = setTimeout(isOnlineMatch() && state.pendingOnlineTurnEnd ? resolvePendingOnlineTurnEnd : resolveCpuTurn, 1100);
     return;
   }
   const target = filledBoard(state.cpuBoard).find((slipper) => slipper.tags.includes("EVA")) || filledBoard(state.cpuBoard).at(-1);
@@ -2934,7 +3039,8 @@ async function useCounter(index = 0) {
     setMessage("標的がいない。だが相手は警戒している。");
   }
   render();
-  state.phaseTimeout = setTimeout(resolveCpuTurn, 1100);
+  sendCounterAction(trap);
+  state.phaseTimeout = setTimeout(isOnlineMatch() && state.pendingOnlineTurnEnd ? resolvePendingOnlineTurnEnd : resolveCpuTurn, 1100);
 }
 
 async function resolveJudgement(side) {
@@ -2972,7 +3078,7 @@ async function resolveJudgement(side) {
     if (hits > 0) playSound("score");
     announce(`実況: ジン、配置${placedThisTurn.length}足から${hits}履き発生！`, "danger");
     judgeTaunt(judgeResultTaunt(side, hits), hits > 0 ? "danger" : "good");
-    if (hits > 0) await showImportantCommentary("履き判定", `松葉迅が${hits}履き獲得。現在 ${state.playerScore} - ${state.cpuScore}`, "danger");
+    if (hits > 0) await showImportantCommentary("履き判定", `${opponentResultName()}が${hits}履き獲得。現在 ${state.playerScore} - ${state.cpuScore}`, "danger");
   }
   renderInsiders(verdicts);
   await checkWinner();
@@ -3190,7 +3296,7 @@ async function checkWinner() {
     render();
     await showImportantCommentary(
       "試合終了",
-      `${win ? playerResultName() : "松葉迅"}がこのゲームを獲得。GAME ${state.playerRoundWins}-${state.cpuRoundWins}`,
+      `${win ? playerResultName() : opponentResultName()}がこのゲームを獲得。GAME ${state.playerRoundWins}-${state.cpuRoundWins}`,
       win ? "good" : "danger",
       { autoCloseMs: 900 },
     );
@@ -3198,10 +3304,10 @@ async function checkWinner() {
       await showCutin(playerCutinLabel(), `GAME WIN ${state.playerRoundWins}-${state.cpuRoundWins}`, "2本先取、マッチを制した。");
       await finishMatch("win", "score");
     } else if (state.cpuRoundWins >= MATCH_WIN_TARGET) {
-      await showCutin("松葉迅", `GAME WIN ${state.playerRoundWins}-${state.cpuRoundWins}`, "疾履流、マッチを奪取。");
+      await showCutin(opponentCutinLabel(), `GAME WIN ${state.playerRoundWins}-${state.cpuRoundWins}`, "疾履流、マッチを奪取。");
       await finishMatch("loss", "score");
     } else {
-      await showCutin(win ? playerCutinLabel() : "松葉迅", `GAME WIN ${state.playerRoundWins}-${state.cpuRoundWins}`, win ? "この玄関、まずは取った。" : "疾風流、まず一勝。");
+      await showCutin(win ? playerCutinLabel() : opponentCutinLabel(), `GAME WIN ${state.playerRoundWins}-${state.cpuRoundWins}`, win ? "この玄関、まずは取った。" : "疾風流、まず一勝。");
       await openSideboardTime();
     }
   }
@@ -3563,7 +3669,7 @@ function render() {
   byId("playerScore").textContent = state.playerScore;
   byId("cpuScore").textContent = state.cpuScore;
   byId("matchLabel").textContent = `Round ${state.matchRound || 0}/${MATCH_ROUNDS}  勝敗 ${state.playerRoundWins}-${state.cpuRoundWins}`;
-  byId("officialMatchLabel").textContent = `GAME ${state.matchRound || 0} / BO3  ${playerResultName()} ${state.playerRoundWins} - ${state.cpuRoundWins} 松葉迅`;
+  byId("officialMatchLabel").textContent = `GAME ${state.matchRound || 0} / BO3  ${playerResultName()} ${state.playerRoundWins} - ${state.cpuRoundWins} ${opponentResultName()}`;
   updateMatchTimerLabel();
   const profile = loadPlayerProfile();
   byId("playerRatingLabel").textContent = `Rating ${profile.rating}${isRatingExpired(profile.lastMatchAt) ? " / 失効" : ""}`;
@@ -3900,7 +4006,7 @@ function renderJudgePanel(id, rows) {
       <em class="${warning ? "warning" : ""}">${warning || "履き状況"}</em>
     </div>
     <div class="judge-scoreline">
-      <b class="cpu">松葉迅 ${state.cpuScore}/5</b>
+      <b class="cpu">${opponentResultName()} ${state.cpuScore}/5</b>
       <b class="player">${playerResultName()} ${state.playerScore}/5</b>
     </div>
     <div class="judge-row-list">
@@ -3983,7 +4089,7 @@ function renderJudgePanel(id, rows) {
       <em class="${warning ? "warning" : ""}">${warning || "履き状況を判定中"}</em>
     </div>
     <div class="judge-scoreline">
-      <b class="cpu">松葉迅 ${state.cpuScore}/5</b>
+      <b class="cpu">${opponentResultName()} ${state.cpuScore}/5</b>
       <b class="player">${playerResultName()} ${state.playerScore}/5</b>
     </div>
     <div class="judge-row-list">
@@ -4127,7 +4233,7 @@ function renderJudgePanel(id, rows) {
       <em class="${warning ? "warning" : ""}">${warning || "履き状況を判定中"}</em>
     </div>
     <div class="judge-scoreline">
-      <b class="cpu">松葉迅 ${state.cpuScore}/5</b>
+      <b class="cpu">${opponentResultName()} ${state.cpuScore}/5</b>
       <b class="player">${playerResultName()} ${state.playerScore}/5</b>
     </div>
     <div class="judge-row-list">
@@ -4290,7 +4396,7 @@ function renderMobileBoard(id, board, side) {
   const root = byId(id);
   root.innerHTML = "";
   root.dataset.side = side === "player" ? "YOU" : "OPP";
-  root.dataset.fieldLabel = side === "player" ? `${playerResultName()}の玄関` : "松葉迅の玄関";
+  root.dataset.fieldLabel = side === "player" ? `${playerResultName()}の玄関` : `${opponentResultName()}の玄関`;
   const canOperate = side === "player" && state.turn === "player" && !state.gameOver && !state.cutinActive;
   const hasActive = Boolean(state.activeHandUid);
   for (let i = 0; i < field.maxBoard; i += 1) {
@@ -4332,10 +4438,10 @@ function mobileFieldIdentity(side) {
   identity.className = `mobile-field-identity ${isPlayer ? "you" : "opp"}`;
   identity.innerHTML = `
     <span class="mobile-role-icon">${isPlayer ? "YOU" : "OPP"}</span>
-    <img src="${isPlayer ? playerIcon() : "assets/jin-vs.png"}" alt="" />
+    <img src="${isPlayer ? playerIcon() : opponentIcon()}" alt="" />
     <div>
       <strong>${isPlayer ? "自分フィールド" : "相手フィールド"}</strong>
-      <small>${isPlayer ? playerResultName() : "松葉迅"}</small>
+      <small>${isPlayer ? playerResultName() : opponentResultName()}</small>
     </div>
   `;
   return identity;
@@ -4447,7 +4553,7 @@ function showBattleStamp(stampId, side = "player", options = {}) {
   const stamp = stampById(stampId);
   const root = byId("stampDisplayLayer");
   if (!stamp || !root) return;
-  const owner = side === "player" ? playerShortName() : "松葉迅";
+  const owner = side === "player" ? playerShortName() : opponentShortName();
   log(`[スタンプ] ${owner}: ${stamp.label}`);
   playSound("place");
   root.querySelector(`.stamp-bubble.${side}`)?.remove();
@@ -4711,7 +4817,7 @@ function renderInsiderDetail() {
   const score = detail.side === "player" ? state.playerScore : state.cpuScore;
   const isAlive = detail.index < Math.min(5, score);
   const verdict = state.insiderVerdicts?.[detail.side]?.[detail.index];
-  const image = detail.side === "player" ? playerIcon() : "assets/jin-vs.png";
+  const image = detail.side === "player" ? playerIcon() : opponentIcon();
   const status = isAlive ? "生存 / 反応済み" : "脱落または未反応";
   const current = verdict
     ? `${verdict.won ? "履きたい" : "迷っている"} / 気分 ${verdict.score}`
@@ -5058,7 +5164,7 @@ function showCoinTossScreen(options = {}) {
         screen.classList.remove("flipping", "shake");
         screen.classList.add(winner === "player" ? "result-player" : "result-cpu");
         result.textContent = winner === "player" ? "スリッパ！ YOU FIRST" : "靴！ ENEMY FIRST";
-        prompt.textContent = winner === "player" ? `${playerResultName()}が先攻を選択` : "松葉迅が先攻を選択";
+        prompt.textContent = winner === "player" ? `${playerResultName()}が先攻を選択` : `${opponentResultName()}が先攻を選択`;
         playSound("result");
 
         setTimeout(() => {

@@ -1,4 +1,4 @@
-const CACHE_NAME = "king-of-slipper-tsg-v60";
+const CACHE_NAME = "king-of-slipper-tsg-v61";
 const CORE_ASSETS = [
   "./",
   "./index.html",
