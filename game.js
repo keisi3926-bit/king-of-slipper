@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.08-judge-face-crop-v39";
+const APP_VERSION = "2026.06.08-judge-icon-align-v40";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -4093,10 +4093,15 @@ function judgeSpriteEmotionColumn(row) {
 function judgeIconSpriteStyle(row) {
   const col = judgeSpriteEmotionColumn(row);
   const spriteRow = judgeSpriteRow(row.insider.name);
-  const zoomX = 8.6;
-  const zoomY = 10.2;
-  const focusX = (col + 0.52) / 5;
-  const focusY = (spriteRow + 0.38) / 6;
+  const zoomX = 6.4;
+  const zoomY = 6.8;
+  const sheetLabelWidth = 0.2;
+  const sheetHeaderHeight = 0.095;
+  const cellWidth = (1 - sheetLabelWidth) / 4;
+  const cellHeight = (1 - sheetHeaderHeight) / 6;
+  const emotionIndex = Math.max(0, col - 1);
+  const focusX = sheetLabelWidth + (emotionIndex + 0.5) * cellWidth;
+  const focusY = sheetHeaderHeight + (spriteRow + 0.5) * cellHeight;
   const posX = ((zoomX * focusX - 0.5) / (zoomX - 1)) * 100;
   const posY = ((zoomY * focusY - 0.5) / (zoomY - 1)) * 100;
   return `--judge-bg-x:${posX.toFixed(2)}%;--judge-bg-y:${posY.toFixed(2)}%;`;

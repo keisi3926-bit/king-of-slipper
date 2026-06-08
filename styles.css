@@ -8366,7 +8366,7 @@ body.mobile-ui.landscape-ui .judge-eval-avatar.sprite {
 }
 
 .judge-eval-avatar.sprite {
-  background-size: 860% 1020%;
+  background-size: 640% 680%;
   background-position: var(--judge-bg-x, 50%) var(--judge-bg-y, 50%);
   background-repeat: no-repeat;
   background-color: #080604;
