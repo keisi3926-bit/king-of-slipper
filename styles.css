@@ -8364,3 +8364,10 @@ body.mobile-ui.landscape-ui .judge-eval-avatar.sprite {
     border-width: 2px;
   }
 }
+
+.judge-eval-avatar.sprite {
+  background-size: 860% 1020%;
+  background-position: var(--judge-bg-x, 50%) var(--judge-bg-y, 50%);
+  background-repeat: no-repeat;
+  background-color: #080604;
+}

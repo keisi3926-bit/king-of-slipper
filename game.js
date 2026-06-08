@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.08-judge-face-icons-v38";
+const APP_VERSION = "2026.06.08-judge-face-crop-v39";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -4091,7 +4091,15 @@ function judgeSpriteEmotionColumn(row) {
 }
 
 function judgeIconSpriteStyle(row) {
-  return `--judge-row:${judgeSpriteRow(row.insider.name)};--judge-col:${judgeSpriteEmotionColumn(row)};`;
+  const col = judgeSpriteEmotionColumn(row);
+  const spriteRow = judgeSpriteRow(row.insider.name);
+  const zoomX = 8.6;
+  const zoomY = 10.2;
+  const focusX = (col + 0.52) / 5;
+  const focusY = (spriteRow + 0.38) / 6;
+  const posX = ((zoomX * focusX - 0.5) / (zoomX - 1)) * 100;
+  const posY = ((zoomY * focusY - 0.5) / (zoomY - 1)) * 100;
+  return `--judge-bg-x:${posX.toFixed(2)}%;--judge-bg-y:${posY.toFixed(2)}%;`;
 }
 
 function judgeBubbleText(verdict) {
