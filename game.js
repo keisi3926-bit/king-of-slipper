@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.09-bubble-layer-v47";
+const APP_VERSION = "2026.06.09-trap-bubble-v48";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -4293,7 +4293,7 @@ function renderJudgePanel(id, rows) {
           const sideClass = row.secured ? `secured-${row.secured}` : `${row.lean}-lean`;
           const tags = [biasLabel(row.insider.bias), ...row.insider.wants].slice(0, 4);
           const bubble = state.judgeBubble && state.judgeBubble.index === row.index ? state.judgeBubble : null;
-          const speech = bubble?.text || (row.focused ? row.comment : "");
+          const speech = bubble?.text || "";
           return `
             <article class="judge-eval-row ${sideClass} ${row.focused ? "focused" : ""}" style="--judge-pos:${row.meter}%">
               <div class="judge-eval-avatar sprite" style="${judgeIconSpriteStyle(row)}" aria-label="${escapeHtml(row.insider.name)}"></div>

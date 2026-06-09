@@ -8875,3 +8875,30 @@ body.pc-ui #gameApp:not(.screen-hidden) .judge-eval-speech.bubble::before {
   pointer-events: none;
   z-index: 10000;
 }
+
+/* Counter/trap selection is a primary action: keep all three cards visible and tappable. */
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-trap-panel,
+body.pc-ui #gameApp:not(.screen-hidden) .mobile-trap-panel {
+  bottom: max(34px, calc(env(safe-area-inset-bottom) + 18px)) !important;
+  max-height: calc(100dvh - max(46px, env(safe-area-inset-top)) - max(34px, env(safe-area-inset-bottom)));
+  overflow: visible !important;
+  pointer-events: auto;
+  z-index: 10060 !important;
+}
+
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-trap-list,
+body.pc-ui #gameApp:not(.screen-hidden) .mobile-trap-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: visible !important;
+}
+
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-trap-card,
+body.pc-ui #gameApp:not(.screen-hidden) .mobile-trap-card {
+  min-height: clamp(76px, 20dvh, 96px);
+  pointer-events: auto;
+}
+
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-trap-open,
+body.pc-ui #gameApp:not(.screen-hidden) .mobile-trap-open {
+  pointer-events: auto;
+}
