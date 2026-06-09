@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.09-layout-tune-v46";
+const APP_VERSION = "2026.06.09-bubble-layer-v47";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;

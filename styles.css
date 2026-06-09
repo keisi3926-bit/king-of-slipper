@@ -8836,3 +8836,42 @@ body.pc-ui .audience-reaction-stack {
   justify-items: center;
   pointer-events: none;
 }
+
+/* Judge reaction bubbles must float above the entrance board and never steal input. */
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-battle,
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-judge-panel,
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .judge-row-list,
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .judge-eval-row,
+body.pc-ui #gameApp:not(.screen-hidden) .mobile-battle,
+body.pc-ui #gameApp:not(.screen-hidden) .mobile-judge-panel,
+body.pc-ui #gameApp:not(.screen-hidden) .judge-row-list,
+body.pc-ui #gameApp:not(.screen-hidden) .judge-eval-row {
+  overflow: visible !important;
+}
+
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-judge-panel,
+body.pc-ui #gameApp:not(.screen-hidden) .mobile-judge-panel {
+  isolation: isolate;
+  z-index: 120;
+}
+
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-board,
+body.pc-ui #gameApp:not(.screen-hidden) .mobile-board {
+  z-index: 1;
+}
+
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .judge-eval-speech.bubble,
+body.mobile-ui.landscape-ui.mobile-compact #gameApp:not(.screen-hidden) .judge-eval-speech.bubble,
+body.mobile-ui.landscape-ui.mobile-tiny #gameApp:not(.screen-hidden) .judge-eval-speech.bubble,
+body.mobile-ui.landscape-ui.mobile-short #gameApp:not(.screen-hidden) .judge-eval-speech.bubble,
+body.pc-ui #gameApp:not(.screen-hidden) .judge-eval-speech.bubble {
+  isolation: isolate;
+  pointer-events: none !important;
+  z-index: 9999 !important;
+}
+
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .judge-eval-speech.bubble::before,
+body.pc-ui #gameApp:not(.screen-hidden) .judge-eval-speech.bubble::before {
+  pointer-events: none;
+  z-index: 10000;
+}
