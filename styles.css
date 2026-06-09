@@ -8776,3 +8776,63 @@ body.pc-ui #mobileCpuScore {
   max-width: min(44vw, 460px);
   font-size: clamp(9px, 1.45vw, 14px);
 }
+
+/* Final battle readability pass: center the entrance grid, vertically align
+   judge row content, and keep ambient reactions near the bottom edge. */
+body.mobile-ui.landscape-ui #mobileCpuScore,
+body.pc-ui #mobileCpuScore {
+  max-width: min(28vw, 300px);
+  min-width: clamp(112px, 16vw, 220px);
+}
+
+body.mobile-ui.landscape-ui .mobile-board,
+body.pc-ui .mobile-board {
+  grid-template-columns: repeat(6, minmax(0, clamp(38px, 7.2vw, 104px)));
+  grid-template-rows: repeat(2, minmax(0, clamp(48px, 17dvh, 138px)));
+  place-content: center;
+  place-items: stretch;
+}
+
+body.mobile-ui.landscape-ui .judge-eval-row,
+body.pc-ui .judge-eval-row {
+  align-items: center;
+}
+
+body.mobile-ui.landscape-ui .judge-eval-main,
+body.pc-ui .judge-eval-main {
+  align-self: center;
+  align-content: center;
+  gap: clamp(3px, 0.6dvh, 6px);
+  min-height: 0;
+}
+
+body.mobile-ui.landscape-ui .judge-eval-title,
+body.pc-ui .judge-eval-title {
+  align-items: center;
+  line-height: 1.05;
+}
+
+body.mobile-ui.landscape-ui .judge-eval-title span,
+body.pc-ui .judge-eval-title span {
+  align-self: center;
+  white-space: nowrap;
+}
+
+body.mobile-ui.landscape-ui .judge-eval-tags,
+body.pc-ui .judge-eval-tags {
+  align-items: center;
+}
+
+.audience-reaction-stack,
+body.mobile-ui .audience-reaction-stack,
+body.mobile-ui.landscape-ui .audience-reaction-stack,
+body.pc-ui .audience-reaction-stack {
+  top: auto !important;
+  bottom: max(10px, env(safe-area-inset-bottom)) !important;
+  left: 50% !important;
+  right: auto !important;
+  width: min(86vw, 520px);
+  transform: translateX(-50%);
+  justify-items: center;
+  pointer-events: none;
+}

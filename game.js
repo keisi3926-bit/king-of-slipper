@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.09-judge-ui-v45";
+const APP_VERSION = "2026.06.09-layout-tune-v46";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -4382,7 +4382,7 @@ function renderMobileBattle() {
   const topStatus = byId("mobileCpuScore");
   if (topStatus) {
     const urgent = state.started && !state.gameOver && state.turn === "player" && state.timer <= 3 && state.timer > 0;
-    topStatus.textContent = `${opponentResultName()} ｜ BO ${state.playerRoundWins}-${state.cpuRoundWins} ｜ ${getTurnLabel()} ｜ 残り ${formatClock(state.matchSeconds || MATCH_SECONDS)} ｜ ${playerResultName()}`;
+    topStatus.textContent = `${getTurnLabel()} ｜ 残り ${formatClock(state.matchSeconds || MATCH_SECONDS)}`;
     topStatus.classList.toggle("turn-countdown-urgent", urgent);
   }
   updateTurnTimerDisplay();
