@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.09-trap-bubble-v48";
+const APP_VERSION = "2026.06.11-judge-icons-v49";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -4164,12 +4164,13 @@ function renderJudgePanel(id, rows) {
 function renderJudgementSummary(rows) {
   const root = byId("mobileJudgementSummary");
   if (!root) return;
-  root.classList.toggle("show", state.judgePanelOpen === false);
-  if (state.judgePanelOpen !== false) {
+  const activeBubble = state.judgeBubble && Number.isInteger(state.judgeBubble.index) ? state.judgeBubble : null;
+  root.classList.toggle("show", state.judgePanelOpen === false && Boolean(activeBubble));
+  if (state.judgePanelOpen !== false || !activeBubble) {
     root.innerHTML = "";
     return;
   }
-  const focus = rows.find((row) => row.focused) || rows[0];
+  const focus = rows.find((row) => row.index === activeBubble.index) || rows.find((row) => row.focused) || rows[0];
   if (!focus) {
     root.textContent = "";
     return;
@@ -4192,6 +4193,7 @@ function renderJudgePanels() {
 function toggleJudgePanel() {
   state.judgePanelOpen = state.judgePanelOpen === false;
   state.judgeBubble = null;
+  window.clearTimeout(state.judgeBubbleTimer);
   render();
 }
 
@@ -4233,7 +4235,7 @@ function judgeIconSpriteStyle(row) {
   const emotionIndex = Math.max(0, col - 1);
   const zoom = 1.08;
   const x = spriteFocusPercent(emotionIndex, 4, zoom);
-  const y = spriteFocusPercent(spriteRow, 6, zoom);
+  const y = spriteFocusPercent(spriteRow, 6, zoom) + judgeSpriteYOffset(spriteRow);
   return `--judge-clean-col:${emotionIndex};--judge-clean-row:${spriteRow};--judge-clean-zoom:${zoom};--judge-clean-x:${x.toFixed(2)}%;--judge-clean-y:${y.toFixed(2)}%;`;
 }
 
@@ -4241,6 +4243,14 @@ function spriteFocusPercent(index, total, zoom) {
   const denominator = 1 - total * zoom;
   if (Math.abs(denominator) < 0.0001) return total > 1 ? (index / (total - 1)) * 100 : 50;
   return ((0.5 - (index + 0.5) * zoom) / denominator) * 100;
+}
+
+function judgeSpriteYOffset(spriteRow) {
+  const offsets = {
+    2: 3.2,
+    3: 3.8,
+  };
+  return offsets[spriteRow] || 0;
 }
 
 function judgeBubbleText(verdict) {

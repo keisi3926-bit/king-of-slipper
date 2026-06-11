@@ -8902,3 +8902,17 @@ body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-trap-open,
 body.pc-ui #gameApp:not(.screen-hidden) .mobile-trap-open {
   pointer-events: auto;
 }
+
+/* Normalize judge face framing inside the circular mask. */
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .judge-eval-avatar.sprite,
+body.pc-ui #gameApp:not(.screen-hidden) .judge-eval-avatar.sprite {
+  align-self: center;
+  justify-self: center;
+  width: clamp(42px, 6vw, 58px);
+  height: clamp(42px, 6vw, 58px);
+  margin: 0;
+  flex: 0 0 auto;
+  transform: none;
+  background-clip: padding-box;
+  background-position: var(--judge-clean-x, 50%) var(--judge-clean-y, 50%);
+}
