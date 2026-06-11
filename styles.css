@@ -3133,6 +3133,9 @@ button.danger {
   z-index: 2;
   bottom: 30px;
   left: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(8px, 1.35vw, 14px);
   padding: 8px 14px;
   background: #000;
   color: #fff;
@@ -3145,6 +3148,19 @@ button.danger {
 .vs-rival span {
   right: 30px;
   left: auto;
+}
+
+.vs-panel span::before {
+  content: "";
+  width: clamp(34px, 5vw, 58px);
+  height: clamp(34px, 5vw, 58px);
+  flex: 0 0 auto;
+  border: 2px solid rgba(216, 182, 90, 0.86);
+  border-radius: 999px;
+  background-image: var(--vs-icon);
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 0 14px rgba(216, 182, 90, 0.28);
 }
 
 .vs-center {
@@ -8915,4 +8931,67 @@ body.pc-ui #gameApp:not(.screen-hidden) .judge-eval-avatar.sprite {
   transform: none;
   background-clip: padding-box;
   background-position: var(--judge-clean-x, 50%) var(--judge-clean-y, 50%);
+}
+
+/* v50: keep result text and match header anchored to the visual center. */
+.victory-copy {
+  left: 50%;
+  right: auto;
+  width: min(640px, calc(100vw - 32px));
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.victory-copy p {
+  text-align: center;
+}
+
+.victory-copy button {
+  display: block;
+  margin-inline: auto;
+}
+
+body.mobile-ui.landscape-ui .mobile-hud-rival,
+body.pc-ui .mobile-hud-rival {
+  position: relative;
+  padding-inline: clamp(8px, 1.2vw, 14px);
+}
+
+body.mobile-ui.landscape-ui #mobileCpuScore,
+body.pc-ui #mobileCpuScore {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  z-index: 4;
+  max-width: min(34vw, 320px);
+  min-width: clamp(118px, 16vw, 230px);
+  text-align: center;
+  white-space: nowrap;
+}
+
+body.mobile-ui.landscape-ui .turn-head-name.rival,
+body.pc-ui .turn-head-name.rival {
+  justify-self: start;
+  max-width: calc(50% - clamp(76px, 13vw, 150px));
+  min-width: 0;
+}
+
+body.mobile-ui.landscape-ui .turn-head-name.player,
+body.pc-ui .turn-head-name.player {
+  justify-self: end;
+  max-width: calc(50% - clamp(76px, 13vw, 150px));
+  min-width: 0;
+}
+
+@media (orientation: landscape) and (max-height: 430px) {
+  .victory-copy {
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: min(560px, calc(100vw - 96px));
+  }
+
+  .victory-copy p {
+    font-size: clamp(15px, 2.4vw, 22px);
+    line-height: 1.38;
+  }
 }

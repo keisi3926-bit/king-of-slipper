@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.11-judge-icons-v49";
+const APP_VERSION = "2026.06.11-ui-align-v50";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -912,13 +912,17 @@ function applyPlayerCharacterUi() {
     label.textContent = character.shortName || character.cutinLabel || character.name;
   });
 
-  const vsHero = document.querySelector(".vs-panel.vs-hero");
-  if (vsHero) {
-    const img = vsHero.querySelector("img");
-    const name = vsHero.querySelector("span");
-    if (img) img.src = character.icon || character.image;
-    if (name) name.textContent = character.displayName || character.name;
-  }
+  const setVsPanel = (panel, characterData) => {
+    if (!panel || !characterData) return;
+    const source = characterData.icon || characterData.image;
+    const img = panel.querySelector("img");
+    const name = panel.querySelector("span");
+    if (img && source) img.src = source;
+    if (name) name.textContent = characterData.displayName || characterData.name;
+    if (source) panel.style.setProperty("--vs-icon", `url("${source}")`);
+  };
+  setVsPanel(document.querySelector(".vs-panel.vs-hero"), character);
+  setVsPanel(document.querySelector(".vs-panel.vs-rival"), getOpponentCharacter());
 
   const coinPlayerName = document.querySelector(".coin-toss-names span:first-child");
   if (coinPlayerName) coinPlayerName.textContent = character.displayName || character.name;
@@ -4247,8 +4251,8 @@ function spriteFocusPercent(index, total, zoom) {
 
 function judgeSpriteYOffset(spriteRow) {
   const offsets = {
-    2: 3.2,
-    3: 3.8,
+    2: 2.6,
+    3: 3.0,
   };
   return offsets[spriteRow] || 0;
 }
