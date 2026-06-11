@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.11-ui-align-v50";
+const APP_VERSION = "2026.06.11-online-sync-v51";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -761,6 +761,7 @@ const roomSync = {
   latestActionId: null,
   connectedAt: 0,
   pendingStartAction: false,
+  lastRemoteStateAt: 0,
   listeners: [],
   heartbeatId: null,
 };
@@ -1398,6 +1399,7 @@ function resetRoomLocalState({ renderState = true, writeLog = true } = {}) {
   roomSync.pendingStartAction = false;
   roomSync.connectedAt = 0;
   roomSync.latestActionId = null;
+  roomSync.lastRemoteStateAt = 0;
   roomSync.seenActions.clear();
   state.onlineMode = false;
   state.onlineRole = null;
@@ -1435,26 +1437,104 @@ function leaveRoom(options = {}) {
   });
 }
 
-function syncMatchState() {
-  if (!roomSync.room) return null;
-  const snapshot = {
+function serializeBoardForRoom(board = []) {
+  return board.map((slipper) => (slipper ? { ...slipper, tags: Array.isArray(slipper.tags) ? [...slipper.tags] : [] } : null));
+}
+
+function serializeRoomMatchState(extra = {}) {
+  return {
+    schemaVersion: 2,
     mode: roomSync.mode,
     status: roomSync.status,
     role: roomSync.role,
+    phase: state.turn,
     turnOwner: state.turn,
+    started: state.started,
+    gameOver: state.gameOver,
+    matchFinished: state.matchFinished,
+    matchResult: state.matchResult,
+    matchRound: state.matchRound,
+    playerRoundWins: state.playerRoundWins,
+    cpuRoundWins: state.cpuRoundWins,
+    firstPlayer: state.firstPlayer,
     playerScore: state.playerScore,
     cpuScore: state.cpuScore,
-    playerBoard: state.playerBoard,
-    cpuBoard: state.cpuBoard,
-    playerTraps: state.playerTraps,
-    cpuTraps: state.cpuTraps,
+    playerBoard: serializeBoardForRoom(state.playerBoard),
+    cpuBoard: serializeBoardForRoom(state.cpuBoard),
+    playerTraps: [...state.playerTraps],
+    cpuTraps: [...state.cpuTraps],
     insiderVerdicts: state.insiderVerdicts,
     turnNumber: state.turnNumber,
+    sideboard: {
+      open: byId("sideboardScreen")?.classList.contains("show") || false,
+      playerReady: state.playerSideboardReady,
+      cpuReady: state.cpuSideboardReady,
+      swaps: state.sideboardSwaps,
+    },
     at: Date.now(),
+    ...extra,
   };
+}
+
+function syncMatchState() {
+  if (!roomSync.room) return null;
+  const snapshot = serializeRoomMatchState();
   roomSync.room.child(`gameState/${roomSync.role || "unknown"}`).set(snapshot);
   roomSync.room.child("gameState/latest").set(snapshot);
   return snapshot;
+}
+
+function mapRemoteTurnToLocal(remoteTurn) {
+  if (!remoteTurn) return state.turn;
+  if (remoteTurn === "player") return "online-waiting";
+  if (remoteTurn === "online-waiting") return "player";
+  if (remoteTurn === "counter-window") return "counter-window";
+  if (remoteTurn === "judge-player") return "judge-cpu";
+  if (remoteTurn === "judge-cpu") return "judge-player";
+  if (remoteTurn === "online-resolving") return "online-waiting";
+  return state.turn;
+}
+
+function applyRemoteMatchState(snapshot, { force = false } = {}) {
+  if (!snapshot || snapshot.role === roomSync.role) return false;
+  const at = Number(snapshot.at || 0);
+  if (!force && at && at < roomSync.lastRemoteStateAt) return false;
+  if (at) roomSync.lastRemoteStateAt = at;
+  if (!state.started && snapshot.started) {
+    state.started = true;
+    state.onlineMode = true;
+    state.onlineRole = roomSync.role;
+    byId("titleScreen").classList.add("screen-hidden");
+    byId("characterSelectScreen").classList.add("screen-hidden");
+    byId("gameApp").classList.remove("screen-hidden");
+  }
+  if (Array.isArray(snapshot.playerBoard)) state.cpuBoard = snapshot.playerBoard.map(reviveRemoteSlipper);
+  if (Array.isArray(snapshot.cpuBoard)) state.playerBoard = snapshot.cpuBoard.map(reviveRemoteSlipper);
+  if (Array.isArray(snapshot.playerTraps)) state.cpuTraps = [...snapshot.playerTraps];
+  if (Array.isArray(snapshot.cpuTraps)) state.playerTraps = [...snapshot.cpuTraps];
+  if (snapshot.insiderVerdicts?.player) state.insiderVerdicts.cpu = snapshot.insiderVerdicts.player;
+  if (snapshot.insiderVerdicts?.cpu) state.insiderVerdicts.player = snapshot.insiderVerdicts.cpu;
+  const opponentScore = Number(snapshot.playerScore);
+  const ownScore = Number(snapshot.cpuScore);
+  if (Number.isFinite(opponentScore)) state.cpuScore = clampValue(opponentScore, 0, 5);
+  if (Number.isFinite(ownScore)) state.playerScore = clampValue(ownScore, 0, 5);
+  ["matchRound", "turnNumber", "playerRoundWins", "cpuRoundWins"].forEach((key) => {
+    const value = Number(snapshot[key]);
+    if (Number.isFinite(value)) state[key] = value;
+  });
+  if (snapshot.matchFinished) {
+    state.matchFinished = true;
+    state.matchResult = snapshot.matchResult || state.matchResult;
+    state.gameOver = true;
+    state.turn = "idle";
+  } else if (snapshot.started && !state.gameOver && !state.cutinActive) {
+    state.turn = mapRemoteTurnToLocal(snapshot.phase || snapshot.turnOwner);
+  }
+  if (snapshot.sideboard?.open && !byId("sideboardScreen")?.classList.contains("show") && !state.matchFinished) {
+    openSideboardTime({ remote: true });
+  }
+  render();
+  return true;
 }
 
 function sendPlayerAction(action) {
@@ -1574,7 +1654,8 @@ async function receiveOpponentAction(message, id) {
       return;
     }
     roomSync.pendingStartAction = false;
-    if (!state.started) startOnlineMatch(false);
+    if (!state.started) startOnlineMatch(false, action.initialGameState || null);
+    else if (action.initialGameState) applyRemoteMatchState(action.initialGameState, { force: true });
     return;
   }
   if (action.type === "stamp") {
@@ -1609,6 +1690,23 @@ async function receiveOpponentAction(message, id) {
     log(`${opponentResultName()} opened hidden slipper: ${action.trapName || "unknown"}`);
     playSound("counter");
     render();
+  } else if (action.type === "sideboardReady") {
+    if (action.snapshot) applyRemoteMatchState(action.snapshot, { force: true });
+    state.cpuSideboardReady = true;
+    if (byId("sideboardReadyState")) {
+      byId("sideboardReadyState").textContent = state.playerSideboardReady ? "双方準備完了" : "相手準備完了";
+    }
+    renderSideboard();
+    if (state.playerSideboardReady) {
+      clearInterval(state.sideboardInterval);
+      beginNextRound();
+    }
+  } else if (action.type === "nextRound") {
+    if (Number.isFinite(Number(action.matchRound))) state.matchRound = Number(action.matchRound) - 1;
+    if (action.snapshot) applyRemoteMatchState(action.snapshot, { force: true });
+    beginNextRound({ remote: true });
+  } else if (action.type === "matchState") {
+    applyRemoteMatchState(action.snapshot, { force: true });
   }
 }
 
@@ -1825,6 +1923,7 @@ function connectRoom(code, role) {
   roomSync.initialGameStateReceived = false;
   roomSync.seenActions.clear();
   roomSync.latestActionId = null;
+  roomSync.lastRemoteStateAt = 0;
   roomSync.connectedAt = Date.now();
   roomSync.room = db.ref(`rooms/${code}`);
   localStorage.setItem(ROOM_SYNC_STORAGE_KEY, JSON.stringify({ code, role, updatedAt: new Date().toISOString() }));
@@ -1903,6 +2002,11 @@ function connectRoom(code, role) {
       receiveOpponentAction(action, action.id);
     }
   });
+  listenRoomRef(roomSync.room.child("gameState/latest"), "value", (snapshot) => {
+    const remoteState = snapshot.val();
+    if (!remoteState || remoteState.role === roomSync.role) return;
+    applyRemoteMatchState(remoteState);
+  });
 
   const room = { code, role, status: roomSync.status, players: [roomPlayerName(role)], updatedAt: new Date().toISOString() };
   localStorage.setItem(ROOM_STORAGE_KEY, JSON.stringify(room));
@@ -1921,7 +2025,7 @@ function reviveRemoteSlipper(slipper) {
   return { ...slipper, tags: Array.isArray(slipper.tags) ? [...slipper.tags] : [] };
 }
 
-async function startOnlineMatch(announceStart = true) {
+async function startOnlineMatch(announceStart = true, initialGameState = null) {
   if (!roomSync.online || !roomSync.code) {
     roomLog("Create or join a room first.");
     return;
@@ -1946,6 +2050,9 @@ async function startOnlineMatch(announceStart = true) {
   byId("gameApp").classList.remove("screen-hidden");
   roomDebug("current game state", { action: "startOnlineMatch", announceStart });
   await resetMatch();
+  if (!announceStart && initialGameState) {
+    applyRemoteMatchState(initialGameState, { force: true });
+  }
   resumeBattleTheme();
   if (announceStart) sendPlayerAction({ type: "start", initialGameState: syncMatchState() || { at: Date.now() } });
 }
@@ -2862,7 +2969,10 @@ function playSlipper(uid, slotIndex = firstEmptySlot(state.playerBoard)) {
   judgeTaunt(judgePlacementTaunt(slipper, slotIndex), "good");
   showAudienceReaction(slotIndex === 1 ? "中央前、勝負だ！" : slotProfiles[slotIndex].row === "back" ? "奥の配置いいぞ！" : "導線通した！", "good");
   setMessage(`${slotProfiles[slotIndex].name}に${slipper.name}を置いた。あと${Math.max(0, placementLimit - state.placementsThisTurn)}足置ける。`);
-  if (isOnlineMatch()) sendPlayerAction({ type: "place", slipper, slotIndex });
+  if (isOnlineMatch()) {
+    sendPlayerAction({ type: "place", slipper, slotIndex });
+    syncMatchState();
+  }
   render();
 }
 function removeSlipper(index) {
@@ -2883,7 +2993,10 @@ function removeSlipper(index) {
   announce(`実況: 「${slipper.name}」を外して導線を組み直す！`, "good");
   showAudienceReaction("そこ外すのか！", "good");
   setMessage(`${slipper.name}を外した。空いた導線に別のスリッパを置ける。`);
-  if (isOnlineMatch()) sendPlayerAction({ type: "remove", slipper, slotIndex: index });
+  if (isOnlineMatch()) {
+    sendPlayerAction({ type: "remove", slipper, slotIndex: index });
+    syncMatchState();
+  }
   render();
 }
 
@@ -2905,7 +3018,7 @@ async function endPlayerTurn() {
   render();
   await showCutin(playerCutinLabel(), "ターンエンド！", "さあ、履くか履かぬか。");
   state.playerTurnsTaken += 1;
-  await maybeCpuTrap();
+  if (!isOnlineMatch()) await maybeCpuTrap();
   if (state.gameOver) return;
   setPhase(`${playerShortName()}の吟味`, `インサイダーが${playerShortName()}の玄関を見る。1回の吟味で得られる履きは最大2。`);
   log(`スリップインサイダーが${playerShortName()}の玄関を吟味する。`);
@@ -3034,6 +3147,8 @@ async function startPlayerTurn() {
 
 async function useCounter(index = null) {
   if (state.gameOver || state.playerTrapCount <= 0 || state.turn !== "counter-window" || state.cutinActive) return;
+  if (index && typeof index === "object") index = null;
+  if (!Number.isInteger(index)) index = Number.isInteger(state.selectedTrapIndex) ? state.selectedTrapIndex : 0;
   if (!Number.isInteger(index) || index < 0 || index >= state.playerTraps.length) {
     setMessage("発動する伏せスリッパを1枚選択してください。");
     render();
@@ -3354,7 +3469,10 @@ async function finishMatch(result, reason = "score") {
   state.matchResult = result;
   state.matchPoints = result === "win" ? 3 : result === "draw" ? 1 : 0;
   state.gameOver = true;
-  if (isOnlineMatch()) setRoomStatus("ended");
+  if (isOnlineMatch()) {
+    setRoomStatus("ended");
+    sendPlayerAction({ type: "matchState", snapshot: syncMatchState() });
+  }
   clearInterval(state.interval);
   clearInterval(state.sideboardInterval);
   stopMatchTimer();
@@ -3432,7 +3550,10 @@ function setupRound() {
   render();
 }
 
-async function beginNextRound() {
+async function beginNextRound(options = {}) {
+  if (isOnlineMatch() && !options.remote) {
+    sendPlayerAction({ type: "nextRound", matchRound: state.matchRound + 1, snapshot: syncMatchState() });
+  }
   byId("sideboardScreen").classList.remove("show");
   byId("sideboardScreen").setAttribute("aria-hidden", "true");
   state.sideboardDetail = null;
@@ -3444,7 +3565,11 @@ async function beginNextRound() {
   await showCutin(playerCutinLabel(), `Round ${state.matchRound} 開始！`, "履き替えたなら、もう一度玄関へ。");
   setPhase("スリッパ配置", `配置上限は${maxPlacementsPerTurn()}足。Shoe Rack後の玄関全体で履きを取りに行く。`);
   setMessage(`Round ${state.matchRound}/${MATCH_ROUNDS} 開始。手スリッパから配置しよう。`);
-  if (state.firstPlayer === "cpu") {
+  if (isOnlineMatch() && state.firstPlayer === "cpu") {
+    state.turn = "online-waiting";
+    setPhase("オンライン待機", "相手のターンです。相手の配置とターンエンドを待っています。");
+    setMessage("相手のターン待ち。通信対戦中です。");
+  } else if (state.firstPlayer === "cpu") {
     cpuSetupTurn();
   } else {
     startTimer();
@@ -3452,7 +3577,7 @@ async function beginNextRound() {
   render();
 }
 
-async function openSideboardTime() {
+async function openSideboardTime(options = {}) {
   state.sideboardSeconds = SIDEBOARD_SECONDS;
   state.sideboardSwaps = 0;
   state.playerSideboardReady = false;
@@ -3473,9 +3598,11 @@ async function openSideboardTime() {
   const profile = cpuProfile();
   const cpuReadyDelay = profile.sideboardReadyMin + Math.random() * (profile.sideboardReadyMax - profile.sideboardReadyMin);
   const cpuReadyAt = Date.now() + cpuReadyDelay;
+  const online = isOnlineMatch();
+  if (online && !options.remote) sendPlayerAction({ type: "matchState", snapshot: syncMatchState() });
   state.sideboardInterval = setInterval(() => {
     state.sideboardSeconds -= 1;
-    if (!state.cpuSideboardReady && Date.now() >= cpuReadyAt) {
+    if (!online && !state.cpuSideboardReady && Date.now() >= cpuReadyAt) {
       state.cpuSideboardReady = true;
       byId("sideboardReadyState").textContent = state.playerSideboardReady ? "双方準備完了" : "相手準備完了";
     }
@@ -3664,6 +3791,15 @@ function selectSideboardItem(source, index) {
 function completeSideboard() {
   state.playerSideboardReady = true;
   pendingSideboardPick = null;
+  if (isOnlineMatch()) {
+    sendPlayerAction({
+      type: "sideboardReady",
+      matchRound: state.matchRound,
+      matchEntrance: [...state.matchEntrance],
+      matchShoeRack: [...state.matchShoeRack],
+      snapshot: syncMatchState(),
+    });
+  }
   renderSideboard();
   byId("sideboardDoneBtn").disabled = true;
   byId("sideboardReadyState").textContent = state.cpuSideboardReady ? "双方準備完了" : "相手準備待ち";
