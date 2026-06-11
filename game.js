@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.11-online-sync-v51";
+const APP_VERSION = "2026.06.11-online-sync-v52";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -871,6 +871,34 @@ function saveSelectedPlayerKey(key) {
   } catch {
     // localStorage may be unavailable in strict/private contexts. The in-memory choice still works.
   }
+  syncRoomPlayerCharacter();
+  renderRoomCharacterSelect();
+}
+
+function syncRoomPlayerCharacter() {
+  if (!roomSync.room || !roomSync.role) return;
+  const character = getPlayerCharacter();
+  roomSync.room.child(`players/${roomSync.role}`).update({
+    name: character.displayName || character.name || roomPlayerName(roomSync.role),
+    characterId: selectedPlayerKey,
+    updatedAt: firebaseTimestamp(),
+    lastSeen: firebaseTimestamp(),
+  }).catch((error) => console.warn("[KOS room] character sync failed", error));
+}
+
+function renderRoomCharacterSelect() {
+  document.querySelectorAll("[data-room-character]").forEach((button) => {
+    const key = normalizeCharacterKey(button.dataset.roomCharacter);
+    button.classList.toggle("selected", key === selectedPlayerKey);
+    button.setAttribute("aria-pressed", String(key === selectedPlayerKey));
+  });
+}
+
+function selectRoomCharacter(key) {
+  saveSelectedPlayerKey(key);
+  selectEntranceForOwner(selectedPlayerKey);
+  applyPlayerCharacterUi();
+  renderRoomState();
 }
 
 function setNameWithIcon(root, character) {
@@ -1635,6 +1663,27 @@ function sendCounterAction(trap) {
   syncMatchState();
 }
 
+function bothSideboardReady() {
+  return Boolean(state.playerSideboardReady && state.cpuSideboardReady);
+}
+
+function tryBeginOnlineNextRound() {
+  if (!isOnlineMatch()) return false;
+  if (!bothSideboardReady()) {
+    renderSideboard();
+    return false;
+  }
+  clearInterval(state.sideboardInterval);
+  if (roomSync.role === "host") {
+    beginNextRound();
+  } else {
+    const readyState = byId("sideboardReadyState");
+    if (readyState) readyState.textContent = "双方準備完了 / ホスト開始待ち";
+    renderSideboard();
+  }
+  return true;
+}
+
 async function receiveOpponentAction(message, id) {
   message = normalizeRemoteActionMessage(message, id);
   if (!message || !message.action || message.role === roomSync.role) return;
@@ -1697,10 +1746,7 @@ async function receiveOpponentAction(message, id) {
       byId("sideboardReadyState").textContent = state.playerSideboardReady ? "双方準備完了" : "相手準備完了";
     }
     renderSideboard();
-    if (state.playerSideboardReady) {
-      clearInterval(state.sideboardInterval);
-      beginNextRound();
-    }
+    tryBeginOnlineNextRound();
   } else if (action.type === "nextRound") {
     if (Number.isFinite(Number(action.matchRound))) state.matchRound = Number(action.matchRound) - 1;
     if (action.snapshot) applyRemoteMatchState(action.snapshot, { force: true });
@@ -1885,6 +1931,7 @@ function hasOnlineOpponent() {
 function onlineMatchStartBlockReason() {
   if (!roomSync.online || !roomSync.code || !roomSync.room) return "部屋に入っていません";
   if (!hasOnlineOpponent()) return "対戦相手を待っています";
+  if (!getOpponentRoomPlayer()?.characterId) return "相手のキャラ選択を待っています";
   return "";
 }
 
@@ -1960,11 +2007,16 @@ function connectRoom(code, role) {
 
   listenRoomRef(roomSync.room.child("players"), "value", (snapshot) => {
     roomSync.players = snapshot.val() || {};
-    if (hasOnlineOpponent() && roomSync.status !== "playing" && roomSync.status !== "ended") {
-      roomSync.status = "matched";
-      roomSync.room.update({ status: "matched", updatedAt: firebaseTimestamp() });
+    if (
+      hasOnlineOpponent()
+      && roomSync.status !== "match_intro"
+      && roomSync.status !== "playing"
+      && roomSync.status !== "ended"
+    ) {
+      roomSync.status = "character_select";
+      roomSync.room.update({ status: "character_select", updatedAt: firebaseTimestamp() });
       roomSync.room.child("roles").set({ player1: "host", player2: "guest", updatedAt: firebaseTimestamp() });
-    } else if (roomSync.role === "host" && roomSync.status === "matched") {
+    } else if (roomSync.role === "host" && (roomSync.status === "matched" || roomSync.status === "character_select")) {
       roomSync.status = "waiting";
       roomSync.room.update({ guestId: null, status: "waiting", updatedAt: firebaseTimestamp() });
     }
@@ -1976,6 +2028,7 @@ function connectRoom(code, role) {
       updatedAt: new Date().toISOString(),
     }));
     renderRoomState();
+    applyPlayerCharacterUi();
     if (state.started) render();
     roomDebug("players count", { players: Object.keys(roomSync.players) });
     if (roomSync.pendingStartAction && hasOnlineOpponent() && !state.started) {
@@ -2037,10 +2090,11 @@ async function startOnlineMatch(announceStart = true, initialGameState = null) {
     renderRoomState();
     return;
   }
-  roomSync.status = "playing";
+  syncRoomPlayerCharacter();
+  roomSync.status = "match_intro";
   roomSync.initialGameStateReceived = true;
   roomSync.pendingStartAction = false;
-  setRoomStatus("playing");
+  setRoomStatus("match_intro");
   if (announceStart || roomSync.role === "host") incrementDailyStat("matchStarts");
   state.onlineMode = true;
   state.onlineRole = roomSync.role;
@@ -2050,6 +2104,8 @@ async function startOnlineMatch(announceStart = true, initialGameState = null) {
   byId("gameApp").classList.remove("screen-hidden");
   roomDebug("current game state", { action: "startOnlineMatch", announceStart });
   await resetMatch();
+  roomSync.status = "playing";
+  setRoomStatus("playing");
   if (!announceStart && initialGameState) {
     applyRemoteMatchState(initialGameState, { force: true });
   }
@@ -2064,8 +2120,10 @@ function roomStatusLabel(status) {
     waiting: "対戦相手待ち",
     waiting_opponent: "対戦相手待ち",
     room_join: "入室中",
+    character_select: "キャラ選択",
     matched: "マッチ成立",
     ready_check: "開始準備OK",
+    match_intro: "対戦開始準備",
     playing: "対戦中",
     ended: "終了",
     offline: "通信未接続",
@@ -2098,6 +2156,7 @@ function renderRoomState(room = null) {
   const joinButton = byId("joinRoomBtn");
   const codeInput = byId("roomCodeInput");
   const blocked = onlineMatchStartBlockReason();
+  renderRoomCharacterSelect();
   if (startButton) startButton.disabled = Boolean(blocked);
   if (joinButton && codeInput) joinButton.disabled = !normalizeRoomCode(codeInput.value);
   byId("roomState").textContent = current
@@ -3148,9 +3207,10 @@ async function startPlayerTurn() {
 async function useCounter(index = null) {
   if (state.gameOver || state.playerTrapCount <= 0 || state.turn !== "counter-window" || state.cutinActive) return;
   if (index && typeof index === "object") index = null;
-  if (!Number.isInteger(index)) index = Number.isInteger(state.selectedTrapIndex) ? state.selectedTrapIndex : 0;
+  if (!Number.isInteger(index)) index = Number.isInteger(state.selectedTrapIndex) ? state.selectedTrapIndex : null;
   if (!Number.isInteger(index) || index < 0 || index >= state.playerTraps.length) {
     setMessage("発動する伏せスリッパを1枚選択してください。");
+    state.mobileTrapOpen = true;
     render();
     return;
   }
@@ -3551,6 +3611,12 @@ function setupRound() {
 }
 
 async function beginNextRound(options = {}) {
+  if (isOnlineMatch() && !options.remote && !bothSideboardReady()) {
+    const readyState = byId("sideboardReadyState");
+    if (readyState) readyState.textContent = "相手準備待ち";
+    renderSideboard();
+    return;
+  }
   if (isOnlineMatch() && !options.remote) {
     sendPlayerAction({ type: "nextRound", matchRound: state.matchRound + 1, snapshot: syncMatchState() });
   }
@@ -3623,11 +3689,16 @@ async function openSideboardTime(options = {}) {
     }
     if (state.sideboardSeconds <= 0) {
       showJudgePopup("時間です。未確定部分は前構成を維持します。", "warn");
-      clearInterval(state.sideboardInterval);
-      beginNextRound();
+      if (online) {
+        if (!state.playerSideboardReady) completeSideboard();
+      } else {
+        clearInterval(state.sideboardInterval);
+        beginNextRound();
+      }
     } else if (state.playerSideboardReady && state.cpuSideboardReady) {
       clearInterval(state.sideboardInterval);
-      beginNextRound();
+      if (online) tryBeginOnlineNextRound();
+      else beginNextRound();
     }
   }, 1000);
   renderSideboardTimer();
@@ -3789,6 +3860,7 @@ function selectSideboardItem(source, index) {
 }
 
 function completeSideboard() {
+  if (state.playerSideboardReady) return;
   state.playerSideboardReady = true;
   pendingSideboardPick = null;
   if (isOnlineMatch()) {
@@ -3803,7 +3875,9 @@ function completeSideboard() {
   renderSideboard();
   byId("sideboardDoneBtn").disabled = true;
   byId("sideboardReadyState").textContent = state.cpuSideboardReady ? "双方準備完了" : "相手準備待ち";
-  if (state.cpuSideboardReady) {
+  if (isOnlineMatch()) {
+    tryBeginOnlineNextRound();
+  } else if (state.cpuSideboardReady) {
     clearInterval(state.sideboardInterval);
     beginNextRound();
   }
@@ -6022,7 +6096,7 @@ byId("victoryRestartBtn").addEventListener("click", startMatchFromButton);
 byId("defeatRestartBtn").addEventListener("click", startMatchFromButton);
 byId("drawRestartBtn").addEventListener("click", startMatchFromButton);
 byId("endTurnBtn").addEventListener("click", endPlayerTurn);
-byId("counterBtn").addEventListener("click", useCounter);
+byId("counterBtn").addEventListener("click", toggleMobileTrapPanel);
 byId("stampBtn").addEventListener("click", toggleStampPanel);
 byId("mobileStartBtn").addEventListener("click", startMatchFromButton);
 byId("mobileEndTurnBtn").addEventListener("click", endPlayerTurn);
@@ -6039,6 +6113,9 @@ byId("roomCodeInput").addEventListener("input", () => renderRoomState());
 byId("joinRoomBtn").addEventListener("click", () => joinRoom(byId("roomCodeInput").value));
 byId("leaveRoomBtn").addEventListener("click", leaveRoom);
 byId("startOnlineMatchBtn").addEventListener("click", () => startOnlineMatch(true));
+document.querySelectorAll("[data-room-character]").forEach((button) => {
+  button.addEventListener("click", () => selectRoomCharacter(button.dataset.roomCharacter));
+});
 byId("saveFeedbackBtn").addEventListener("click", saveFeedback);
 byId("copyFeedbackBtn").addEventListener("click", copyFeedbackSummary);
 byId("shareFeedbackXBtn").addEventListener("click", shareFeedbackToX);

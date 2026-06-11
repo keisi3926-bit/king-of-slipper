@@ -2527,6 +2527,34 @@ body.pc-ui .hand {
   gap: 12px;
 }
 
+.room-character-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px;
+  border: 1px solid rgba(216, 182, 90, 0.28);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.room-character-select span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.room-character-select button {
+  min-height: 34px;
+  padding: 6px 12px;
+}
+
+.room-character-select button.selected {
+  border-color: var(--gold);
+  background: rgba(216, 182, 90, 0.28);
+  color: #fff7d0;
+}
+
 .room-join {
   display: grid;
   grid-template-columns: 1fr auto;
