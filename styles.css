@@ -8947,6 +8947,15 @@ body.pc-ui #gameApp:not(.screen-hidden) .mobile-trap-open {
   pointer-events: auto;
 }
 
+/* Log history is modal information: keep it above judge panels, trap panels, and action rails. */
+body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-log-panel,
+body.pc-ui #gameApp:not(.screen-hidden) .mobile-log-panel {
+  position: fixed;
+  z-index: 10080 !important;
+  isolation: isolate;
+  pointer-events: auto;
+}
+
 /* Normalize judge face framing inside the circular mask. */
 body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .judge-eval-avatar.sprite,
 body.pc-ui #gameApp:not(.screen-hidden) .judge-eval-avatar.sprite {

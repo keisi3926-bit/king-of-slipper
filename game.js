@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.12-online-finish-v54";
+const APP_VERSION = "2026.06.12-online-turn-trap-v55";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -1759,6 +1759,15 @@ async function receiveOpponentAction(message, id) {
     render();
   } else if (action.type === "turnEnd") {
     queueOnlineCounterWindow(action);
+  } else if (action.type === "turnStart") {
+    if (!state.gameOver && state.started) {
+      state.turn = "online-waiting";
+      state.pendingOnlineTurnEnd = null;
+      state.mobileTrapOpen = false;
+      setPhase("相手ターン開始", `${opponentResultName()}のターンです。`);
+      setMessage("相手のターンが始まりました。操作を待っています。");
+      render();
+    }
   } else if (action.type === "counter") {
     if (Array.isArray(action.playerBoard)) state.cpuBoard = action.playerBoard.map(reviveRemoteSlipper);
     if (Array.isArray(action.cpuBoard)) state.playerBoard = action.cpuBoard.map(reviveRemoteSlipper);
@@ -3245,7 +3254,14 @@ async function startPlayerTurn() {
   state.placementsThisTurn = 0;
   drawSlippers(2);
   startHaouTheme();
+  setPhase("開始！", `${playerResultName()}のターンです。`);
+  setMessage("開始！ あなたのターンです。");
+  announce("開始！ あなたのターンです", "good");
   render();
+  if (isOnlineMatch()) {
+    syncMatchState();
+    sendPlayerAction({ type: "turnStart", turnNumber: state.turnNumber });
+  }
   await showCutin(playerCutinLabel(), "ターン開始！", "玄関を、もう一度整える。");
   startTimer();
   setPhase("スリッパ配置", `配置上限は${maxPlacementsPerTurn()}足。履き数は配置数ではなく、玄関全体をインサイダーが見て決まる。`);
@@ -3982,7 +3998,7 @@ function render() {
   byId("phaseHint").textContent = getPhaseHint();
   if (!state.started) byId("timer").textContent = "--";
   if (state.started && state.turn === "player" && !state.gameOver) byId("timer").textContent = state.timer;
-  byId("counterBtn").disabled = state.turn !== "counter-window" || state.playerTrapCount <= 0 || state.gameOver || state.cutinActive;
+  byId("counterBtn").disabled = !canUsePlayerTrapWindow();
   byId("counterBtn").textContent = `湿度カウンター (${state.playerTrapCount})`;
   byId("endTurnBtn").disabled = state.turn !== "player" || state.gameOver || state.cutinActive;
   byId("stampBtn").disabled = state.cutinActive || Date.now() < state.stampCooldownUntil;
@@ -4671,7 +4687,7 @@ function renderMobileBattle() {
   byId("mobileStartBtn").hidden = state.started;
   byId("mobileStartBtn").disabled = state.cutinActive || state.started;
   byId("mobileEndTurnBtn").disabled = state.turn !== "player" || state.gameOver || state.cutinActive;
-  byId("mobileCounterBtn").disabled = state.turn !== "counter-window" || state.playerTrapCount <= 0 || state.gameOver || state.cutinActive;
+  byId("mobileCounterBtn").disabled = !canUsePlayerTrapWindow();
   byId("mobileCounterBtn").textContent = "伏せ";
   byId("mobileCounterBtn").classList.toggle("active", state.mobileTrapOpen);
   byId("mobileCounterBtn").setAttribute("aria-pressed", String(state.mobileTrapOpen));
