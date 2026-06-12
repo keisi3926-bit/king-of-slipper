@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.11-online-sync-v52";
+const APP_VERSION = "2026.06.12-online-finish-v54";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -761,6 +761,7 @@ const roomSync = {
   latestActionId: null,
   connectedAt: 0,
   pendingStartAction: false,
+  remoteStartInProgress: false,
   lastRemoteStateAt: 0,
   listeners: [],
   heartbeatId: null,
@@ -898,6 +899,7 @@ function selectRoomCharacter(key) {
   saveSelectedPlayerKey(key);
   selectEntranceForOwner(selectedPlayerKey);
   applyPlayerCharacterUi();
+  syncRoomPlayerCharacter();
   renderRoomState();
 }
 
@@ -935,6 +937,7 @@ function applyPlayerCharacterUi() {
   }
 
   setNameWithIcon(document.querySelector(".turn-head-name.player strong"), character);
+  setNameWithIcon(document.querySelector(".turn-head-name.rival strong"), getOpponentCharacter());
   setNameWithIcon(document.querySelector(".mobile-hud-player strong"), character);
 
   document.querySelectorAll(".mobile-insider-panel.player strong, .desktop-insider-panel.player strong").forEach((label) => {
@@ -1425,6 +1428,7 @@ function resetRoomLocalState({ renderState = true, writeLog = true } = {}) {
   roomSync.players = {};
   roomSync.initialGameStateReceived = false;
   roomSync.pendingStartAction = false;
+  roomSync.remoteStartInProgress = false;
   roomSync.connectedAt = 0;
   roomSync.latestActionId = null;
   roomSync.lastRemoteStateAt = 0;
@@ -1523,6 +1527,36 @@ function mapRemoteTurnToLocal(remoteTurn) {
   return state.turn;
 }
 
+function mirrorRemoteMatchResult(result) {
+  if (result === "win") return "loss";
+  if (result === "loss") return "win";
+  return result || "draw";
+}
+
+async function showRemoteMatchResult(result) {
+  if (state.remoteMatchResultShown) return;
+  state.remoteMatchResultShown = true;
+  const localResult = mirrorRemoteMatchResult(result);
+  clearInterval(state.interval);
+  clearInterval(state.sideboardInterval);
+  stopMatchTimer();
+  stopHaouTheme();
+  stopJinTheme();
+  const title = localResult === "win" ? "MATCH WIN" : localResult === "loss" ? "MATCH LOSS" : "MATCH DRAW";
+  const tone = localResult === "win" ? "good" : "danger";
+  await showImportantCommentary(title, "通信対戦の勝敗が確定しました。", tone, { autoCloseMs: 1200 });
+  if (localResult === "win") {
+    byId("victoryRatingText").innerHTML = "MATCH WIN";
+    await showVictory();
+  } else if (localResult === "loss") {
+    byId("defeatRatingText").innerHTML = "MATCH LOSS";
+    await showDefeat();
+  } else {
+    byId("drawRatingText").innerHTML = "MATCH DRAW";
+    await showDraw();
+  }
+}
+
 function applyRemoteMatchState(snapshot, { force = false } = {}) {
   if (!snapshot || snapshot.role === roomSync.role) return false;
   const at = Number(snapshot.at || 0);
@@ -1552,9 +1586,10 @@ function applyRemoteMatchState(snapshot, { force = false } = {}) {
   });
   if (snapshot.matchFinished) {
     state.matchFinished = true;
-    state.matchResult = snapshot.matchResult || state.matchResult;
+    state.matchResult = mirrorRemoteMatchResult(snapshot.matchResult || state.matchResult);
     state.gameOver = true;
     state.turn = "idle";
+    showRemoteMatchResult(snapshot.matchResult || state.matchResult).catch((error) => console.warn("[KOS room] remote result display failed", error));
   } else if (snapshot.started && !state.gameOver && !state.cutinActive) {
     state.turn = mapRemoteTurnToLocal(snapshot.phase || snapshot.turnOwner);
   }
@@ -2016,7 +2051,11 @@ function connectRoom(code, role) {
       roomSync.status = "character_select";
       roomSync.room.update({ status: "character_select", updatedAt: firebaseTimestamp() });
       roomSync.room.child("roles").set({ player1: "host", player2: "guest", updatedAt: firebaseTimestamp() });
-    } else if (roomSync.role === "host" && (roomSync.status === "matched" || roomSync.status === "character_select")) {
+    } else if (
+      roomSync.role === "host"
+      && !roomSync.players?.guest
+      && (roomSync.status === "matched" || roomSync.status === "character_select")
+    ) {
       roomSync.status = "waiting";
       roomSync.room.update({ guestId: null, status: "waiting", updatedAt: firebaseTimestamp() });
     }
@@ -2058,6 +2097,15 @@ function connectRoom(code, role) {
   listenRoomRef(roomSync.room.child("gameState/latest"), "value", (snapshot) => {
     const remoteState = snapshot.val();
     if (!remoteState || remoteState.role === roomSync.role) return;
+    if (remoteState.started && !state.started) {
+      if (!roomSync.remoteStartInProgress) {
+        roomSync.remoteStartInProgress = true;
+        startOnlineMatch(false, remoteState).finally(() => {
+          roomSync.remoteStartInProgress = false;
+        });
+      }
+      return;
+    }
     applyRemoteMatchState(remoteState);
   });
 
@@ -2859,6 +2907,7 @@ async function resetMatch() {
     matchInterval: null,
     matchFinished: false,
     matchResult: null,
+    remoteMatchResultShown: false,
     matchPoints: 0,
     playerRatingBefore: playerProfile.rating,
     cpuRatingBefore: jinRating,
@@ -3205,7 +3254,8 @@ async function startPlayerTurn() {
 }
 
 async function useCounter(index = null) {
-  if (state.gameOver || state.playerTrapCount <= 0 || state.turn !== "counter-window" || state.cutinActive) return;
+  if (!canUsePlayerTrapWindow()) return;
+  if (state.turn !== "counter-window" && state.pendingOnlineTurnEnd) state.turn = "counter-window";
   if (index && typeof index === "object") index = null;
   if (!Number.isInteger(index)) index = Number.isInteger(state.selectedTrapIndex) ? state.selectedTrapIndex : null;
   if (!Number.isInteger(index) || index < 0 || index >= state.playerTraps.length) {
@@ -4910,10 +4960,20 @@ function selectedTrapSlipper() {
   return trapSlipperAt(state.selectedTrapIndex);
 }
 
+function canUsePlayerTrapWindow() {
+  return Boolean(
+    !state.gameOver
+      && !state.cutinActive
+      && state.playerTrapCount > 0
+      && state.playerTraps.length > 0
+      && (state.turn === "counter-window" || (isOnlineMatch() && state.pendingOnlineTurnEnd)),
+  );
+}
+
 function renderMobileTrapPanel() {
   const root = byId("mobileTrapPanel");
   if (!root) return;
-  const canOpen = state.turn === "counter-window" && !state.gameOver && !state.cutinActive && state.playerTraps.length > 0;
+  const canOpen = canUsePlayerTrapWindow();
   if (!state.mobileTrapOpen || !canOpen) {
     root.hidden = true;
     root.innerHTML = "";
@@ -5159,7 +5219,8 @@ function toggleMobileLog() {
 }
 
 function toggleMobileTrapPanel() {
-  if (state.turn !== "counter-window" || state.playerTrapCount <= 0 || state.gameOver || state.cutinActive) return;
+  if (!canUsePlayerTrapWindow()) return;
+  if (state.turn !== "counter-window" && state.pendingOnlineTurnEnd) state.turn = "counter-window";
   state.mobileTrapOpen = !state.mobileTrapOpen;
   if (state.mobileTrapOpen) {
     state.mobileHandOpen = false;

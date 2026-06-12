@@ -9012,6 +9012,74 @@ body.pc-ui .turn-head-name.player {
   min-width: 0;
 }
 
+/* v53 header hotfix: keep opponent/YOU labels and round icons visible. */
+body.mobile-ui.landscape-ui .mobile-hud-rival,
+body.pc-ui .mobile-hud-rival {
+  grid-template-columns: minmax(86px, 1fr) auto minmax(86px, 1fr);
+  overflow: visible;
+}
+
+body.mobile-ui.landscape-ui .turn-head-name,
+body.pc-ui .turn-head-name {
+  display: flex;
+  align-items: center;
+  gap: clamp(3px, 0.7vw, 6px);
+  min-width: 0;
+  overflow: visible;
+  white-space: nowrap;
+}
+
+body.mobile-ui.landscape-ui .turn-head-name.rival,
+body.pc-ui .turn-head-name.rival {
+  justify-self: start;
+  max-width: min(34vw, 230px);
+}
+
+body.mobile-ui.landscape-ui .turn-head-name.player,
+body.pc-ui .turn-head-name.player {
+  justify-self: end;
+  flex-direction: row-reverse;
+  max-width: min(34vw, 230px);
+  text-align: right;
+}
+
+body.mobile-ui.landscape-ui .turn-head-name span,
+body.pc-ui .turn-head-name span {
+  display: inline-block !important;
+  flex: 0 0 auto;
+  color: var(--gold);
+  font-size: clamp(8px, 1.2vw, 11px);
+  font-weight: 1000;
+  line-height: 1;
+}
+
+body.mobile-ui.landscape-ui .turn-head-name strong,
+body.pc-ui .turn-head-name strong {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(3px, 0.7vw, 6px);
+  min-width: 0;
+  overflow: hidden;
+  color: #fff;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.mobile-ui.landscape-ui .turn-head-name.player strong,
+body.pc-ui .turn-head-name.player strong {
+  flex-direction: row-reverse;
+}
+
+body.mobile-ui.landscape-ui .turn-head-name img,
+body.pc-ui .turn-head-name img {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: clamp(17px, 2.6vw, 26px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
 @media (orientation: landscape) and (max-height: 430px) {
   .victory-copy {
     bottom: max(12px, env(safe-area-inset-bottom));
