@@ -3153,7 +3153,7 @@ button.danger {
 .vs-screen {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 30000;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(210px, 0.32fr) minmax(0, 1fr);
   gap: 0;
@@ -3163,7 +3163,12 @@ button.danger {
   pointer-events: none;
 }
 
+.vs-screen:not(.show) {
+  display: none;
+}
+
 .vs-screen.show {
+  display: grid;
   opacity: 1;
   pointer-events: auto;
 }

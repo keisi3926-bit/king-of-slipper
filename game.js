@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.13-boot-progress-v58";
+const APP_VERSION = "2026.06.13-battle-layer-fix-v59";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -2928,6 +2928,8 @@ async function resetMatch() {
   }
   initAudio();
   playSound("start");
+  hideNonBattleScreens();
+  byId("gameApp").classList.remove("screen-hidden");
   const online = state.onlineMode && roomSync.online;
   clearInterval(state.interval);
   clearTimeout(state.phaseTimeout);
@@ -5566,6 +5568,12 @@ function buildThought({ insider, won, score, reasonText }, side) {
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function hideNonBattleScreens() {
+  ["titleScreen", "tutorialScreen", "entranceBuilderScreen", "characterSelectScreen"].forEach((id) => {
+    byId(id)?.classList.add("screen-hidden");
+  });
 }
 
 function showVsScreen(options = {}) {
