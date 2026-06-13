@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.13-trap-sync-v56";
+const APP_VERSION = "2026.06.13-online-judge-sync-v57";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -1519,7 +1519,7 @@ function syncMatchState() {
 function mapRemoteTurnToLocal(remoteTurn) {
   if (!remoteTurn) return state.turn;
   if (remoteTurn === "player") return "online-waiting";
-  if (remoteTurn === "online-waiting") return "player";
+  if (remoteTurn === "online-waiting") return "online-waiting";
   if (remoteTurn === "counter-window") return "counter-window";
   if (remoteTurn === "judge-player") return "judge-cpu";
   if (remoteTurn === "judge-cpu") return "judge-player";
@@ -1640,20 +1640,19 @@ async function resolvePendingOnlineTurnEnd() {
   clearTimeout(state.phaseTimeout);
   if (!action || state.gameOver) return;
   state.turn = "online-resolving";
-  const remoteScore = Number(action.score ?? action.playerScore ?? state.cpuScore ?? 0);
-  if (Number.isFinite(remoteScore)) state.cpuScore = clampValue(remoteScore, 0, 5);
   state.cpuBoard = Array.isArray(action.board) ? action.board.map(reviveRemoteSlipper) : state.cpuBoard;
   if (Array.isArray(action.traps)) state.cpuTraps = [...action.traps];
-  if (Array.isArray(action.verdicts)) state.insiderVerdicts.cpu = action.verdicts;
   const remoteTurnNumber = Number(action.turnNumber || 0);
   if (Number.isFinite(remoteTurnNumber) && remoteTurnNumber > 0) {
     state.turnNumber = Math.max(state.turnNumber || 1, remoteTurnNumber);
   }
   syncMatchState();
   render();
-  if (state.cpuScore >= 5) {
-    await checkWinner();
-  } else {
+  setPhase("相手の吟味", "相手の玄関をインサイダーが評価しています。");
+  setMessage("伏せ確認が終わりました。履き判定を同期します。");
+  await resolveJudgement("cpu");
+  sendTurnResolvedAction();
+  if (!state.gameOver) {
     await startPlayerTurn();
   }
 }
@@ -1693,6 +1692,25 @@ function sendCounterAction(trap) {
     playerTraps: state.playerTraps,
     cpuTraps: state.cpuTraps,
     insiderVerdicts: state.insiderVerdicts,
+    turnNumber: state.turnNumber,
+  });
+  syncMatchState();
+}
+
+function sendTurnResolvedAction() {
+  if (!isOnlineMatch()) return;
+  sendPlayerAction({
+    type: "turnResolved",
+    playerScore: state.playerScore,
+    cpuScore: state.cpuScore,
+    playerBoard: state.playerBoard,
+    cpuBoard: state.cpuBoard,
+    playerTraps: state.playerTraps,
+    cpuTraps: state.cpuTraps,
+    insiderVerdicts: state.insiderVerdicts,
+    matchFinished: state.matchFinished,
+    matchResult: state.matchResult,
+    gameOver: state.gameOver,
     turnNumber: state.turnNumber,
   });
   syncMatchState();
@@ -1786,6 +1804,31 @@ async function receiveOpponentAction(message, id) {
     announce(`ONLINE: ${opponentShortName()} opened ${action.trapName || "a hidden slipper"}!`, "danger");
     log(`${opponentResultName()} opened hidden slipper: ${action.trapName || "unknown"}`);
     playSound("counter");
+    render();
+  } else if (action.type === "turnResolved") {
+    if (Array.isArray(action.playerBoard)) state.cpuBoard = action.playerBoard.map(reviveRemoteSlipper);
+    if (Array.isArray(action.cpuBoard)) state.playerBoard = action.cpuBoard.map(reviveRemoteSlipper);
+    if (Array.isArray(action.playerTraps)) state.cpuTraps = [...action.playerTraps];
+    if (Array.isArray(action.cpuTraps)) state.playerTraps = [...action.cpuTraps];
+    if (action.insiderVerdicts?.player) state.insiderVerdicts.cpu = action.insiderVerdicts.player;
+    if (action.insiderVerdicts?.cpu) state.insiderVerdicts.player = action.insiderVerdicts.cpu;
+    const ownScore = Number(action.cpuScore ?? state.playerScore ?? 0);
+    const opponentScore = Number(action.playerScore ?? state.cpuScore ?? 0);
+    if (Number.isFinite(ownScore)) state.playerScore = clampValue(ownScore, 0, 5);
+    if (Number.isFinite(opponentScore)) state.cpuScore = clampValue(opponentScore, 0, 5);
+    if (Number.isFinite(Number(action.turnNumber || 0))) state.turnNumber = Math.max(state.turnNumber || 1, Number(action.turnNumber || 0));
+    state.pendingOnlineTurnEnd = null;
+    state.mobileTrapOpen = false;
+    state.selectedTrapIndex = null;
+    state.trapDetailIndex = null;
+    setPhase("オンライン待機", "相手のターンです。相手の配置とターンエンドを待っています。");
+    setMessage("履き判定が同期されました。相手のターンを待っています。");
+    if (action.matchFinished || action.gameOver) {
+      state.matchFinished = true;
+      state.gameOver = true;
+      state.matchResult = mirrorRemoteMatchResult(action.matchResult || state.matchResult);
+      showRemoteMatchResult(action.matchResult || state.matchResult).catch((error) => console.warn("[KOS room] remote result display failed", error));
+    }
     render();
   } else if (action.type === "sideboardReady") {
     if (action.snapshot) applyRemoteMatchState(action.snapshot, { force: true });
@@ -3127,6 +3170,27 @@ async function endPlayerTurn() {
     roomDebug("match start blocked reason", { reason: "相手が接続されていません", action: "endTurn" });
     setMessage("対戦相手を待っています。相手が接続されていません。");
     roomLog("相手が接続されていません");
+    render();
+    return;
+  }
+  if (isOnlineMatch()) {
+    clearInterval(state.interval);
+    state.turn = "online-waiting";
+    state.mobileHandOpen = false;
+    state.mobileTrapOpen = false;
+    byId("timer").textContent = "待機";
+    setPhase("オンライン待機", "相手の伏せ確認と履き判定を待っています。");
+    setMessage("玄関情報を送信しました。相手の伏せ確認後に履き判定が同期されます。");
+    log(`${playerShortName()}の玄関情報を送信。相手の伏せ確認を待つ。`);
+    playSound("turn");
+    sendPlayerAction({
+      type: "turnEnd",
+      board: state.playerBoard,
+      traps: state.playerTraps,
+      turnNumber: state.turnNumber,
+      needsJudgement: true,
+    });
+    syncMatchState();
     render();
     return;
   }
