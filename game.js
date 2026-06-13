@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.13-online-judge-sync-v57";
+const APP_VERSION = "2026.06.13-boot-progress-v58";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -1100,11 +1100,22 @@ async function ensureFreshBuildBeforePlay() {
   return true;
 }
 
-function setBootStatus(text) {
+function setBootProgress(label, percent) {
+  const safePercent = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+  const progressText = byId("bootProgressText");
+  const progressPercent = byId("bootProgressPercent");
+  const progressFill = byId("bootProgressFill");
+  if (progressText && label) progressText.textContent = label;
+  if (progressPercent) progressPercent.textContent = `${safePercent}%`;
+  if (progressFill) progressFill.style.width = `${safePercent}%`;
+}
+
+function setBootStatus(text, progressText = null, percent = null) {
   const bootStatus = byId("bootStatus");
   if (bootStatus) bootStatus.textContent = text;
   const bootVersion = byId("bootVersion");
   if (bootVersion) bootVersion.textContent = `現在の版: ${APP_VERSION}`;
+  if (progressText != null || percent != null) setBootProgress(progressText || text, percent ?? 0);
 }
 
 function revealTitleScreen() {
@@ -1119,33 +1130,45 @@ function reloadForFreshVersion(version) {
 }
 
 async function checkBuildVersionOnBoot() {
-  setBootStatus("最新版を確認しています。");
+  setBootStatus("最新版を確認しています。", "アップデートを確認しています…", 10);
   if (!location.protocol.startsWith("http")) {
-    setBootStatus("ローカル版で起動中です。");
+    setBootStatus("ローカル版で起動中です。", "起動準備中…", 95);
     await wait(250);
+    setBootStatus("起動します。", "完了", 100);
+    await wait(180);
     revealTitleScreen();
     return;
   }
 
   try {
+    setBootStatus("更新データを取得しています。", "データを取得しています…", 28);
     const response = await fetch(`${VERSION_URL}?t=${Date.now()}`, {
       cache: "no-store",
       headers: { "Cache-Control": "no-cache" },
     });
+    setBootStatus("バージョン情報を確認しています。", "データを確認しています…", 42);
     const remote = response.ok ? await response.json() : null;
     if (remote?.version && remote.version !== APP_VERSION) {
-      setBootStatus("新しい版を検出。更新してから起動します。");
+      setBootStatus("新しい版を検出。更新してから起動します。", "ファイルを更新しています…", 70);
       sessionStorage.setItem("kos_seen_remote_version", remote.version);
       const updatedByWorker = await ensureFreshBuildBeforePlay();
-      if (!updatedByWorker) setTimeout(() => reloadForFreshVersion(remote.version), 450);
+      setBootStatus("更新を反映しています。", "起動準備中…", 95);
+      if (!updatedByWorker) {
+        setTimeout(() => {
+          setBootStatus("更新を反映しています。", "完了", 100);
+          reloadForFreshVersion(remote.version);
+        }, 450);
+      }
       return;
     }
-    setBootStatus("最新版です。起動します。");
+    setBootStatus("最新版です。起動します。", "起動準備中…", 95);
   } catch {
-    setBootStatus("通信確認に失敗。保存済み版で起動します。");
+    setBootStatus("更新に失敗しました。保存済み版で起動します。", "更新に失敗しました", 100);
   }
 
   await wait(350);
+  setBootStatus("起動します。", "完了", 100);
+  await wait(180);
   revealTitleScreen();
 }
 
