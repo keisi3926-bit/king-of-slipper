@@ -8951,9 +8951,10 @@ body.pc-ui #gameApp:not(.screen-hidden) .mobile-trap-open {
 body.mobile-ui.landscape-ui #gameApp:not(.screen-hidden) .mobile-log-panel,
 body.pc-ui #gameApp:not(.screen-hidden) .mobile-log-panel {
   position: fixed;
-  z-index: 10080 !important;
+  z-index: 20000 !important;
   isolation: isolate;
   pointer-events: auto;
+  transform: none !important;
 }
 
 /* Normalize judge face framing inside the circular mask. */

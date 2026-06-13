@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.12-online-turn-trap-v55";
+const APP_VERSION = "2026.06.13-trap-sync-v56";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -1761,6 +1761,10 @@ async function receiveOpponentAction(message, id) {
     queueOnlineCounterWindow(action);
   } else if (action.type === "turnStart") {
     if (!state.gameOver && state.started) {
+      if (state.turn === "counter-window" || state.pendingOnlineTurnEnd) {
+        render();
+        return;
+      }
       state.turn = "online-waiting";
       state.pendingOnlineTurnEnd = null;
       state.mobileTrapOpen = false;
@@ -3164,7 +3168,7 @@ async function maybeCpuTrap() {
   const profile = cpuProfile();
   const hasGoodTarget = filledBoard(state.playerBoard).some((slipper) => slipper.flow >= 3 || slipper.dignity >= 4);
   const trapChance = profile.trapChance + (hasGoodTarget ? 0.08 : -0.08);
-  const shouldTrap = state.cpuTrapCount > 0 && boardCount(state.playerBoard) >= 2 && Math.random() < trapChance;
+  const shouldTrap = state.cpuTrapCount > 0 && boardCount(state.playerBoard) >= 2 && (hasGoodTarget || Math.random() < trapChance);
   if (!shouldTrap) return;
   const trap = drawTrapForSide("cpu");
   await showCutin("松葉迅", "伏せスリッパオープン！", `${trap?.name || "瞬間逆置き"}、導線を断つ！`, {
@@ -3261,6 +3265,11 @@ async function startPlayerTurn() {
   if (isOnlineMatch()) {
     syncMatchState();
     sendPlayerAction({ type: "turnStart", turnNumber: state.turnNumber });
+    startTimer();
+    setPhase("スリッパ配置", `配置上限は${maxPlacementsPerTurn()}足。履き数は配置数ではなく、玄関全体をインサイダーが見て決まる。`);
+    setMessage("あなたのターン。2足補充した。");
+    render();
+    return;
   }
   await showCutin(playerCutinLabel(), "ターン開始！", "玄関を、もう一度整える。");
   startTimer();
