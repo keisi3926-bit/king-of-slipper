@@ -4,6 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="robots" content="noindex,nofollow" />
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>KOS Sole Monitor</title>
     <style>
       :root {
@@ -86,6 +89,22 @@
         margin-top: 10px;
         color: #fff;
         font-size: 12px;
+      }
+
+      .build-id {
+        display: inline-flex;
+        width: fit-content;
+        max-width: 100%;
+        margin-top: 10px;
+        border: 1px solid rgba(216, 182, 90, 0.38);
+        border-radius: 999px;
+        padding: 5px 9px;
+        background: rgba(216, 182, 90, 0.1);
+        color: var(--gold);
+        font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+        font-size: 11px;
+        font-weight: 900;
+        overflow-wrap: anywhere;
       }
 
       .stats {
@@ -214,9 +233,122 @@
         color: var(--red);
       }
 
+      .diagnostics {
+        padding: 14px;
+      }
+
+      .diag-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        justify-content: flex-end;
+      }
+
+      .diag-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 12px;
+        margin-bottom: 10px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .diag-list {
+        display: grid;
+        gap: 8px;
+        max-height: 54dvh;
+        overflow: auto;
+      }
+
+      .diag-item {
+        display: grid;
+        gap: 5px;
+        padding: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.035);
+        font-size: 12px;
+      }
+
+      .diag-top {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+      }
+
+      .diag-item code,
+      .diag-fallback {
+        width: 100%;
+        border: 1px solid rgba(216, 182, 90, 0.22);
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.26);
+        color: #f6f1e6;
+        font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      }
+
+      .diag-item code {
+        display: block;
+        padding: 8px;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+
+      .diag-fallback {
+        min-height: 160px;
+        margin-top: 10px;
+        padding: 10px;
+      }
+
       @media (min-width: 720px) {
         .stats {
           grid-template-columns: repeat(5, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 719px) {
+        body {
+          overflow-x: hidden;
+        }
+
+        main {
+          width: 100%;
+        }
+
+        .section-head {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .diag-actions {
+          display: grid;
+          grid-template-columns: 1fr;
+          justify-content: stretch;
+          width: 100%;
+        }
+
+        .diag-actions button {
+          min-height: 44px;
+          width: 100%;
+        }
+
+        .diag-list {
+          max-height: none;
+          overflow: visible;
+        }
+
+        .diag-item,
+        .diag-top,
+        .diag-meta {
+          min-width: 0;
+        }
+
+        .diag-item code,
+        .diag-fallback {
+          font-size: 11px;
         }
       }
     </style>
@@ -227,6 +359,7 @@
         <p class="eyebrow">KOS Sole Monitor</p>
         <h1>sole</h1>
         <p class="sub">制作者用の簡易観測ページ。通常メニューからはリンクしません。</p>
+        <p id="soleBuildId" class="build-id">build: 2026.06.14-sole-mobile-diagnostics-v64</p>
         <p id="connectionStatus" class="status">Firebaseへ接続中...</p>
       </header>
 
@@ -266,6 +399,27 @@
           <p class="empty">読み込み中...</p>
         </div>
       </section>
+      <section class="diagnostics">
+        <div class="section-head">
+          <div>
+            <h2>診断ログ</h2>
+            <p class="sub">通信対戦の診断ログをlocalStorageから読み取ります。通常ゲーム画面には表示されません。</p>
+          </div>
+          <div class="diag-actions">
+            <button id="copyDiagnosticsBtn" type="button">診断ログをコピー</button>
+            <button id="clearDiagnosticsBtn" type="button">診断ログを消去</button>
+          </div>
+        </div>
+        <div class="diag-meta">
+          <span id="diagnosticCount">0件</span>
+          <span id="diagnosticUpdated">最終更新 --</span>
+          <span id="diagnosticCopyState"></span>
+        </div>
+        <div id="diagnosticList" class="diag-list">
+          <p class="empty">診断ログはありません</p>
+        </div>
+        <textarea id="diagnosticFallback" class="diag-fallback" hidden readonly></textarea>
+      </section>
     </main>
 
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -283,10 +437,19 @@
       };
 
       const STALE_MS = 60 * 60 * 1000;
+      const DIAGNOSTIC_LOG_KEY = "kos_diagnostic_logs_v1";
       const $ = (id) => document.getElementById(id);
       const todayKey = () => new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
       const asNumber = (value) => Number(value || 0);
       const statusClass = (status = "") => String(status).replace(/[^a-zA-Z0-9_-]/g, "_");
+      const escapeHtml = (value = "") =>
+        String(value).replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[char]);
       const fmtTime = (value) => {
         const n = Number(value || 0);
         if (!n) return "--";
@@ -298,6 +461,104 @@
           second: "2-digit",
         });
       };
+
+      function loadDiagnosticLogs() {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(DIAGNOSTIC_LOG_KEY) || "[]");
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+          console.warn("[KOS Diagnostic]", "failed to load diagnostic logs", error);
+          return [];
+        }
+      }
+
+      function diagnosticText(logs = loadDiagnosticLogs()) {
+        return JSON.stringify(logs, null, 2);
+      }
+
+      function renderDiagnosticLogs() {
+        const logs = loadDiagnosticLogs();
+        const root = $("diagnosticList");
+        const fallback = $("diagnosticFallback");
+        const newest = logs[logs.length - 1];
+        $("diagnosticCount").textContent = `${logs.length}件`;
+        $("diagnosticUpdated").textContent = `最終更新 ${newest?.at ? fmtTime(newest.at) : "--"}`;
+        $("diagnosticCopyState").textContent = "";
+        fallback.hidden = true;
+        fallback.value = "";
+
+        if (!logs.length) {
+          root.innerHTML = `<p class="empty">診断ログはありません</p>`;
+          return;
+        }
+
+        root.innerHTML = logs
+          .slice(-80)
+          .reverse()
+          .map((log) => {
+            const payload = log?.payload ? JSON.stringify(log.payload, null, 2) : "{}";
+            const meta = [
+              log?.role ? `role ${log.role}` : "",
+              log?.turn ? `turn ${log.turn}` : "",
+              log?.phase ? `phase ${log.phase}` : "",
+            ].filter(Boolean);
+            return `
+              <article class="diag-item">
+                <div class="diag-top">
+                  <span class="pill">${escapeHtml(log?.category || "-")}</span>
+                  <span class="pill">${escapeHtml(log?.event || "-")}</span>
+                  ${meta.map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join("")}
+                  <span>${escapeHtml(fmtTime(log?.at))}</span>
+                </div>
+                <code>${escapeHtml(payload)}</code>
+              </article>
+            `;
+          })
+          .join("");
+      }
+
+      async function copyDiagnosticLogs() {
+        const logs = loadDiagnosticLogs();
+        const text = diagnosticText(logs);
+        const state = $("diagnosticCopyState");
+        const fallback = $("diagnosticFallback");
+        if (!logs.length) {
+          state.textContent = "コピーする診断ログはありません";
+          return;
+        }
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+            state.textContent = "コピーしました";
+            return;
+          }
+          throw new Error("Clipboard API unavailable");
+        } catch (error) {
+          fallback.hidden = false;
+          fallback.value = text;
+          fallback.focus();
+          fallback.select();
+          state.textContent = "クリップボードが使えないため、下の欄を選択してコピーしてください";
+        }
+      }
+
+      function clearDiagnosticLogs() {
+        try {
+          localStorage.removeItem(DIAGNOSTIC_LOG_KEY);
+        } catch (error) {
+          console.warn("[KOS Diagnostic]", "failed to clear diagnostic logs", error);
+        }
+        renderDiagnosticLogs();
+        $("diagnosticCopyState").textContent = "診断ログを消去しました";
+      }
+
+      function bootDiagnosticSection() {
+        $("copyDiagnosticsBtn")?.addEventListener("click", copyDiagnosticLogs);
+        $("clearDiagnosticsBtn")?.addEventListener("click", clearDiagnosticLogs);
+        renderDiagnosticLogs();
+      }
+
+      bootDiagnosticSection();
 
       firebase.initializeApp(firebaseConfig);
       const db = firebase.database();
@@ -378,6 +639,7 @@
         $("connectionStatus").textContent = `更新中 / ${new Date().toLocaleTimeString("ja-JP")}`;
         db.ref("rooms").once("value").then(renderRooms);
         db.ref(`dailyStats/${todayKey()}`).once("value").then(renderStats);
+        renderDiagnosticLogs();
       });
 
       incrementSoleView();

@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.13-battle-layer-fix-v59";
+const APP_VERSION = "2026.06.14-sole-mobile-diagnostics-v64";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -762,10 +762,13 @@ const roomSync = {
   connectedAt: 0,
   pendingStartAction: false,
   remoteStartInProgress: false,
+  startInProgress: false,
   lastRemoteStateAt: 0,
   listeners: [],
   heartbeatId: null,
 };
+const DIAGNOSTIC_LOG_KEY = "kos_diagnostic_logs_v1";
+const DIAGNOSTIC_LOG_LIMIT = 300;
 
 const byId = (id) => document.getElementById(id);
 let serviceWorkerRegistration = null;
@@ -1452,6 +1455,7 @@ function resetRoomLocalState({ renderState = true, writeLog = true } = {}) {
   roomSync.initialGameStateReceived = false;
   roomSync.pendingStartAction = false;
   roomSync.remoteStartInProgress = false;
+  roomSync.startInProgress = false;
   roomSync.connectedAt = 0;
   roomSync.latestActionId = null;
   roomSync.lastRemoteStateAt = 0;
@@ -1531,23 +1535,252 @@ function serializeRoomMatchState(extra = {}) {
   };
 }
 
+function maskDiagnosticValue(key, value) {
+  const lowerKey = String(key || "").toLowerCase();
+  if (
+    lowerKey.includes("code")
+      || lowerKey.includes("playerid")
+      || lowerKey.includes("hostid")
+      || lowerKey.includes("guestid")
+      || lowerKey.includes("actionid")
+      || lowerKey === "uid"
+      || lowerKey === "id"
+  ) {
+    return value ? "[masked]" : value;
+  }
+  if (typeof value === "string" && /^-?[A-Za-z0-9_-]{18,}$/.test(value)) return "[masked]";
+  return value;
+}
+
+function sanitizeDiagnosticPayload(value, key = "", depth = 0) {
+  if (depth > 5) return "[truncated]";
+  const masked = maskDiagnosticValue(key, value);
+  if (masked !== value) return masked;
+  if (value instanceof Error) return { name: value.name, message: value.message };
+  if (value == null || typeof value === "number" || typeof value === "boolean" || typeof value === "string") return value;
+  if (Array.isArray(value)) return value.slice(0, 30).map((item, index) => sanitizeDiagnosticPayload(item, index, depth + 1));
+  if (typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .slice(0, 80)
+        .map(([entryKey, entryValue]) => [entryKey, sanitizeDiagnosticPayload(entryValue, entryKey, depth + 1)]),
+    );
+  }
+  return String(value);
+}
+
+function saveDiagnosticLog(category, event, payload = {}) {
+  try {
+    const logs = JSON.parse(localStorage.getItem(DIAGNOSTIC_LOG_KEY) || "[]");
+    logs.push({
+      at: new Date().toISOString(),
+      category,
+      event,
+      role: roomSync.role || "",
+      turn: state.turn || "",
+      phase: byId("phaseTitle")?.textContent || "",
+      payload: sanitizeDiagnosticPayload(payload),
+    });
+    localStorage.setItem(DIAGNOSTIC_LOG_KEY, JSON.stringify(logs.slice(-DIAGNOSTIC_LOG_LIMIT)));
+  } catch (error) {
+    console.warn("[KOS Diagnostic]", "failed to save diagnostic log", error);
+  }
+}
+
+function onlineDebug(event, extra = {}) {
+  const payload = {
+    event,
+    code: roomSync.code,
+    role: roomSync.role,
+    status: roomSync.status,
+    localTurn: state.turn,
+    started: state.started,
+    ...extra,
+  };
+  console.debug("[KOS Online]", payload);
+  saveDiagnosticLog("KOS Online", event, payload);
+}
+
+function onlineStateSnapshot(extra = {}) {
+  return {
+    turn: state.turn,
+    started: state.started,
+    onlineMode: state.onlineMode,
+    phase: byId("phaseTitle")?.textContent || "",
+    cutinActive: state.cutinActive,
+    pendingOnlineTurnEnd: Boolean(state.pendingOnlineTurnEnd),
+    role: roomSync.role,
+    connected: roomSync.online,
+    remoteStartInProgress: roomSync.remoteStartInProgress,
+    startInProgress: roomSync.startInProgress,
+    turnOwner: state.turn,
+    gameOver: state.gameOver,
+    activeHandUid: state.activeHandUid || null,
+    mobileHandOpen: state.mobileHandOpen,
+    mobileTrapOpen: state.mobileTrapOpen,
+    ...extra,
+  };
+}
+
+function onlineGuardReason(action, checks = []) {
+  const failed = checks.find((check) => check.blocked);
+  const reason = failed?.reason || "";
+  if (isOnlineMatch()) {
+    const payload = onlineStateSnapshot({
+      action,
+      blocked: Boolean(failed),
+      reason,
+    });
+    console.debug("[KOS Online Guard]", payload);
+    saveDiagnosticLog("KOS Online Guard", action, payload);
+  }
+  return reason;
+}
+
+let lastOnlineUiGuardKey = "";
+function logOnlineUiGuard(reasons = {}) {
+  if (!isOnlineMatch()) return;
+  const key = JSON.stringify({
+    turn: state.turn,
+    started: state.started,
+    gameOver: state.gameOver,
+    cutinActive: state.cutinActive,
+    pendingOnlineTurnEnd: Boolean(state.pendingOnlineTurnEnd),
+    activeHandUid: state.activeHandUid || null,
+    mobileHandOpen: state.mobileHandOpen,
+    mobileTrapOpen: state.mobileTrapOpen,
+    reasons,
+  });
+  if (key === lastOnlineUiGuardKey) return;
+  lastOnlineUiGuardKey = key;
+  const payload = onlineStateSnapshot({ reasons });
+  console.debug("[KOS Online UI]", payload);
+  saveDiagnosticLog("KOS Online UI", "ui-guard", payload);
+}
+
+function firstBlockedReason(checks = []) {
+  return checks.find((check) => check.blocked)?.reason || "";
+}
+
+function turnActionBlockedReason(action = "turnAction", shouldLog = true) {
+  const checks = [
+    { blocked: !state.started, reason: "!state.started" },
+    { blocked: state.gameOver, reason: "state.gameOver" },
+    { blocked: state.turn !== "player", reason: "state.turn !== player" },
+    { blocked: state.cutinActive, reason: "state.cutinActive" },
+  ];
+  return shouldLog ? onlineGuardReason(action, checks) : firstBlockedReason(checks);
+}
+
+function handActionBlockedReason(action = "handAction", shouldLog = true) {
+  const checks = [
+    { blocked: state.turn !== "player", reason: "state.turn !== player" },
+    { blocked: state.gameOver, reason: "state.gameOver" },
+    { blocked: state.cutinActive, reason: "state.cutinActive" },
+  ];
+  return shouldLog ? onlineGuardReason(action, checks) : firstBlockedReason(checks);
+}
+
+function placeActionBlockedReason(action = "placeHand", shouldLog = true) {
+  const checks = [
+    { blocked: !state.started, reason: "!state.started" },
+    { blocked: state.gameOver, reason: "state.gameOver" },
+    { blocked: state.turn !== "player", reason: "state.turn !== player" },
+    { blocked: state.cutinActive, reason: "state.cutinActive" },
+  ];
+  return shouldLog ? onlineGuardReason(action, checks) : firstBlockedReason(checks);
+}
+
+function trapWindowBlockedReason(action = "trapWindow", shouldLog = true) {
+  const checks = [
+    { blocked: state.gameOver, reason: "state.gameOver" },
+    { blocked: state.cutinActive, reason: "state.cutinActive" },
+    { blocked: state.playerTrapCount <= 0, reason: "state.playerTrapCount <= 0" },
+    { blocked: state.playerTraps.length <= 0, reason: "state.playerTraps.length <= 0" },
+    {
+      blocked: !(state.turn === "counter-window" || (isOnlineMatch() && state.pendingOnlineTurnEnd)),
+      reason: "not counter-window and no pendingOnlineTurnEnd",
+    },
+  ];
+  return shouldLog ? onlineGuardReason(action, checks) : firstBlockedReason(checks);
+}
+
+function logOnlineOverlaySnapshot(source = "unknown") {
+  if (!isOnlineMatch()) return;
+  const elements = document.elementsFromPoint(Math.floor(window.innerWidth / 2), Math.floor(window.innerHeight / 2))
+    .slice(0, 8)
+    .map((element) => ({
+      tag: element.tagName,
+      id: element.id || "",
+      className: typeof element.className === "string" ? element.className : "",
+      pointerEvents: getComputedStyle(element).pointerEvents,
+      zIndex: getComputedStyle(element).zIndex,
+      hidden: element.hidden || element.getAttribute("aria-hidden") === "true",
+    }));
+  const payload = onlineStateSnapshot({ source, elements });
+  console.debug("[KOS Online Overlay]", payload);
+  saveDiagnosticLog("KOS Online Overlay", source, payload);
+}
+
 function syncMatchState() {
   if (!roomSync.room) return null;
   const snapshot = serializeRoomMatchState();
-  roomSync.room.child(`gameState/${roomSync.role || "unknown"}`).set(snapshot);
-  roomSync.room.child("gameState/latest").set(snapshot);
+  onlineDebug("gameState-send", {
+    phase: snapshot.phase,
+    turnOwner: snapshot.turnOwner,
+    snapshotRole: snapshot.role,
+    snapshot,
+  });
+  roomSync.room.child(`gameState/${roomSync.role || "unknown"}`).set(snapshot).catch((error) => {
+    const payload = {
+      event: "gameState-write-failed",
+      target: `gameState/${roomSync.role || "unknown"}`,
+      code: roomSync.code,
+      role: roomSync.role,
+      phase: snapshot.phase,
+      turnOwner: snapshot.turnOwner,
+      error,
+    };
+    saveDiagnosticLog("KOS Online", "gameState-write-failed", payload);
+    console.warn("[KOS Online]", payload);
+  });
+  roomSync.room.child("gameState/latest").set(snapshot).catch((error) => {
+    const payload = {
+      event: "gameState-write-failed",
+      target: "gameState/latest",
+      code: roomSync.code,
+      role: roomSync.role,
+      phase: snapshot.phase,
+      turnOwner: snapshot.turnOwner,
+      error,
+    };
+    saveDiagnosticLog("KOS Online", "gameState-write-failed", payload);
+    console.warn("[KOS Online]", payload);
+  });
   return snapshot;
 }
 
-function mapRemoteTurnToLocal(remoteTurn) {
+function mapRemoteTurnToLocal(remoteTurn, snapshot = {}) {
   if (!remoteTurn) return state.turn;
-  if (remoteTurn === "player") return "online-waiting";
-  if (remoteTurn === "online-waiting") return "online-waiting";
-  if (remoteTurn === "counter-window") return "counter-window";
-  if (remoteTurn === "judge-player") return "judge-cpu";
-  if (remoteTurn === "judge-cpu") return "judge-player";
-  if (remoteTurn === "online-resolving") return "online-waiting";
-  return state.turn;
+  const remoteRole = snapshot.role || null;
+  let mappedTurn = state.turn;
+  if (remoteTurn === "player") mappedTurn = "online-waiting";
+  else if (remoteTurn === "online-waiting") {
+    mappedTurn = state.pendingOnlineTurnEnd || state.turn === "counter-window" || state.turn === "online-resolving"
+      ? state.turn
+      : "player";
+  }
+  else if (remoteTurn === "counter-window") mappedTurn = "counter-window";
+  else if (remoteTurn === "judge-player") mappedTurn = "judge-cpu";
+  else if (remoteTurn === "judge-cpu") mappedTurn = "judge-player";
+  else if (remoteTurn === "online-resolving") mappedTurn = "online-waiting";
+  onlineDebug("turn-map", {
+    remoteRole,
+    remoteTurn,
+    mappedTurn,
+    snapshotAt: snapshot.at || null,
+  });
+  return mappedTurn;
 }
 
 function mirrorRemoteMatchResult(result) {
@@ -1614,7 +1847,8 @@ function applyRemoteMatchState(snapshot, { force = false } = {}) {
     state.turn = "idle";
     showRemoteMatchResult(snapshot.matchResult || state.matchResult).catch((error) => console.warn("[KOS room] remote result display failed", error));
   } else if (snapshot.started && !state.gameOver && !state.cutinActive) {
-    state.turn = mapRemoteTurnToLocal(snapshot.phase || snapshot.turnOwner);
+    const remoteTurn = snapshot.phase || snapshot.turnOwner;
+    state.turn = mapRemoteTurnToLocal(remoteTurn, snapshot);
   }
   if (snapshot.sideboard?.open && !byId("sideboardScreen")?.classList.contains("show") && !state.matchFinished) {
     openSideboardTime({ remote: true });
@@ -1629,13 +1863,41 @@ function sendPlayerAction(action) {
   const id = actionRef.key || `${Date.now()}-${roomSync.role}-${Math.random().toString(36).slice(2, 8)}`;
   const payload = { id, role: roomSync.role, action, at: Date.now() };
   roomSync.seenActions.add(id);
-  actionRef.set(payload).catch((error) => console.warn("[KOS room] send action failed", error));
+  onlineDebug("action-send", {
+    actionType: action.type,
+    actionId: id,
+  });
+  actionRef.set(payload).catch((error) => {
+    const failure = {
+      event: "action-write-failed",
+      target: "actions",
+      actionType: action.type,
+      actionId: id,
+      code: roomSync.code,
+      role: roomSync.role,
+      error,
+    };
+    saveDiagnosticLog("KOS Online", "action-write-failed", failure);
+    console.warn("[KOS Online]", failure);
+  });
   roomSync.room.child("latestAction").set({
     id,
     role: roomSync.role,
     actionJson: JSON.stringify(action),
     at: Date.now(),
-  }).catch((error) => console.warn("[KOS room] latest action failed", error));
+  }).catch((error) => {
+    const failure = {
+      event: "action-write-failed",
+      target: "latestAction",
+      actionType: action.type,
+      actionId: id,
+      code: roomSync.code,
+      role: roomSync.role,
+      error,
+    };
+    saveDiagnosticLog("KOS Online", "action-write-failed", failure);
+    console.warn("[KOS Online]", failure);
+  });
   return { queued: true, action };
 }
 
@@ -1768,9 +2030,23 @@ async function receiveOpponentAction(message, id) {
   if (message.at && roomSync.connectedAt && message.at < roomSync.connectedAt - 1000) return;
   roomSync.seenActions.add(actionId);
   const { action } = message;
+  onlineDebug("action-received", {
+    actionType: action.type,
+    actionId,
+    remoteRole: message.role,
+    at: message.at || null,
+  });
   if (action.type === "start") {
     roomLog("Opponent started the match.");
     roomSync.initialGameStateReceived = Boolean(action.initialGameState);
+    if (hasActiveOnlineMatchStarted() || roomSync.startInProgress || roomSync.remoteStartInProgress) {
+      onlineDebug("start-skip", {
+        reason: hasActiveOnlineMatchStarted() ? "already-started" : "start-in-progress",
+        actionId,
+        remoteRole: message.role,
+      });
+      return;
+    }
     const blocked = onlineMatchStartBlockReason();
     if (blocked) {
       roomSync.pendingStartAction = true;
@@ -1787,7 +2063,15 @@ async function receiveOpponentAction(message, id) {
     showBattleStamp(action.stampId, "cpu", { remote: true });
     return;
   }
-  if (!isOnlineMatch()) return;
+  if (!isOnlineMatch()) {
+    onlineDebug("action-ignored", {
+      reason: "!isOnlineMatch()",
+      actionType: action.type,
+      actionId,
+      remoteRole: message.role,
+    });
+    return;
+  }
   if (action.type === "place") {
     state.cpuBoard[action.slotIndex] = reviveRemoteSlipper(action.slipper);
     playSound("place");
@@ -2176,11 +2460,23 @@ function connectRoom(code, role) {
   listenRoomRef(roomSync.room.child("gameState/latest"), "value", (snapshot) => {
     const remoteState = snapshot.val();
     if (!remoteState || remoteState.role === roomSync.role) return;
+    onlineDebug("gameState-received", {
+      remoteRole: remoteState.role,
+      remoteTurn: remoteState.phase || remoteState.turnOwner,
+      remoteAt: remoteState.at || null,
+      snapshot: remoteState,
+    });
     if (remoteState.started && !state.started) {
-      if (!roomSync.remoteStartInProgress) {
+      if (!roomSync.remoteStartInProgress && !roomSync.startInProgress) {
         roomSync.remoteStartInProgress = true;
         startOnlineMatch(false, remoteState).finally(() => {
           roomSync.remoteStartInProgress = false;
+        });
+      } else {
+        onlineDebug("start-skip", {
+          reason: "start-in-progress",
+          source: "gameState/latest",
+          remoteRole: remoteState.role,
         });
       }
       return;
@@ -2200,12 +2496,32 @@ function isOnlineMatch() {
   return state.onlineMode && roomSync.online && roomSync.code;
 }
 
+function hasActiveOnlineMatchStarted() {
+  return Boolean(state.started && state.onlineMode && roomSync.online && roomSync.code);
+}
+
 function reviveRemoteSlipper(slipper) {
   if (!slipper) return null;
   return { ...slipper, tags: Array.isArray(slipper.tags) ? [...slipper.tags] : [] };
 }
 
 async function startOnlineMatch(announceStart = true, initialGameState = null) {
+  if (roomSync.startInProgress) {
+    onlineDebug("start-skip", {
+      reason: "start-in-progress",
+      announceStart,
+      hasInitialGameState: Boolean(initialGameState),
+    });
+    return;
+  }
+  if (hasActiveOnlineMatchStarted()) {
+    onlineDebug("start-skip", {
+      reason: "already-started",
+      announceStart,
+      hasInitialGameState: Boolean(initialGameState),
+    });
+    return;
+  }
   if (!roomSync.online || !roomSync.code) {
     roomLog("Create or join a room first.");
     return;
@@ -2217,27 +2533,34 @@ async function startOnlineMatch(announceStart = true, initialGameState = null) {
     renderRoomState();
     return;
   }
+  roomSync.startInProgress = true;
   syncRoomPlayerCharacter();
-  roomSync.status = "match_intro";
-  roomSync.initialGameStateReceived = true;
-  roomSync.pendingStartAction = false;
-  setRoomStatus("match_intro");
-  if (announceStart || roomSync.role === "host") incrementDailyStat("matchStarts");
-  state.onlineMode = true;
-  state.onlineRole = roomSync.role;
-  byId("roomDialog").close();
-  byId("titleScreen").classList.add("screen-hidden");
-  byId("characterSelectScreen").classList.add("screen-hidden");
-  byId("gameApp").classList.remove("screen-hidden");
-  roomDebug("current game state", { action: "startOnlineMatch", announceStart });
-  await resetMatch();
-  roomSync.status = "playing";
-  setRoomStatus("playing");
-  if (!announceStart && initialGameState) {
-    applyRemoteMatchState(initialGameState, { force: true });
+  try {
+    roomSync.status = "match_intro";
+    roomSync.initialGameStateReceived = true;
+    roomSync.pendingStartAction = false;
+    setRoomStatus("match_intro");
+    if (announceStart || roomSync.role === "host") incrementDailyStat("matchStarts");
+    state.onlineMode = true;
+    state.onlineRole = roomSync.role;
+    byId("roomDialog").close();
+    byId("titleScreen").classList.add("screen-hidden");
+    byId("characterSelectScreen").classList.add("screen-hidden");
+    byId("gameApp").classList.remove("screen-hidden");
+    roomDebug("current game state", { action: "startOnlineMatch", announceStart });
+    onlineDebug("start", { announceStart, hasInitialGameState: Boolean(initialGameState) });
+    await resetMatch();
+    logOnlineOverlaySnapshot("after-startOnlineMatch-reset");
+    roomSync.status = "playing";
+    setRoomStatus("playing");
+    if (!announceStart && initialGameState) {
+      applyRemoteMatchState(initialGameState, { force: true });
+    }
+    resumeBattleTheme();
+    if (announceStart) sendPlayerAction({ type: "start", initialGameState: syncMatchState() || { at: Date.now() } });
+  } finally {
+    roomSync.startInProgress = false;
   }
-  resumeBattleTheme();
-  if (announceStart) sendPlayerAction({ type: "start", initialGameState: syncMatchState() || { at: Date.now() } });
 }
 
 function roomStatusLabel(status) {
@@ -3121,7 +3444,8 @@ function drawSlippers(count) {
 }
 
 function playSlipper(uid, slotIndex = firstEmptySlot(state.playerBoard)) {
-  if (!state.started || state.gameOver || state.turn !== "player" || state.cutinActive) return;
+  const blockedReason = placeActionBlockedReason("placeHand");
+  if (blockedReason) return;
   if (boardCount(state.playerBoard) >= field.maxBoard) {
     setMessage("この玄関は5足でいっぱい。外せば位置調整できる。");
     return;
@@ -3165,7 +3489,8 @@ function playSlipper(uid, slotIndex = firstEmptySlot(state.playerBoard)) {
   render();
 }
 function removeSlipper(index) {
-  if (!state.started || state.gameOver || state.turn !== "player" || state.cutinActive) return;
+  const blockedReason = placeActionBlockedReason("removeSlipper");
+  if (blockedReason) return;
   const slipper = state.playerBoard[index];
   if (!slipper) return;
   state.playerBoard[index] = null;
@@ -3190,7 +3515,8 @@ function removeSlipper(index) {
 }
 
 async function endPlayerTurn() {
-  if (!state.started || state.gameOver || state.turn !== "player" || state.cutinActive) return;
+  const blockedReason = turnActionBlockedReason("turnEnd");
+  if (blockedReason) return;
   if (isOnlineMatch() && !hasOnlineOpponent()) {
     roomDebug("match start blocked reason", { reason: "相手が接続されていません", action: "endTurn" });
     setMessage("対戦相手を待っています。相手が接続されていません。");
@@ -3368,7 +3694,8 @@ async function startPlayerTurn() {
 }
 
 async function useCounter(index = null) {
-  if (!canUsePlayerTrapWindow()) return;
+  const blockedReason = trapWindowBlockedReason("trapOpen");
+  if (blockedReason) return;
   if (state.turn !== "counter-window" && state.pendingOnlineTurnEnd) state.turn = "counter-window";
   if (index && typeof index === "object") index = null;
   if (!Number.isInteger(index)) index = Number.isInteger(state.selectedTrapIndex) ? state.selectedTrapIndex : null;
@@ -4096,9 +4423,11 @@ function render() {
   byId("phaseHint").textContent = getPhaseHint();
   if (!state.started) byId("timer").textContent = "--";
   if (state.started && state.turn === "player" && !state.gameOver) byId("timer").textContent = state.timer;
-  byId("counterBtn").disabled = !canUsePlayerTrapWindow();
+  const desktopCounterBlockedReason = trapWindowBlockedReason("desktopTrapButton", false);
+  byId("counterBtn").disabled = Boolean(desktopCounterBlockedReason);
   byId("counterBtn").textContent = `湿度カウンター (${state.playerTrapCount})`;
-  byId("endTurnBtn").disabled = state.turn !== "player" || state.gameOver || state.cutinActive;
+  const desktopEndTurnBlockedReason = turnActionBlockedReason("desktopEndTurnButton", false);
+  byId("endTurnBtn").disabled = Boolean(desktopEndTurnBlockedReason);
   byId("stampBtn").disabled = state.cutinActive || Date.now() < state.stampCooldownUntil;
   byId("stampBtn").classList.toggle("active", state.stampPanelOpen);
   byId("newGameBtn").disabled = !state.started || state.cutinActive;
@@ -4111,6 +4440,11 @@ function render() {
   renderTraps("cpuTraps", state.cpuTrapCount);
   renderHand();
   renderMobileBattle();
+  logOnlineUiGuard({
+    desktopCounterBtn: desktopCounterBlockedReason,
+    desktopEndTurnBtn: desktopEndTurnBlockedReason,
+    startBtn: byId("startBtn").disabled ? (state.cutinActive ? "state.cutinActive" : "unknown") : "",
+  });
   renderJudgePanels();
   renderStampPanel();
 }
@@ -4242,12 +4576,16 @@ function renderHand() {
   state.hand.forEach((slipper) => {
     const button = document.createElement("article");
     button.className = `card ${state.activeHandUid === slipper.uid ? "open" : ""}`;
-    const actionLocked = state.turn !== "player" || state.gameOver || state.cutinActive;
+    const actionLockedReason = handActionBlockedReason("desktopHandSelect", false);
+    const actionLocked = Boolean(actionLockedReason);
     if (actionLocked) button.classList.add("disabled");
     button.tabIndex = actionLocked ? -1 : 0;
     button.setAttribute("aria-label", slipper.name);
     button.addEventListener("click", () => {
-      if (actionLocked) return;
+      if (actionLocked) {
+        onlineGuardReason("desktopHandSelect", [{ blocked: true, reason: actionLockedReason || "actionLocked" }]);
+        return;
+      }
       state.activeHandUid = state.activeHandUid === slipper.uid ? null : slipper.uid;
       if (state.activeHandUid !== slipper.uid) state.detailHandUid = null;
       renderHand();
@@ -4257,7 +4595,10 @@ function renderHand() {
     button.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
-      if (actionLocked) return;
+      if (actionLocked) {
+        onlineGuardReason("desktopHandSelect", [{ blocked: true, reason: actionLockedReason || "actionLocked" }]);
+        return;
+      }
       state.activeHandUid = state.activeHandUid === slipper.uid ? null : slipper.uid;
       if (state.activeHandUid !== slipper.uid) state.detailHandUid = null;
       renderHand();
@@ -4784,8 +5125,10 @@ function renderMobileBattle() {
   byId("mobileTimeLabel").textContent = `残り ${formatClock(state.matchSeconds || MATCH_SECONDS)}`;
   byId("mobileStartBtn").hidden = state.started;
   byId("mobileStartBtn").disabled = state.cutinActive || state.started;
-  byId("mobileEndTurnBtn").disabled = state.turn !== "player" || state.gameOver || state.cutinActive;
-  byId("mobileCounterBtn").disabled = !canUsePlayerTrapWindow();
+  const mobileEndTurnBlockedReason = turnActionBlockedReason("mobileEndTurnButton", false);
+  const mobileCounterBlockedReason = trapWindowBlockedReason("mobileTrapButton", false);
+  byId("mobileEndTurnBtn").disabled = Boolean(mobileEndTurnBlockedReason);
+  byId("mobileCounterBtn").disabled = Boolean(mobileCounterBlockedReason);
   byId("mobileCounterBtn").textContent = "伏せ";
   byId("mobileCounterBtn").classList.toggle("active", state.mobileTrapOpen);
   byId("mobileCounterBtn").setAttribute("aria-pressed", String(state.mobileTrapOpen));
@@ -4811,6 +5154,13 @@ function renderMobileBattle() {
   renderMobileTrapPanel();
   renderMobileTrapDetail();
   renderInsiderDetail();
+  logOnlineUiGuard({
+    mobileEndTurnBtn: mobileEndTurnBlockedReason,
+    mobileCounterBtn: mobileCounterBlockedReason,
+    mobileStartBtn: byId("mobileStartBtn").disabled ? (state.started ? "state.started" : "state.cutinActive") : "",
+    mobileRivalBtn: byId("mobileRivalBtn").disabled ? "state.cutinActive" : "",
+    mobilePlayerBtn: byId("mobilePlayerBtn").disabled ? "state.cutinActive" : "",
+  });
 }
 
 function updateMobileInsiderIcons(selector, score, side) {
@@ -4889,7 +5239,8 @@ function shortSlipperName(name = "") {
 function renderMobileHand() {
   const root = byId("mobileHand");
   root.innerHTML = "";
-  const actionLocked = state.turn !== "player" || state.gameOver || state.cutinActive;
+  const actionLockedReason = handActionBlockedReason("mobileHandSelect", false);
+  const actionLocked = Boolean(actionLockedReason);
   state.hand.forEach((slipper) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -4901,7 +5252,10 @@ function renderMobileHand() {
       <span>${slipper.comfort}/${slipper.flow}/${slipper.dignity}</span>
     `;
     button.addEventListener("click", () => {
-      if (actionLocked) return;
+      if (actionLocked) {
+        onlineGuardReason("mobileHandSelect", [{ blocked: true, reason: actionLockedReason || "actionLocked" }]);
+        return;
+      }
       state.activeHandUid = state.activeHandUid === slipper.uid ? null : slipper.uid;
       if (state.activeHandUid !== slipper.uid) state.detailHandUid = null;
       render();
@@ -5075,13 +5429,7 @@ function selectedTrapSlipper() {
 }
 
 function canUsePlayerTrapWindow() {
-  return Boolean(
-    !state.gameOver
-      && !state.cutinActive
-      && state.playerTrapCount > 0
-      && state.playerTraps.length > 0
-      && (state.turn === "counter-window" || (isOnlineMatch() && state.pendingOnlineTurnEnd)),
-  );
+  return !trapWindowBlockedReason("trapWindow", false);
 }
 
 function renderMobileTrapPanel() {
@@ -5333,7 +5681,8 @@ function toggleMobileLog() {
 }
 
 function toggleMobileTrapPanel() {
-  if (!canUsePlayerTrapWindow()) return;
+  const blockedReason = trapWindowBlockedReason("toggleTrapPanel");
+  if (blockedReason) return;
   if (state.turn !== "counter-window" && state.pendingOnlineTurnEnd) state.turn = "counter-window";
   state.mobileTrapOpen = !state.mobileTrapOpen;
   if (state.mobileTrapOpen) {
