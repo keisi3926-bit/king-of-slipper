@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.14-sole-mobile-diagnostics-v64";
+const APP_VERSION = "2026.06.14-online-trap-diagnostics-v65";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -727,6 +727,8 @@ const state = {
   matchInterval: null,
   matchFinished: false,
   matchResult: null,
+  endReason: "",
+  timeoutTriggered: false,
   matchPoints: 0,
   playerRatingBefore: 1600,
   cpuRatingBefore: 1980,
@@ -769,6 +771,7 @@ const roomSync = {
 };
 const DIAGNOSTIC_LOG_KEY = "kos_diagnostic_logs_v1";
 const DIAGNOSTIC_LOG_LIMIT = 300;
+const DIAGNOSTIC_SEQUENCE_KEY = "kos_diagnostic_sequence_v1";
 
 const byId = (id) => document.getElementById(id);
 let serviceWorkerRegistration = null;
@@ -866,6 +869,11 @@ function opponentCutinLabel() {
 function opponentIcon() {
   const character = getOpponentCharacter();
   return character.icon || character.image || "assets/jin-vs.png";
+}
+
+function opponentCounterImage() {
+  const character = getOpponentCharacter();
+  return character.cutinImage || JIN_COUNTER_IMAGE;
 }
 
 function saveSelectedPlayerKey(key) {
@@ -1512,6 +1520,8 @@ function serializeRoomMatchState(extra = {}) {
     gameOver: state.gameOver,
     matchFinished: state.matchFinished,
     matchResult: state.matchResult,
+    endReason: state.endReason || "",
+    timeoutTriggered: Boolean(state.timeoutTriggered),
     matchRound: state.matchRound,
     playerRoundWins: state.playerRoundWins,
     cpuRoundWins: state.cpuRoundWins,
@@ -1569,15 +1579,35 @@ function sanitizeDiagnosticPayload(value, key = "", depth = 0) {
   return String(value);
 }
 
+function nextDiagnosticSequenceNumber() {
+  try {
+    const next = Number(localStorage.getItem(DIAGNOSTIC_SEQUENCE_KEY) || 0) + 1;
+    localStorage.setItem(DIAGNOSTIC_SEQUENCE_KEY, String(next));
+    return next;
+  } catch {
+    return Date.now();
+  }
+}
+
 function saveDiagnosticLog(category, event, payload = {}) {
   try {
     const logs = JSON.parse(localStorage.getItem(DIAGNOSTIC_LOG_KEY) || "[]");
+    const currentPlayer = state.turn === "player" ? roomSync.role || "player" : opponentRole() || "opponent";
     logs.push({
       at: new Date().toISOString(),
+      timestamp: Date.now(),
+      sequenceNumber: nextDiagnosticSequenceNumber(),
       category,
       event,
+      roomId: roomSync.code || "",
       role: roomSync.role || "",
+      playerId: roomSync.playerId || "",
       turn: state.turn || "",
+      currentPlayer,
+      winner: state.matchResult === "win" ? "player" : state.matchResult === "loss" ? "opponent" : "",
+      loser: state.matchResult === "win" ? "opponent" : state.matchResult === "loss" ? "player" : "",
+      endReason: state.endReason || "",
+      timeout: Boolean(state.timeoutTriggered),
       phase: byId("phaseTitle")?.textContent || "",
       payload: sanitizeDiagnosticPayload(payload),
     });
@@ -1843,8 +1873,11 @@ function applyRemoteMatchState(snapshot, { force = false } = {}) {
   if (snapshot.matchFinished) {
     state.matchFinished = true;
     state.matchResult = mirrorRemoteMatchResult(snapshot.matchResult || state.matchResult);
+    state.endReason = snapshot.endReason || state.endReason || "remote";
+    state.timeoutTriggered = Boolean(snapshot.timeoutTriggered);
     state.gameOver = true;
     state.turn = "idle";
+    onlineDebug("matchEnded", { source: "remoteSnapshot", result: state.matchResult, endReason: state.endReason, timeoutTriggered: state.timeoutTriggered });
     showRemoteMatchResult(snapshot.matchResult || state.matchResult).catch((error) => console.warn("[KOS room] remote result display failed", error));
   } else if (snapshot.started && !state.gameOver && !state.cutinActive) {
     const remoteTurn = snapshot.phase || snapshot.turnOwner;
@@ -1964,6 +1997,13 @@ function queueOnlineCounterWindow(action) {
 
 function sendCounterAction(trap) {
   if (!isOnlineMatch()) return;
+  onlineDebug("trapRevealSent", {
+    trapIndex: trap?.trapIndex ?? null,
+    trapId: trap?.id || trap?.name || "",
+    trapName: trap?.name || "",
+    playerScore: state.playerScore,
+    cpuScore: state.cpuScore,
+  });
   sendPlayerAction({
     type: "counter",
     trapIndex: trap?.trapIndex ?? null,
@@ -1995,6 +2035,8 @@ function sendTurnResolvedAction() {
     insiderVerdicts: state.insiderVerdicts,
     matchFinished: state.matchFinished,
     matchResult: state.matchResult,
+    endReason: state.endReason || "",
+    timeoutTriggered: Boolean(state.timeoutTriggered),
     gameOver: state.gameOver,
     turnNumber: state.turnNumber,
   });
@@ -2073,6 +2115,7 @@ async function receiveOpponentAction(message, id) {
     return;
   }
   if (action.type === "place") {
+    onlineDebug("cardPlaced", { source: "remote", slipperName: action.slipper?.name || "", slotIndex: action.slotIndex });
     state.cpuBoard[action.slotIndex] = reviveRemoteSlipper(action.slipper);
     playSound("place");
     announce(`ONLINE: opponent placed ${action.slipper?.name || "slipper"}`, "danger");
@@ -2098,6 +2141,17 @@ async function receiveOpponentAction(message, id) {
       render();
     }
   } else if (action.type === "counter") {
+    onlineDebug("trapRevealReceived", {
+      remoteRole: message.role,
+      trapIndex: action.trapIndex ?? null,
+      trapId: action.trapId || "",
+      trapName: action.trapName || "",
+    });
+    onlineDebug("trapCutinStarted", { source: "remote", trapName: action.trapName || "" });
+    await showCutin(opponentCutinLabel(), "伏せスリッパオープン！", `${action.trapName || "伏せスリッパ"}！`, {
+      image: opponentCounterImage(),
+    });
+    onlineDebug("trapCutinEnded", { source: "remote", trapName: action.trapName || "" });
     if (Array.isArray(action.playerBoard)) state.cpuBoard = action.playerBoard.map(reviveRemoteSlipper);
     if (Array.isArray(action.cpuBoard)) state.playerBoard = action.cpuBoard.map(reviveRemoteSlipper);
     if (Array.isArray(action.playerTraps)) state.cpuTraps = [...action.playerTraps];
@@ -2111,6 +2165,8 @@ async function receiveOpponentAction(message, id) {
     announce(`ONLINE: ${opponentShortName()} opened ${action.trapName || "a hidden slipper"}!`, "danger");
     log(`${opponentResultName()} opened hidden slipper: ${action.trapName || "unknown"}`);
     playSound("counter");
+    showTrapResolutionNotice(opponentResultName(), action.trapName || "伏せスリッパ", action.trap?.text || "読み合いが動いた。", "danger");
+    onlineDebug("trapEffectApplied", { source: "remote", trapName: action.trapName || "", playerScore: state.playerScore, cpuScore: state.cpuScore });
     render();
   } else if (action.type === "turnResolved") {
     if (Array.isArray(action.playerBoard)) state.cpuBoard = action.playerBoard.map(reviveRemoteSlipper);
@@ -2134,6 +2190,9 @@ async function receiveOpponentAction(message, id) {
       state.matchFinished = true;
       state.gameOver = true;
       state.matchResult = mirrorRemoteMatchResult(action.matchResult || state.matchResult);
+      state.endReason = action.endReason || state.endReason || "remote";
+      state.timeoutTriggered = Boolean(action.timeoutTriggered);
+      onlineDebug("matchEnded", { source: "turnResolved", result: state.matchResult, endReason: state.endReason, timeoutTriggered: state.timeoutTriggered });
       showRemoteMatchResult(action.matchResult || state.matchResult).catch((error) => console.warn("[KOS room] remote result display failed", error));
     }
     render();
@@ -3394,6 +3453,7 @@ function startTimer() {
   state.timer = 45;
   updateTurnTimerDisplay();
   startHaouTheme();
+  if (isOnlineMatch()) onlineDebug("timeoutScheduled", { timer: state.timer, timerType: "turn" });
   state.interval = setInterval(() => {
     if (state.gameOver || state.turn !== "player" || state.cutinActive) return;
     state.timer -= 1;
@@ -3427,8 +3487,12 @@ function updateMatchTimerLabel() {
 
 async function handleMatchTimeout() {
   if (state.matchFinished) return;
+  state.timeoutTriggered = true;
+  state.endReason = "timeout";
+  onlineDebug("timeoutTriggered", { matchSeconds: state.matchSeconds, playerRoundWins: state.playerRoundWins, cpuRoundWins: state.cpuRoundWins });
   clearInterval(state.interval);
   clearInterval(state.sideboardInterval);
+  clearTimeout(state.phaseTimeout);
   stopHaouTheme();
   stopJinTheme();
   if (state.playerRoundWins >= MATCH_WIN_TARGET) await finishMatch("win", "time");
@@ -3482,6 +3546,7 @@ function playSlipper(uid, slotIndex = firstEmptySlot(state.playerBoard)) {
   judgeTaunt(judgePlacementTaunt(slipper, slotIndex), "good");
   showAudienceReaction(slotIndex === 1 ? "中央前、勝負だ！" : slotProfiles[slotIndex].row === "back" ? "奥の配置いいぞ！" : "導線通した！", "good");
   setMessage(`${slotProfiles[slotIndex].name}に${slipper.name}を置いた。あと${Math.max(0, placementLimit - state.placementsThisTurn)}足置ける。`);
+  onlineDebug("cardPlaced", { source: "local", slipperName: slipper.name, slotIndex, placementsThisTurn: state.placementsThisTurn });
   if (isOnlineMatch()) {
     sendPlayerAction({ type: "place", slipper, slotIndex });
     syncMatchState();
@@ -3699,6 +3764,11 @@ async function useCounter(index = null) {
   if (state.turn !== "counter-window" && state.pendingOnlineTurnEnd) state.turn = "counter-window";
   if (index && typeof index === "object") index = null;
   if (!Number.isInteger(index)) index = Number.isInteger(state.selectedTrapIndex) ? state.selectedTrapIndex : null;
+  onlineDebug("trapRevealRequested", {
+    selectedTrapIndex: index,
+    trapCount: state.playerTraps.length,
+    pendingOnlineTurnEnd: Boolean(state.pendingOnlineTurnEnd),
+  });
   if (!Number.isInteger(index) || index < 0 || index >= state.playerTraps.length) {
     setMessage("発動する伏せスリッパを1枚選択してください。");
     state.mobileTrapOpen = true;
@@ -3712,15 +3782,18 @@ async function useCounter(index = null) {
   state.selectedTrapIndex = null;
   const trap = drawTrapByIndexForSide("player", usedTrapIndex);
   if (trap) trap.trapIndex = usedTrapIndex;
+  onlineDebug("trapCutinStarted", { source: "local", trapIndex: usedTrapIndex, trapName: trap?.name || "" });
   await showCutin(playerCutinLabel(), "伏せスリッパオープン！", `${trap?.name || "湿度カウンター"}！`, {
     image: playerCounterImage(),
   });
+  onlineDebug("trapCutinEnded", { source: "local", trapIndex: usedTrapIndex, trapName: trap?.name || "" });
   playSound("counter");
   triggerSlipperEvent("onReveal", { side: "player", slipper: trap });
   if (trap?.effectId && trap.effectId !== "humidity_counter") {
     log(`伏せスリッパ「${trap.name}」を公開した。`);
     showTrapResolutionNotice(playerResultName(), trap.name, trap.text || "読み合いが動いた。", "good");
     render();
+    onlineDebug("trapEffectApplied", { source: "local", trapName: trap.name, effectId: trap.effectId });
     sendCounterAction(trap);
     state.phaseTimeout = setTimeout(isOnlineMatch() && state.pendingOnlineTurnEnd ? resolvePendingOnlineTurnEnd : resolveCpuTurn, 1100);
     return;
@@ -3740,6 +3813,7 @@ async function useCounter(index = null) {
     setMessage("標的がいない。だが相手は警戒している。");
   }
   render();
+  onlineDebug("trapEffectApplied", { source: "local", trapName: trap?.name || "", effectId: trap?.effectId || "humidity_counter" });
   sendCounterAction(trap);
   state.phaseTimeout = setTimeout(isOnlineMatch() && state.pendingOnlineTurnEnd ? resolvePendingOnlineTurnEnd : resolveCpuTurn, 1100);
 }
@@ -4018,14 +4092,20 @@ async function finishMatch(result, reason = "score") {
   if (state.matchFinished) return;
   state.matchFinished = true;
   state.matchResult = result;
+  state.endReason = reason === "time" ? "timeout" : "normal_win";
+  state.timeoutTriggered = reason === "time";
   state.matchPoints = result === "win" ? 3 : result === "draw" ? 1 : 0;
   state.gameOver = true;
+  onlineDebug("winLoseResolved", { result, reason: state.endReason, playerScore: state.playerScore, cpuScore: state.cpuScore });
+  onlineDebug("matchEnded", { result, reason: state.endReason, playerRoundWins: state.playerRoundWins, cpuRoundWins: state.cpuRoundWins });
   if (isOnlineMatch()) {
     setRoomStatus("ended");
     sendPlayerAction({ type: "matchState", snapshot: syncMatchState() });
   }
   clearInterval(state.interval);
   clearInterval(state.sideboardInterval);
+  clearTimeout(state.phaseTimeout);
+  onlineDebug("timeoutCancelled", { reason: "finishMatch", result, endReason: state.endReason });
   stopMatchTimer();
   stopHaouTheme();
   stopJinTheme();

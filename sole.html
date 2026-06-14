@@ -359,7 +359,7 @@
         <p class="eyebrow">KOS Sole Monitor</p>
         <h1>sole</h1>
         <p class="sub">制作者用の簡易観測ページ。通常メニューからはリンクしません。</p>
-        <p id="soleBuildId" class="build-id">build: 2026.06.14-sole-mobile-diagnostics-v64</p>
+        <p id="soleBuildId" class="build-id">build: 2026.06.14-online-trap-diagnostics-v65</p>
         <p id="connectionStatus" class="status">Firebaseへ接続中...</p>
       </header>
 
@@ -476,6 +476,11 @@
         return JSON.stringify(logs, null, 2);
       }
 
+      function diagnosticCopyText(logs = loadDiagnosticLogs()) {
+        if (!logs.length) return "";
+        return diagnosticText(logs);
+      }
+
       function renderDiagnosticLogs() {
         const logs = loadDiagnosticLogs();
         const root = $("diagnosticList");
@@ -517,28 +522,78 @@
           .join("");
       }
 
-      async function copyDiagnosticLogs() {
-        const logs = loadDiagnosticLogs();
-        const text = diagnosticText(logs);
+      function showDiagnosticManualCopy(text, message) {
         const state = $("diagnosticCopyState");
         const fallback = $("diagnosticFallback");
-        if (!logs.length) {
-          state.textContent = "コピーする診断ログはありません";
+        fallback.hidden = false;
+        fallback.value = text;
+        fallback.focus();
+        fallback.select();
+        fallback.setSelectionRange?.(0, text.length);
+        state.textContent = message;
+      }
+
+      function execCommandCopy(text) {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        textarea.style.top = "0";
+        textarea.style.opacity = "0";
+        document.body.append(textarea);
+        textarea.focus();
+        textarea.select();
+        textarea.setSelectionRange?.(0, text.length);
+        let copied = false;
+        try {
+          copied = document.execCommand("copy");
+        } finally {
+          textarea.remove();
+        }
+        return copied;
+      }
+
+      async function copyDiagnosticLogs() {
+        const logs = loadDiagnosticLogs();
+        const text = diagnosticCopyText(logs);
+        const state = $("diagnosticCopyState");
+        const fallback = $("diagnosticFallback");
+        const length = text.length;
+        fallback.hidden = true;
+        fallback.value = "";
+        state.textContent = `コピー対象: ${length}文字`;
+        if (!length) {
+          state.textContent = "診断ログがありません";
           return;
         }
+
+        let clipboardError = null;
         try {
           if (navigator.clipboard?.writeText) {
             await navigator.clipboard.writeText(text);
-            state.textContent = "コピーしました";
+            state.textContent = `診断ログをコピーしました（${length}文字）`;
             return;
           }
           throw new Error("Clipboard API unavailable");
         } catch (error) {
-          fallback.hidden = false;
-          fallback.value = text;
-          fallback.focus();
-          fallback.select();
-          state.textContent = "クリップボードが使えないため、下の欄を選択してコピーしてください";
+          clipboardError = error;
+        }
+
+        try {
+          if (execCommandCopy(text)) {
+            state.textContent = `診断ログをコピーしました（${length}文字 / fallback）`;
+            return;
+          }
+          throw new Error("document.execCommand('copy') returned false");
+        } catch (fallbackError) {
+          const message = [
+            `自動コピーに失敗しました（${length}文字）。`,
+            `Clipboard: ${clipboardError?.name || "Error"} ${clipboardError?.message || "unknown"}`,
+            `Fallback: ${fallbackError?.name || "Error"} ${fallbackError?.message || "unknown"}`,
+            "下の欄を長押し/全選択して手動コピーしてください。",
+          ].join(" ");
+          showDiagnosticManualCopy(text, message);
         }
       }
 
