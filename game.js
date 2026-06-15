@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.14-online-trap-diagnostics-v65";
+const APP_VERSION = "2026.06.15-online-round-sync-v66";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -1592,7 +1592,7 @@ function nextDiagnosticSequenceNumber() {
 function saveDiagnosticLog(category, event, payload = {}) {
   try {
     const logs = JSON.parse(localStorage.getItem(DIAGNOSTIC_LOG_KEY) || "[]");
-    const currentPlayer = state.turn === "player" ? roomSync.role || "player" : opponentRole() || "opponent";
+    const currentPlayer = state.turn === "player" ? roomSync.role || "player" : opponentRoomRole() || "opponent";
     logs.push({
       at: new Date().toISOString(),
       timestamp: Date.now(),
@@ -1894,7 +1894,7 @@ function sendPlayerAction(action) {
   if (!roomSync.room || !roomSync.role) return { queued: false, action };
   const actionRef = roomSync.room.child("actions").push();
   const id = actionRef.key || `${Date.now()}-${roomSync.role}-${Math.random().toString(36).slice(2, 8)}`;
-  const payload = { id, role: roomSync.role, action, at: Date.now() };
+  const payload = { id, role: roomSync.role, action, at: Date.now(), serverAt: firebaseTimestamp() };
   roomSync.seenActions.add(id);
   onlineDebug("action-send", {
     actionType: action.type,
@@ -1918,6 +1918,7 @@ function sendPlayerAction(action) {
     role: roomSync.role,
     actionJson: JSON.stringify(action),
     at: Date.now(),
+    serverAt: firebaseTimestamp(),
   }).catch((error) => {
     const failure = {
       event: "action-write-failed",
@@ -1997,7 +1998,11 @@ function queueOnlineCounterWindow(action) {
 
 function sendCounterAction(trap) {
   if (!isOnlineMatch()) return;
+  const actionClientAt = Date.now();
   onlineDebug("trapRevealSent", {
+    sender: roomSync.role,
+    receiver: opponentRoomRole(),
+    actionClientAt,
     trapIndex: trap?.trapIndex ?? null,
     trapId: trap?.id || trap?.name || "",
     trapName: trap?.name || "",
@@ -2006,6 +2011,7 @@ function sendCounterAction(trap) {
   });
   sendPlayerAction({
     type: "counter",
+    actionClientAt,
     trapIndex: trap?.trapIndex ?? null,
     trapId: trap?.id || trap?.name || "",
     trapName: trap?.name || "",
@@ -2142,6 +2148,10 @@ async function receiveOpponentAction(message, id) {
     }
   } else if (action.type === "counter") {
     onlineDebug("trapRevealReceived", {
+      sender: message.role,
+      receiver: roomSync.role,
+      actionClientAt: action.actionClientAt || null,
+      actionServerAt: message.serverAt || null,
       remoteRole: message.role,
       trapIndex: action.trapIndex ?? null,
       trapId: action.trapId || "",
@@ -2186,7 +2196,7 @@ async function receiveOpponentAction(message, id) {
     state.trapDetailIndex = null;
     setPhase("オンライン待機", "相手のターンです。相手の配置とターンエンドを待っています。");
     setMessage("履き判定が同期されました。相手のターンを待っています。");
-    if (action.matchFinished || action.gameOver) {
+    if (action.matchFinished) {
       state.matchFinished = true;
       state.gameOver = true;
       state.matchResult = mirrorRemoteMatchResult(action.matchResult || state.matchResult);
@@ -2194,6 +2204,18 @@ async function receiveOpponentAction(message, id) {
       state.timeoutTriggered = Boolean(action.timeoutTriggered);
       onlineDebug("matchEnded", { source: "turnResolved", result: state.matchResult, endReason: state.endReason, timeoutTriggered: state.timeoutTriggered });
       showRemoteMatchResult(action.matchResult || state.matchResult).catch((error) => console.warn("[KOS room] remote result display failed", error));
+    } else if (action.gameOver) {
+      state.gameOver = true;
+      clearInterval(state.interval);
+      clearTimeout(state.phaseTimeout);
+      onlineDebug("roundEnded", {
+        source: "turnResolved",
+        playerRoundWins: state.playerRoundWins,
+        cpuRoundWins: state.cpuRoundWins,
+        note: "gameOver without matchFinished; waiting for rack_change/matchState",
+      });
+      setPhase("Shoe Rack Change待機", "Game結果を同期しました。Shoe Rack Changeへの遷移を待っています。");
+      setMessage("Game終了。MATCH DRAWではなく、次ゲーム準備を待っています。");
     }
     render();
   } else if (action.type === "sideboardReady") {
@@ -3487,6 +3509,17 @@ function updateMatchTimerLabel() {
 
 async function handleMatchTimeout() {
   if (state.matchFinished) return;
+  if (isOnlineMatch() && roomSync.role !== "host") {
+    onlineDebug("timeoutTriggered", {
+      ignored: true,
+      reason: "non-host-online-timeout",
+      matchSeconds: state.matchSeconds,
+      playerRoundWins: state.playerRoundWins,
+      cpuRoundWins: state.cpuRoundWins,
+    });
+    stopMatchTimer();
+    return;
+  }
   state.timeoutTriggered = true;
   state.endReason = "timeout";
   onlineDebug("timeoutTriggered", { matchSeconds: state.matchSeconds, playerRoundWins: state.playerRoundWins, cpuRoundWins: state.cpuRoundWins });

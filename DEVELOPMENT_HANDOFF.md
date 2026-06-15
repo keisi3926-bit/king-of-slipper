@@ -1,9 +1,9 @@
 # King of Slipper / TSG Development Handoff
 
-Last updated: 2026-06-09
-Current pushed commit: pending this handoff update
-Current app version: `2026.06.09-judge-ui-v45`
-Current service worker cache: `king-of-slipper-tsg-v64`
+Last updated: 2026-06-15
+Current pushed commit: pending v66 commit
+Current app version: `2026.06.15-online-round-sync-v66`
+Current service worker cache: `king-of-slipper-tsg-v85`
 
 This document is a technical handoff for continuing development in a new workspace/thread. It intentionally excludes story lore and unimplemented character setting notes. It covers only current game implementation, data structures, UI behavior, known issues, and next tasks.
 
@@ -64,6 +64,22 @@ const APP_VERSION = "2026.06.09-judge-ui-v45";
 
 // sw.js
 const CACHE_NAME = "king-of-slipper-tsg-v64";
+```
+
+Latest diagnostic builds:
+
+```js
+const APP_VERSION = "2026.06.14-online-trap-diagnostics-v65";
+const CACHE_NAME = "king-of-slipper-tsg-v84";
+
+const APP_VERSION = "2026.06.15-online-round-sync-v66";
+const CACHE_NAME = "king-of-slipper-tsg-v85";
+```
+
+`sole.html` is intentionally excluded from service-worker precache and fetched network-first/no-store. Use a cache-busting query when validating on iPhone, for example:
+
+```text
+sole.html?diag_v=2026.06.15-online-round-sync-v66&t=YYYYMMDD
 ```
 
 ## 3.1 Current UI Direction
@@ -413,9 +429,32 @@ Debug log events added:
 - turn owner
 - match start blocked reason
 
+Additional v65 online diagnostics:
+
+- Diagnostic logs are persisted to localStorage key `kos_diagnostic_logs_v1`, capped to the latest 300 entries.
+- `sole.html` displays and copies diagnostic logs. On iOS, copy uses Clipboard API first, then `document.execCommand("copy")`, then a manual textarea fallback.
+- Each diagnostic log entry includes `sequenceNumber`, `timestamp`, masked `roomId`, `role`, `playerId`, `turn`, phase text, `winner`, `loser`, `endReason`, and `timeout`.
+- Added trace events around:
+  - `cardPlaced`
+  - `trapRevealRequested`
+  - `trapRevealSent`
+  - `trapRevealReceived`
+  - `trapCutinStarted`
+  - `trapCutinEnded`
+  - `trapEffectApplied`
+  - `winLoseResolved`
+  - `matchEnded`
+  - `timeoutScheduled`
+  - `timeoutCancelled`
+  - `timeoutTriggered`
+
 Known limitation:
 
 - This is still a beta public-relay/client-side sync model, not authoritative server multiplayer. It prevents the immediate "start with no opponent" failure but does not yet provide robust real-time battle reconciliation.
+- v65 verified online symptom on 2026-06-15: after Game 1, winner could proceed to Shoe Rack Change / next game, but loser could incorrectly transition to `MATCH DRAW / timeup`.
+- v66 local fix: `receiveOpponentAction("turnResolved")` no longer treats `action.gameOver === true` as match end unless `action.matchFinished === true`. A normal Game 1 end now logs `roundEnded` and waits for `rack_change` / `matchState`.
+- v66 local fix: online match timeout authority is limited to host. Non-host local timeout logs `timeoutTriggered ignored: non-host-online-timeout`, stops the local match timer, and waits for host result.
+- Trap OPEN now appears on the opponent side, but can be delayed. v66 action payloads include `serverAt` and trap logs include `actionClientAt` / `actionServerAt` for timestamp correlation.
 
 ## 12. Audio / Animation Notes
 
@@ -472,6 +511,8 @@ Git commands should use PortableGit:
 
 High priority:
 
+- Re-test Aikotoba Game 1 loser-side transition on v66. Confirm both winner and loser enter Shoe Rack Change when neither side has 2 BO wins.
+- Continue online trap OPEN latency/reconciliation diagnostics. Confirm both clients process the same `counter` action once using `trapRevealSent` / `trapRevealReceived` sequence numbers and timestamps.
 - PC/Web battle UI still needs full no-scroll one-page fit aligned to mobile UI.
 - Aikotoba online battle remains beta and not authoritative.
 - Room sync needs stronger state reconciliation before real public multiplayer.
