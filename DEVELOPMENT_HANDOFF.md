@@ -1,9 +1,9 @@
 # King of Slipper / TSG Development Handoff
 
 Last updated: 2026-06-26
-Current pushed commit: pending v68 commit
-Current app version: `2026.06.26-brand-splash-v68`
-Current service worker cache: `king-of-slipper-tsg-v87`
+Current pushed commit: pending v69 commit
+Current app version: `2026.06.26-hide-build-badge-v69`
+Current service worker cache: `king-of-slipper-tsg-v88`
 
 This document is a technical handoff for continuing development in a new workspace/thread. It intentionally excludes story lore and unimplemented character setting notes. It covers only current game implementation, data structures, UI behavior, known issues, and next tasks.
 
@@ -82,12 +82,15 @@ const CACHE_NAME = "king-of-slipper-tsg-v86";
 
 const APP_VERSION = "2026.06.26-brand-splash-v68";
 const CACHE_NAME = "king-of-slipper-tsg-v87";
+
+const APP_VERSION = "2026.06.26-hide-build-badge-v69";
+const CACHE_NAME = "king-of-slipper-tsg-v88";
 ```
 
 `sole.html` is intentionally excluded from service-worker precache and fetched network-first/no-store. Use a cache-busting query when validating on iPhone, for example:
 
 ```text
-sole.html?diag_v=2026.06.26-brand-splash-v68&t=YYYYMMDD
+sole.html?diag_v=2026.06.26-hide-build-badge-v69&t=YYYYMMDD
 ```
 
 ## 3.1 Current UI Direction

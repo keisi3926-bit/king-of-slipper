@@ -72,26 +72,6 @@ button:disabled {
   display: none;
 }
 
-.diagnostic-build-badge {
-  position: fixed;
-  right: max(8px, env(safe-area-inset-right));
-  bottom: max(6px, env(safe-area-inset-bottom));
-  z-index: 30000;
-  max-width: min(340px, calc(100vw - 16px));
-  border: 1px solid rgba(216, 182, 90, 0.34);
-  border-radius: 999px;
-  padding: 4px 8px;
-  background: rgba(5, 5, 6, 0.72);
-  color: rgba(230, 198, 93, 0.9);
-  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-  font-size: 10px;
-  font-weight: 900;
-  line-height: 1.2;
-  pointer-events: none;
-  text-align: right;
-  overflow-wrap: anywhere;
-}
-
 .x-browser-notice {
   display: none;
 }
