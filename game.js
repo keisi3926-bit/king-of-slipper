@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.15-online-round-sync-v66";
+const APP_VERSION = "2026.06.26-brand-splash-v68";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -15,6 +15,8 @@ const BATTLE_STAMPS = [
   { id: "shoubu", label: "勝負だ！", col: 2, row: 2 },
 ];
 const PLAYER_CHARACTER_STORAGE_KEY = "kos_player_character_v1";
+const HANDLE_NAME_STORAGE_KEY = "kos_handle_name";
+const DEFAULT_HANDLE_NAME = "名無しの玄関戦士";
 const PLAYER_CHARACTERS = {
   haou: {
     id: "haoh",
@@ -603,6 +605,28 @@ const slotAbbrevs = ["LF", "CF", "RF", "LB", "RB"];
 
 const HAOU_COUNTER_IMAGE = "assets/haou-counter.png";
 const JIN_COUNTER_IMAGE = "assets/jin-counter.png";
+const BRAND_SPLASH_CONFIG = {
+  logoSrc: "assets/brand/keishis-entrance-logo.png",
+  audioSrc: "assets/brand/sweet-wind-jingle.mp3",
+  totalDurationMs: 4500,
+  fadeInMs: 700,
+  fadeOutMs: 800,
+  skipFadeOutMs: 200,
+  maxVolume: 0.65,
+  allowSkip: true,
+  reducedMotionDurationMs: 850,
+  preloadTimeoutMs: 2200,
+};
+const brandSplashRuntime = {
+  started: false,
+  finished: false,
+  finishTimer: null,
+  transitionTimer: null,
+  audioFadeTimer: null,
+  visibilityHandler: null,
+  keyHandler: null,
+  pointerHandler: null,
+};
 let audioContext = null;
 const settings = {
   bgmVolume: 0.42,
@@ -876,6 +900,50 @@ function opponentCounterImage() {
   return character.cutinImage || JIN_COUNTER_IMAGE;
 }
 
+function sanitizeHandleName(value = "") {
+  return String(value || "").trim().replace(/\s+/g, " ").slice(0, 24);
+}
+
+function loadHandleName({ allowEmpty = false } = {}) {
+  try {
+    const stored = sanitizeHandleName(localStorage.getItem(HANDLE_NAME_STORAGE_KEY));
+    if (stored || allowEmpty) return stored;
+  } catch {
+    // Use the default name when localStorage is unavailable.
+  }
+  return DEFAULT_HANDLE_NAME;
+}
+
+function saveHandleName(value) {
+  const name = sanitizeHandleName(value) || DEFAULT_HANDLE_NAME;
+  try {
+    localStorage.setItem(HANDLE_NAME_STORAGE_KEY, name);
+  } catch {
+    // The in-memory default still keeps online room creation usable.
+  }
+  return name;
+}
+
+function currentHandleName() {
+  return loadHandleName();
+}
+
+function roomPlayerHandle(role = roomSync.role) {
+  const player = role ? roomSync.players?.[role] : null;
+  const remoteName = sanitizeHandleName(player?.handleName || player?.name);
+  if (remoteName) return remoteName;
+  if (role && role === roomSync.role) return currentHandleName();
+  return DEFAULT_HANDLE_NAME;
+}
+
+function playerOnlineDisplayName() {
+  return isOnlineMatch() ? currentHandleName() : playerResultName();
+}
+
+function opponentOnlineDisplayName() {
+  return isOnlineMatch() ? roomPlayerHandle(opponentRoomRole()) : opponentResultName();
+}
+
 function saveSelectedPlayerKey(key) {
   selectedPlayerKey = normalizeCharacterKey(key);
   try {
@@ -890,12 +958,22 @@ function saveSelectedPlayerKey(key) {
 function syncRoomPlayerCharacter() {
   if (!roomSync.room || !roomSync.role) return;
   const character = getPlayerCharacter();
+  const handleName = saveHandleName(loadHandleName({ allowEmpty: true }));
+  const roomNameKey = roomSync.role === "host" ? "hostName" : roomSync.role === "guest" ? "guestName" : null;
   roomSync.room.child(`players/${roomSync.role}`).update({
-    name: character.displayName || character.name || roomPlayerName(roomSync.role),
+    name: handleName,
+    handleName,
+    characterName: character.displayName || character.name || playerResultName(),
     characterId: selectedPlayerKey,
     updatedAt: firebaseTimestamp(),
     lastSeen: firebaseTimestamp(),
   }).catch((error) => console.warn("[KOS room] character sync failed", error));
+  if (roomNameKey) {
+    roomSync.room.update({
+      [roomNameKey]: handleName,
+      updatedAt: firebaseTimestamp(),
+    }).catch((error) => console.warn("[KOS room] handle sync failed", error));
+  }
 }
 
 function renderRoomCharacterSelect() {
@@ -904,6 +982,32 @@ function renderRoomCharacterSelect() {
     button.classList.toggle("selected", key === selectedPlayerKey);
     button.setAttribute("aria-pressed", String(key === selectedPlayerKey));
   });
+}
+
+function renderHandleNameUi() {
+  const input = byId("handleNameInput");
+  const stateLabel = byId("handleNameState");
+  const stored = loadHandleName({ allowEmpty: true });
+  const displayName = stored || DEFAULT_HANDLE_NAME;
+  if (input && document.activeElement !== input) {
+    input.value = stored;
+    input.placeholder = DEFAULT_HANDLE_NAME;
+  }
+  if (stateLabel) {
+    stateLabel.textContent = stored
+      ? `現在のHN: ${displayName}`
+      : `HN未設定時は「${DEFAULT_HANDLE_NAME}」で参加します。`;
+  }
+}
+
+function commitHandleNameFromInput() {
+  const input = byId("handleNameInput");
+  const saved = saveHandleName(input?.value || "");
+  if (input) input.value = saved === DEFAULT_HANDLE_NAME ? "" : saved;
+  renderHandleNameUi();
+  syncRoomPlayerCharacter();
+  renderRoomState();
+  if (state.started) render();
 }
 
 function selectRoomCharacter(key) {
@@ -921,6 +1025,22 @@ function setNameWithIcon(root, character) {
   img.src = character.icon || character.image;
   img.alt = "";
   root.append(img, document.createTextNode(character.displayName || character.name));
+}
+
+function setNameWithIconText(root, character, text) {
+  if (!root || !character) return;
+  root.replaceChildren();
+  const img = document.createElement("img");
+  img.src = character.icon || character.image;
+  img.alt = "";
+  root.append(img, document.createTextNode(text || character.displayName || character.name));
+}
+
+function applyOnlineHandleLabels() {
+  if (!isOnlineMatch()) return;
+  setNameWithIconText(document.querySelector(".turn-head-name.player strong"), getPlayerCharacter(), playerOnlineDisplayName());
+  setNameWithIconText(document.querySelector(".turn-head-name.rival strong"), getOpponentCharacter(), opponentOnlineDisplayName());
+  setNameWithIconText(document.querySelector(".mobile-hud-player strong"), getPlayerCharacter(), playerOnlineDisplayName());
 }
 
 function renderCharacterSelect() {
@@ -950,6 +1070,7 @@ function applyPlayerCharacterUi() {
   setNameWithIcon(document.querySelector(".turn-head-name.player strong"), character);
   setNameWithIcon(document.querySelector(".turn-head-name.rival strong"), getOpponentCharacter());
   setNameWithIcon(document.querySelector(".mobile-hud-player strong"), character);
+  applyOnlineHandleLabels();
 
   document.querySelectorAll(".mobile-insider-panel.player strong, .desktop-insider-panel.player strong").forEach((label) => {
     label.textContent = character.shortName || character.cutinLabel || character.name;
@@ -1129,10 +1250,177 @@ function setBootStatus(text, progressText = null, percent = null) {
   if (progressText != null || percent != null) setBootProgress(progressText || text, percent ?? 0);
 }
 
-function revealTitleScreen() {
-  byId("bootScreen")?.classList.add("screen-hidden");
-  byId("titleScreen").classList.remove("screen-hidden");
+function preloadBrandLogo() {
+  const logo = byId("brandSplashLogo");
+  if (!logo) return Promise.resolve(false);
+  logo.src = BRAND_SPLASH_CONFIG.logoSrc;
+  if (logo.complete) return Promise.resolve(Boolean(logo.naturalWidth));
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (loaded) => {
+      if (settled) return;
+      settled = true;
+      logo.removeEventListener("load", onLoad);
+      logo.removeEventListener("error", onError);
+      resolve(loaded);
+    };
+    const onLoad = () => finish(true);
+    const onError = () => finish(false);
+    logo.addEventListener("load", onLoad, { once: true });
+    logo.addEventListener("error", onError, { once: true });
+    setTimeout(() => finish(Boolean(logo.complete && logo.naturalWidth)), BRAND_SPLASH_CONFIG.preloadTimeoutMs);
+  });
 }
+
+function stopBrandSplashAudio() {
+  if (brandSplashRuntime.audioFadeTimer) clearInterval(brandSplashRuntime.audioFadeTimer);
+  brandSplashRuntime.audioFadeTimer = null;
+  const audio = byId("brandSplashAudio");
+  if (!audio) return;
+  audio.pause();
+  audio.currentTime = 0;
+  audio.volume = 0;
+}
+
+function fadeBrandSplashAudio(targetVolume, durationMs, { stopAtEnd = false } = {}) {
+  const audio = byId("brandSplashAudio");
+  if (!audio) return;
+  if (brandSplashRuntime.audioFadeTimer) clearInterval(brandSplashRuntime.audioFadeTimer);
+  const startVolume = Number(audio.volume) || 0;
+  const startedAt = Date.now();
+  const safeDuration = Math.max(1, durationMs);
+  brandSplashRuntime.audioFadeTimer = setInterval(() => {
+    const progress = Math.min(1, (Date.now() - startedAt) / safeDuration);
+    audio.volume = Math.max(0, Math.min(1, startVolume + (targetVolume - startVolume) * progress));
+    if (progress >= 1) {
+      clearInterval(brandSplashRuntime.audioFadeTimer);
+      brandSplashRuntime.audioFadeTimer = null;
+      if (stopAtEnd) stopBrandSplashAudio();
+    }
+  }, 40);
+}
+
+function playBrandSplashAudio() {
+  const audio = byId("brandSplashAudio");
+  if (!audio || settings.bgmVolume <= 0) return;
+  audio.src = BRAND_SPLASH_CONFIG.audioSrc;
+  audio.currentTime = 0;
+  audio.volume = 0;
+  const playPromise = audio.play();
+  if (!playPromise) return;
+  playPromise
+    .then(() => {
+      if (brandSplashRuntime.finished) {
+        stopBrandSplashAudio();
+        return;
+      }
+      const targetVolume = Math.min(BRAND_SPLASH_CONFIG.maxVolume, settings.bgmVolume);
+      fadeBrandSplashAudio(targetVolume, BRAND_SPLASH_CONFIG.fadeInMs);
+    })
+    .catch(() => {
+      stopBrandSplashAudio();
+    });
+}
+
+function removeBrandSplashListeners() {
+  const splash = byId("brandSplash");
+  if (splash && brandSplashRuntime.pointerHandler) {
+    splash.removeEventListener("pointerdown", brandSplashRuntime.pointerHandler, true);
+  }
+  if (brandSplashRuntime.keyHandler) {
+    document.removeEventListener("keydown", brandSplashRuntime.keyHandler, true);
+  }
+  if (brandSplashRuntime.visibilityHandler) {
+    document.removeEventListener("visibilitychange", brandSplashRuntime.visibilityHandler);
+  }
+  brandSplashRuntime.pointerHandler = null;
+  brandSplashRuntime.keyHandler = null;
+  brandSplashRuntime.visibilityHandler = null;
+}
+
+function finishBrandSplash({ skipped = false } = {}) {
+  if (brandSplashRuntime.finished) return;
+  brandSplashRuntime.finished = true;
+  if (brandSplashRuntime.finishTimer) clearTimeout(brandSplashRuntime.finishTimer);
+  brandSplashRuntime.finishTimer = null;
+  removeBrandSplashListeners();
+  const splash = byId("brandSplash");
+  const fadeOutMs = skipped ? BRAND_SPLASH_CONFIG.skipFadeOutMs : BRAND_SPLASH_CONFIG.fadeOutMs;
+  splash?.classList.add("finishing");
+  splash?.classList.toggle("skipping", skipped);
+  fadeBrandSplashAudio(0, fadeOutMs, { stopAtEnd: true });
+  brandSplashRuntime.transitionTimer = setTimeout(() => {
+    stopBrandSplashAudio();
+    splash?.classList.add("screen-hidden");
+    splash?.classList.remove("active", "finishing", "skipping");
+    splash?.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("brand-splash-active");
+    byId("titleScreen").classList.remove("screen-hidden");
+    brandSplashRuntime.transitionTimer = null;
+  }, fadeOutMs);
+}
+
+async function startBrandSplash({ force = false } = {}) {
+  if (brandSplashRuntime.started && !force) return;
+  if (force) {
+    if (brandSplashRuntime.finishTimer) clearTimeout(brandSplashRuntime.finishTimer);
+    if (brandSplashRuntime.transitionTimer) clearTimeout(brandSplashRuntime.transitionTimer);
+    removeBrandSplashListeners();
+    stopBrandSplashAudio();
+    brandSplashRuntime.finished = false;
+  }
+  brandSplashRuntime.started = true;
+  brandSplashRuntime.finished = false;
+  const splash = byId("brandSplash");
+  if (!splash) {
+    byId("titleScreen").classList.remove("screen-hidden");
+    return;
+  }
+  byId("bootScreen")?.classList.add("screen-hidden");
+  byId("titleScreen").classList.add("screen-hidden");
+  document.body.classList.add("brand-splash-active");
+  splash.classList.remove("screen-hidden", "active", "finishing", "skipping");
+  splash.setAttribute("aria-hidden", "false");
+
+  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  const totalDuration = reducedMotion
+    ? BRAND_SPLASH_CONFIG.reducedMotionDurationMs
+    : BRAND_SPLASH_CONFIG.totalDurationMs;
+
+  const skip = (event) => {
+    if (!BRAND_SPLASH_CONFIG.allowSkip || brandSplashRuntime.finished) return;
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.stopImmediatePropagation?.();
+    finishBrandSplash({ skipped: true });
+  };
+  brandSplashRuntime.pointerHandler = skip;
+  brandSplashRuntime.keyHandler = (event) => {
+    if (["Enter", " ", "Escape"].includes(event.key)) skip(event);
+  };
+  brandSplashRuntime.visibilityHandler = () => {
+    if (document.visibilityState === "hidden") stopBrandSplashAudio();
+  };
+  splash.addEventListener("pointerdown", brandSplashRuntime.pointerHandler, true);
+  document.addEventListener("keydown", brandSplashRuntime.keyHandler, true);
+  document.addEventListener("visibilitychange", brandSplashRuntime.visibilityHandler);
+
+  playBrandSplashAudio();
+  brandSplashRuntime.finishTimer = setTimeout(() => finishBrandSplash(), totalDuration);
+  const logoLoaded = await preloadBrandLogo();
+  if (brandSplashRuntime.finished) return;
+  if (!logoLoaded) {
+    setTimeout(() => finishBrandSplash(), 250);
+    return;
+  }
+  requestAnimationFrame(() => requestAnimationFrame(() => splash.classList.add("active")));
+}
+
+function revealTitleScreen() {
+  startBrandSplash();
+}
+
+window.replayKeishisEntranceSplash = () => startBrandSplash({ force: true });
 
 function reloadForFreshVersion(version) {
   const next = new URL(window.location.href);
@@ -2236,7 +2524,7 @@ async function receiveOpponentAction(message, id) {
 }
 
 function roomPlayerName(role = roomSync.role) {
-  return role === "host" ? "HOST" : role === "guest" ? "GUEST" : "PLAYER";
+  return roomPlayerHandle(role);
 }
 
 function roomLog(text) {
@@ -2454,7 +2742,9 @@ function connectRoom(code, role) {
   roomSync.room = db.ref(`rooms/${code}`);
   localStorage.setItem(ROOM_SYNC_STORAGE_KEY, JSON.stringify({ code, role, updatedAt: new Date().toISOString() }));
 
-  const baseUpdate = { code, mode: roomSync.mode, updatedAt: firebaseTimestamp() };
+  const handleName = saveHandleName(loadHandleName({ allowEmpty: true }));
+  const roomNameKey = role === "host" ? "hostName" : "guestName";
+  const baseUpdate = { code, mode: roomSync.mode, [roomNameKey]: handleName, updatedAt: firebaseTimestamp() };
   if (role === "host") {
     baseUpdate.status = "waiting";
     baseUpdate.hostId = roomSync.playerId;
@@ -2470,7 +2760,9 @@ function connectRoom(code, role) {
   const playerRef = roomSync.room.child(`players/${role}`);
   playerRef.set({
     playerId: roomSync.playerId,
-    name: playerResultName(),
+    name: handleName,
+    handleName,
+    characterName: playerResultName(),
     role,
     characterId: selectedPlayerKey,
     connected: true,
@@ -2507,7 +2799,7 @@ function connectRoom(code, role) {
       code,
       role,
       status: roomSync.status,
-      players: activeRoomPlayers().map((entry) => entry.name || entry.role || "PLAYER"),
+      players: activeRoomPlayers().map((entry) => entry.handleName || entry.name || entry.role || DEFAULT_HANDLE_NAME),
       updatedAt: new Date().toISOString(),
     }));
     renderRoomState();
@@ -2687,6 +2979,7 @@ function renderRoomState(room = null) {
   const joinButton = byId("joinRoomBtn");
   const codeInput = byId("roomCodeInput");
   const blocked = onlineMatchStartBlockReason();
+  renderHandleNameUi();
   renderRoomCharacterSelect();
   if (startButton) startButton.disabled = Boolean(blocked);
   if (joinButton && codeInput) joinButton.disabled = !normalizeRoomCode(codeInput.value);
@@ -2728,6 +3021,8 @@ function renderReadableRoomState(room = null) {
   const codeInput = byId("roomCodeInput");
   const blocked = onlineMatchStartBlockReason();
   const playersCount = activeRoomPlayers().length;
+  const youName = roomPlayerName(roomSync.role || current?.role);
+  const opponentName = roomPlayerName(opponentRoomRole());
   if (startButton) {
     startButton.disabled = Boolean(blocked);
     startButton.textContent = blocked ? "対戦相手待ち" : "対戦開始";
@@ -2738,7 +3033,7 @@ function renderReadableRoomState(room = null) {
     stateLabel.textContent = "まだ部屋に入っていません。部屋を作るか、相手のあいことばを入力してください。";
     return;
   }
-  stateLabel.textContent = `Room ${current.code} / role: ${current.role} / status: ${roomStatusLabel(roomSync.status || current.status)} / players: ${playersCount}/2${blocked ? ` / ${blocked}` : ""}`;
+  stateLabel.textContent = `Room ${current.code} / role: ${current.role} / YOU: ${youName} / OPP: ${opponentName} / status: ${roomStatusLabel(roomSync.status || current.status)} / players: ${playersCount}/2${blocked ? ` / ${blocked}` : ""}`;
 }
 
 function loadFeedbackRecords() {
@@ -4518,7 +4813,7 @@ function render() {
   byId("playerScore").textContent = state.playerScore;
   byId("cpuScore").textContent = state.cpuScore;
   byId("matchLabel").textContent = `Round ${state.matchRound || 0}/${MATCH_ROUNDS}  勝敗 ${state.playerRoundWins}-${state.cpuRoundWins}`;
-  byId("officialMatchLabel").textContent = `GAME ${state.matchRound || 0} / BO3  ${playerResultName()} ${state.playerRoundWins} - ${state.cpuRoundWins} ${opponentResultName()}`;
+  byId("officialMatchLabel").textContent = `GAME ${state.matchRound || 0} / BO3  ${playerOnlineDisplayName()} ${state.playerRoundWins} - ${state.cpuRoundWins} ${opponentOnlineDisplayName()}`;
   updateMatchTimerLabel();
   const profile = loadPlayerProfile();
   byId("playerRatingLabel").textContent = `Rating ${profile.rating}${isRatingExpired(profile.lastMatchAt) ? " / 失効" : ""}`;
@@ -4869,8 +5164,8 @@ function renderJudgePanel(id, rows) {
       <em class="${warning ? "warning" : ""}">${warning || "履き状況"}</em>
     </div>
     <div class="judge-scoreline">
-      <b class="cpu">${opponentResultName()} ${state.cpuScore}/5</b>
-      <b class="player">${playerResultName()} ${state.playerScore}/5</b>
+      <b class="cpu">${opponentOnlineDisplayName()} ${state.cpuScore}/5</b>
+      <b class="player">${playerOnlineDisplayName()} ${state.playerScore}/5</b>
     </div>
     <div class="judge-row-list">
       ${rows
@@ -4952,8 +5247,8 @@ function renderJudgePanel(id, rows) {
       <em class="${warning ? "warning" : ""}">${warning || "履き状況を判定中"}</em>
     </div>
     <div class="judge-scoreline">
-      <b class="cpu">${opponentResultName()} ${state.cpuScore}/5</b>
-      <b class="player">${playerResultName()} ${state.playerScore}/5</b>
+      <b class="cpu">${opponentOnlineDisplayName()} ${state.cpuScore}/5</b>
+      <b class="player">${playerOnlineDisplayName()} ${state.playerScore}/5</b>
     </div>
     <div class="judge-row-list">
       ${rows
@@ -5294,7 +5589,7 @@ function renderMobileBoard(id, board, side) {
   const root = byId(id);
   root.innerHTML = "";
   root.dataset.side = side === "player" ? "YOU" : "OPP";
-  root.dataset.fieldLabel = side === "player" ? `${playerResultName()}の玄関` : `${opponentResultName()}の玄関`;
+  root.dataset.fieldLabel = side === "player" ? `${playerOnlineDisplayName()}の玄関` : `${opponentOnlineDisplayName()}の玄関`;
   const canOperate = side === "player" && state.turn === "player" && !state.gameOver && !state.cutinActive;
   const hasActive = Boolean(state.activeHandUid);
   for (let i = 0; i < field.maxBoard; i += 1) {
@@ -5339,7 +5634,7 @@ function mobileFieldIdentity(side) {
     <img src="${isPlayer ? playerIcon() : opponentIcon()}" alt="" />
     <div>
       <strong>${isPlayer ? "自分フィールド" : "相手フィールド"}</strong>
-      <small>${isPlayer ? playerResultName() : opponentResultName()}</small>
+      <small>${isPlayer ? playerOnlineDisplayName() : opponentOnlineDisplayName()}</small>
     </div>
   `;
   return identity;
@@ -6756,6 +7051,13 @@ byId("roomCodeInput").addEventListener("input", () => renderRoomState());
 byId("joinRoomBtn").addEventListener("click", () => joinRoom(byId("roomCodeInput").value));
 byId("leaveRoomBtn").addEventListener("click", leaveRoom);
 byId("startOnlineMatchBtn").addEventListener("click", () => startOnlineMatch(true));
+byId("handleNameSaveBtn")?.addEventListener("click", commitHandleNameFromInput);
+byId("handleNameInput")?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    commitHandleNameFromInput();
+  }
+});
 document.querySelectorAll("[data-room-character]").forEach((button) => {
   button.addEventListener("click", () => selectRoomCharacter(button.dataset.roomCharacter));
 });
@@ -6783,5 +7085,6 @@ applyDeviceMode();
 initHandDrag();
 setCpuDifficulty(settings.cpuDifficulty);
 applyPlayerCharacterUi();
+renderHandleNameUi();
 showIdle();
 checkBuildVersionOnBoot();

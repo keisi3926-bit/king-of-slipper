@@ -255,6 +255,77 @@ body.mobile-ui.x-inapp-ui .x-browser-notice ol {
   font-weight: 900;
 }
 
+.brand-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding:
+    max(8px, env(safe-area-inset-top))
+    max(8px, env(safe-area-inset-right))
+    max(8px, env(safe-area-inset-bottom))
+    max(8px, env(safe-area-inset-left));
+  background: #000;
+  opacity: 1;
+  transition: opacity 800ms ease;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+body.brand-splash-active {
+  overflow: hidden;
+}
+
+.brand-splash img {
+  display: block;
+  width: min(92vw, 1200px);
+  max-width: 100%;
+  max-height: 90vh;
+  object-fit: contain;
+  opacity: 0;
+  transform: scale(0.985);
+  filter: brightness(0.84);
+  transition:
+    opacity 700ms ease,
+    transform 900ms cubic-bezier(0.2, 0.75, 0.25, 1),
+    filter 900ms ease;
+  user-select: none;
+  pointer-events: none;
+}
+
+.brand-splash.active img {
+  opacity: 1;
+  transform: scale(1);
+  filter: brightness(1);
+}
+
+.brand-splash.finishing {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.brand-splash.skipping {
+  transition-duration: 200ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-splash {
+    transition-duration: 180ms;
+  }
+
+  .brand-splash img {
+    transform: none;
+    filter: none;
+    transition: opacity 180ms ease;
+  }
+
+  .brand-splash.active img {
+    transform: none;
+  }
+}
+
 body[data-screen-size="sd"] .app {
   width: min(960px, 100%);
   font-size: 14px;
@@ -2626,6 +2697,40 @@ body.pc-ui .hand {
   border-color: var(--gold);
   background: rgba(216, 182, 90, 0.28);
   color: #fff7d0;
+}
+
+.room-handle-panel {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: end;
+  padding: 10px;
+  border: 1px solid rgba(216, 182, 90, 0.28);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.room-handle-panel label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.room-handle-panel span,
+.room-handle-panel small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.room-handle-panel input {
+  width: 100%;
+  min-width: 0;
+}
+
+.room-handle-panel small {
+  grid-column: 1 / -1;
+  font-weight: 700;
 }
 
 .room-join {

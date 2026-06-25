@@ -1,9 +1,9 @@
 # King of Slipper / TSG Development Handoff
 
-Last updated: 2026-06-15
-Current pushed commit: pending v66 commit
-Current app version: `2026.06.15-online-round-sync-v66`
-Current service worker cache: `king-of-slipper-tsg-v85`
+Last updated: 2026-06-26
+Current pushed commit: pending v68 commit
+Current app version: `2026.06.26-brand-splash-v68`
+Current service worker cache: `king-of-slipper-tsg-v87`
 
 This document is a technical handoff for continuing development in a new workspace/thread. It intentionally excludes story lore and unimplemented character setting notes. It covers only current game implementation, data structures, UI behavior, known issues, and next tasks.
 
@@ -46,6 +46,8 @@ Implemented:
 - Character-owned entrance decks and character-specific slipper restrictions.
 - Aikotoba/private-room beta through Firebase Realtime Database, with start gating so matches do not begin without two participants.
 - Firebase room cleanup for explicit leave, browser close, and stale room removal.
+- Online handle-name display for private rooms. Local key: `kos_handle_name`; Firebase room metadata: `hostName` / `guestName`; player nodes also carry `handleName`.
+- Startup brand splash for `KEISHI'S ENTRANCE`, inserted after build/update checking and before the existing title screen. Assets live under `assets/brand/`.
 
 ## 3. Version / Cache Update Rules
 
@@ -74,12 +76,18 @@ const CACHE_NAME = "king-of-slipper-tsg-v84";
 
 const APP_VERSION = "2026.06.15-online-round-sync-v66";
 const CACHE_NAME = "king-of-slipper-tsg-v85";
+
+const APP_VERSION = "2026.06.16-online-handle-name-v67";
+const CACHE_NAME = "king-of-slipper-tsg-v86";
+
+const APP_VERSION = "2026.06.26-brand-splash-v68";
+const CACHE_NAME = "king-of-slipper-tsg-v87";
 ```
 
 `sole.html` is intentionally excluded from service-worker precache and fetched network-first/no-store. Use a cache-busting query when validating on iPhone, for example:
 
 ```text
-sole.html?diag_v=2026.06.15-online-round-sync-v66&t=YYYYMMDD
+sole.html?diag_v=2026.06.26-brand-splash-v68&t=YYYYMMDD
 ```
 
 ## 3.1 Current UI Direction
@@ -386,6 +394,9 @@ Current behavior from Firebase room migration:
 - `connectRoom()` uses Firebase Realtime Database at `rooms/{roomCode}`.
 - `connectRoom()` writes player under `players.host` or `players.guest`.
 - Host writes `hostId`; guest writes `guestId`.
+- Host also writes `hostName`; guest also writes `guestName`.
+- Player records include `name`, `handleName`, and `characterName`; `name`/`handleName` are the user's online HN, while `characterName` is the selected character display name.
+- HN is stored locally in `localStorage.kos_handle_name`. If unset, display and room sync fall back to `名無しの玄関戦士`.
 - When both connected `host` and `guest` exist, room moves to `matched`.
 - Roles metadata is written as `player1: "host"`, `player2: "guest"`.
 - `startOnlineMatch()` calls `onlineMatchStartBlockReason()` and refuses to start unless both players exist.

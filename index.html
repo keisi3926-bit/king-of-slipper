@@ -11,10 +11,12 @@
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon-64.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png" />
+    <link rel="preload" href="assets/brand/keishis-entrance-logo.png" as="image" />
+    <link rel="preload" href="assets/brand/sweet-wind-jingle.mp3" as="audio" type="audio/mpeg" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div id="diagnosticBuildBadge" class="diagnostic-build-badge" aria-label="診断ビルドID">build: 2026.06.15-online-round-sync-v66</div>
+    <div id="diagnosticBuildBadge" class="diagnostic-build-badge" aria-label="診断ビルドID">build: 2026.06.26-brand-splash-v68</div>
     <aside id="xBrowserNotice" class="x-browser-notice" aria-live="polite">
       <div>
         <span>KOS PLAY GUIDE</span>
@@ -45,6 +47,10 @@
         </div>
         <small id="bootVersion">--</small>
       </div>
+    </section>
+
+    <section id="brandSplash" class="brand-splash screen-hidden" aria-hidden="true">
+      <img id="brandSplashLogo" src="assets/brand/keishis-entrance-logo.png" alt="" />
     </section>
 
     <section id="titleScreen" class="title-screen screen-hidden">
@@ -669,6 +675,7 @@
       <source src="assets/jin-victory-theme.mp3" type="audio/mpeg" />
       <source src="assets/jin-victory-theme.wav" type="audio/wav" />
     </audio>
+    <audio id="brandSplashAudio" preload="auto" src="assets/brand/sweet-wind-jingle.mp3"></audio>
 
     <div id="victoryScreen" class="victory-screen" aria-hidden="true">
       <img src="assets/haou-win.png" alt="" />
@@ -747,6 +754,14 @@
             <span>使用キャラ</span>
             <button type="button" data-room-character="haou">覇王</button>
             <button type="button" data-room-character="matsuba_jin">迅</button>
+          </div>
+          <div class="room-handle-panel">
+            <label for="handleNameInput">
+              <span>HN</span>
+              <input id="handleNameInput" type="text" maxlength="24" placeholder="名無しの玄関戦士" autocomplete="nickname" />
+            </label>
+            <button id="handleNameSaveBtn" type="button">HN変更</button>
+            <small id="handleNameState">HN未設定時は「名無しの玄関戦士」で参加します。</small>
           </div>
           <button id="createRoomBtn" class="primary" type="button">部屋を作る</button>
           <div class="room-join">
