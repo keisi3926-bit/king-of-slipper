@@ -1,9 +1,9 @@
 # King of Slipper / TSG Development Handoff
 
 Last updated: 2026-06-26
-Current pushed commit: pending v69 commit
-Current app version: `2026.06.26-hide-build-badge-v69`
-Current service worker cache: `king-of-slipper-tsg-v88`
+Current pushed commit: pending v70 commit
+Current app version: `2026.06.26-online-ux-diagnostics-v70`
+Current service worker cache: `king-of-slipper-tsg-v89`
 
 This document is a technical handoff for continuing development in a new workspace/thread. It intentionally excludes story lore and unimplemented character setting notes. It covers only current game implementation, data structures, UI behavior, known issues, and next tasks.
 
@@ -48,6 +48,8 @@ Implemented:
 - Firebase room cleanup for explicit leave, browser close, and stale room removal.
 - Online handle-name display for private rooms. Local key: `kos_handle_name`; Firebase room metadata: `hostName` / `guestName`; player nodes also carry `handleName`.
 - Startup brand splash for `KEISHI'S ENTRANCE`, inserted after build/update checking and before the existing title screen. Assets live under `assets/brand/`.
+- Shoe Rack Change no longer consumes swap quota on every tentative click. Players can freely swap/undo during editing, reset to the initial rack state, and only `交換完了` validates the final changed entrance slots.
+- `sole.html` shows simple daily access quality metrics: `newVisitors` and `repeatVisitors` from `dailyStats/YYYY-MM-DD`.
 
 ## 3. Version / Cache Update Rules
 
@@ -85,12 +87,15 @@ const CACHE_NAME = "king-of-slipper-tsg-v87";
 
 const APP_VERSION = "2026.06.26-hide-build-badge-v69";
 const CACHE_NAME = "king-of-slipper-tsg-v88";
+
+const APP_VERSION = "2026.06.26-online-ux-diagnostics-v70";
+const CACHE_NAME = "king-of-slipper-tsg-v89";
 ```
 
 `sole.html` is intentionally excluded from service-worker precache and fetched network-first/no-store. Use a cache-busting query when validating on iPhone, for example:
 
 ```text
-sole.html?diag_v=2026.06.26-hide-build-badge-v69&t=YYYYMMDD
+sole.html?diag_v=2026.06.26-online-ux-diagnostics-v70&t=YYYYMMDD
 ```
 
 ## 3.1 Current UI Direction
@@ -469,6 +474,26 @@ Known limitation:
 - v66 local fix: `receiveOpponentAction("turnResolved")` no longer treats `action.gameOver === true` as match end unless `action.matchFinished === true`. A normal Game 1 end now logs `roundEnded` and waits for `rack_change` / `matchState`.
 - v66 local fix: online match timeout authority is limited to host. Non-host local timeout logs `timeoutTriggered ignored: non-host-online-timeout`, stops the local match timer, and waits for host result.
 - Trap OPEN now appears on the opponent side, but can be delayed. v66 action payloads include `serverAt` and trap logs include `actionClientAt` / `actionServerAt` for timestamp correlation.
+- v70 adds Firebase `rooms/{roomCode}/actionLog` entries for trap OPEN diagnostics without changing `phase`, `turn`, `wins`, or `resultReason`.
+  - `trap_open_requested`
+  - `trap_open_written`
+  - `trap_open_received`
+  - `trap_ui_displayed`
+  - `trap_effect_applied`
+  - Entries include local role, playerId, client timestamp, Firebase `serverAt`, turn, phase, trap id/name/index, and sender/receiver details where applicable.
+
+## 11.1 Shoe Rack Change Editing
+
+Current v70 behavior:
+
+- `openSideboardTime()` snapshots the initial round entrance/rack into `state.sideboardOriginalEntrance` and `state.sideboardOriginalShoeRack`.
+- `selectSideboardItem()` edits the draft freely. It no longer disables the list after three tentative swaps.
+- `sideboardDraftSwapCount()` counts final changed entrance slots compared with the initial snapshot.
+- `交換完了` calls `completeSideboard()`, validates final changed slots are `<= MAX_SHOE_RACK_SIZE`, then commits readiness.
+- `リセット` calls `resetSideboardDraft()` and restores the draft to the initial Shoe Rack Change state.
+- `onSideSwapIn` effects are queued only at final confirmation via `queueConfirmedSideboardEffects()`, not during tentative clicking.
+
+This was added to avoid the bug where a player could be locked out of Shoe Rack Change by merely changing their mind three times.
 
 ## 12. Audio / Animation Notes
 

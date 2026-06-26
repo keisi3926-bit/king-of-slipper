@@ -2964,7 +2964,6 @@ button.danger {
 }
 
 #sideboardDoneBtn {
-  grid-column: 1 / -1;
   justify-self: end;
   min-width: 180px;
 }

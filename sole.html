@@ -305,7 +305,7 @@
 
       @media (min-width: 720px) {
         .stats {
-          grid-template-columns: repeat(5, minmax(0, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
         }
       }
 
@@ -359,7 +359,7 @@
         <p class="eyebrow">KOS Sole Monitor</p>
         <h1>sole</h1>
         <p class="sub">制作者用の簡易観測ページ。通常メニューからはリンクしません。</p>
-        <p id="soleBuildId" class="build-id">build: 2026.06.26-hide-build-badge-v69</p>
+        <p id="soleBuildId" class="build-id">build: 2026.06.26-online-ux-diagnostics-v70</p>
         <p id="connectionStatus" class="status">Firebaseへ接続中...</p>
       </header>
 
@@ -368,6 +368,14 @@
           <span>今日のアクセス数</span>
           <strong id="pageViews">--</strong>
           <small id="soleViews">sole --</small>
+        </article>
+        <article class="stat">
+          <span>今日の新規アクセス</span>
+          <strong id="newVisitors">--</strong>
+        </article>
+        <article class="stat">
+          <span>今日のリピーター</span>
+          <strong id="repeatVisitors">--</strong>
         </article>
         <article class="stat">
           <span>今日の部屋作成数</span>
@@ -630,6 +638,8 @@
         const stats = snapshot.val() || {};
         $("pageViews").textContent = asNumber(stats.pageViews);
         $("soleViews").textContent = `sole ${asNumber(stats.soleViews)}`;
+        $("newVisitors").textContent = asNumber(stats.newVisitors);
+        $("repeatVisitors").textContent = asNumber(stats.repeatVisitors);
         $("roomCreates").textContent = asNumber(stats.roomCreates);
         $("matchStarts").textContent = asNumber(stats.matchStarts);
       }

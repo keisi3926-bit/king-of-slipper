@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.06.26-hide-build-badge-v69";
+const APP_VERSION = "2026.06.26-online-ux-diagnostics-v70";
 const VERSION_URL = "version.json";
 const STAMP_COOLDOWN_MS = 2000;
 const STAMP_DISPLAY_MS = 2600;
@@ -16,6 +16,8 @@ const BATTLE_STAMPS = [
 ];
 const PLAYER_CHARACTER_STORAGE_KEY = "kos_player_character_v1";
 const HANDLE_NAME_STORAGE_KEY = "kos_handle_name";
+const VISITOR_ID_STORAGE_KEY = "kos_visitor_id_v1";
+const VISITOR_SEEN_DAY_PREFIX = "kos_visitor_seen_day_";
 const DEFAULT_HANDLE_NAME = "名無しの玄関戦士";
 const PLAYER_CHARACTERS = {
   haou: {
@@ -738,6 +740,8 @@ const state = {
   cpuRoundWins: 0,
   matchEntrance: [],
   matchShoeRack: [],
+  sideboardOriginalEntrance: [],
+  sideboardOriginalShoeRack: [],
   sideboardSeconds: SIDEBOARD_SECONDS,
   sideboardSwaps: 0,
   sideboardInterval: null,
@@ -2223,6 +2227,24 @@ function sendPlayerAction(action) {
   return { queued: true, action };
 }
 
+function writeOnlineActionLog(event, details = {}) {
+  if (!roomSync.room || !roomSync.role) return;
+  const entry = {
+    event,
+    role: roomSync.role,
+    playerId: roomSync.playerId || "",
+    roomCode: roomSync.code || "",
+    turn: state.turn || "",
+    phase: byId("phaseTitle")?.textContent || "",
+    clientAt: Date.now(),
+    serverAt: firebaseTimestamp(),
+    details: sanitizeDiagnosticPayload(details),
+  };
+  roomSync.room.child("actionLog").push(entry).catch((error) => {
+    console.warn("[KOS Online]", { event: "actionLog-write-failed", logEvent: event, role: roomSync.role, error });
+  });
+}
+
 function normalizeRemoteActionMessage(message, id) {
   if (!message) return null;
   if (message.action) return { ...message, id: message.id || id };
@@ -2296,6 +2318,14 @@ function sendCounterAction(trap) {
     trapName: trap?.name || "",
     playerScore: state.playerScore,
     cpuScore: state.cpuScore,
+  });
+  writeOnlineActionLog("trap_open_written", {
+    sender: roomSync.role,
+    receiver: opponentRoomRole(),
+    actionClientAt,
+    trapIndex: trap?.trapIndex ?? null,
+    trapId: trap?.id || trap?.name || "",
+    trapName: trap?.name || "",
   });
   sendPlayerAction({
     type: "counter",
@@ -2445,11 +2475,27 @@ async function receiveOpponentAction(message, id) {
       trapId: action.trapId || "",
       trapName: action.trapName || "",
     });
+    writeOnlineActionLog("trap_open_received", {
+      sender: message.role,
+      receiver: roomSync.role,
+      actionClientAt: action.actionClientAt || null,
+      actionServerAt: message.serverAt || null,
+      trapIndex: action.trapIndex ?? null,
+      trapId: action.trapId || "",
+      trapName: action.trapName || "",
+    });
     onlineDebug("trapCutinStarted", { source: "remote", trapName: action.trapName || "" });
     await showCutin(opponentCutinLabel(), "伏せスリッパオープン！", `${action.trapName || "伏せスリッパ"}！`, {
       image: opponentCounterImage(),
     });
     onlineDebug("trapCutinEnded", { source: "remote", trapName: action.trapName || "" });
+    writeOnlineActionLog("trap_ui_displayed", {
+      sender: message.role,
+      receiver: roomSync.role,
+      trapIndex: action.trapIndex ?? null,
+      trapId: action.trapId || "",
+      trapName: action.trapName || "",
+    });
     if (Array.isArray(action.playerBoard)) state.cpuBoard = action.playerBoard.map(reviveRemoteSlipper);
     if (Array.isArray(action.cpuBoard)) state.playerBoard = action.cpuBoard.map(reviveRemoteSlipper);
     if (Array.isArray(action.playerTraps)) state.cpuTraps = [...action.playerTraps];
@@ -2465,6 +2511,16 @@ async function receiveOpponentAction(message, id) {
     playSound("counter");
     showTrapResolutionNotice(opponentResultName(), action.trapName || "伏せスリッパ", action.trap?.text || "読み合いが動いた。", "danger");
     onlineDebug("trapEffectApplied", { source: "remote", trapName: action.trapName || "", playerScore: state.playerScore, cpuScore: state.cpuScore });
+    writeOnlineActionLog("trap_effect_applied", {
+      source: "remote",
+      sender: message.role,
+      receiver: roomSync.role,
+      trapIndex: action.trapIndex ?? null,
+      trapId: action.trapId || "",
+      trapName: action.trapName || "",
+      playerScore: state.playerScore,
+      cpuScore: state.cpuScore,
+    });
     render();
   } else if (action.type === "turnResolved") {
     if (Array.isArray(action.playerBoard)) state.cpuBoard = action.playerBoard.map(reviveRemoteSlipper);
@@ -2562,6 +2618,33 @@ function dailyStatKey(date = new Date()) {
   return japanTime.toISOString().slice(0, 10);
 }
 
+function getVisitorId() {
+  try {
+    let id = localStorage.getItem(VISITOR_ID_STORAGE_KEY);
+    if (!id) {
+      id = `v-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem(VISITOR_ID_STORAGE_KEY, id);
+    }
+    return id;
+  } catch {
+    return `v-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+
+function markDailyVisitor(statRef, key) {
+  try {
+    const visitorId = getVisitorId();
+    const seenKey = `${VISITOR_SEEN_DAY_PREFIX}${key}`;
+    const seen = localStorage.getItem(seenKey) === visitorId;
+    localStorage.setItem(seenKey, visitorId);
+    const field = seen ? "repeatVisitors" : "newVisitors";
+    return statRef.child(field).transaction((value) => (Number(value) || 0) + 1);
+  } catch (error) {
+    console.warn("[KOS stats] visitor mark failed", error);
+    return Promise.resolve(null);
+  }
+}
+
 function incrementDailyStat(field) {
   const db = initRoomFirebase();
   if (!db || !field) return Promise.resolve();
@@ -2570,6 +2653,7 @@ function incrementDailyStat(field) {
   return statRef
     .update({ date: key, updatedAt: firebaseTimestamp() })
     .then(() => statRef.child(field).transaction((value) => (Number(value) || 0) + 1))
+    .then(() => (field === "pageViews" ? markDailyVisitor(statRef, key) : null))
     .catch((error) => {
       console.warn("[KOS stats] increment failed", field, error);
       return null;
@@ -4105,6 +4189,11 @@ async function useCounter(index = null) {
   }
   clearTimeout(state.phaseTimeout);
   const usedTrapIndex = index;
+  writeOnlineActionLog("trap_open_requested", {
+    trapIndex: usedTrapIndex,
+    trapName: state.playerTraps[usedTrapIndex]?.name || "",
+    pendingOnlineTurnEnd: Boolean(state.pendingOnlineTurnEnd),
+  });
   state.mobileTrapOpen = false;
   state.trapDetailIndex = null;
   state.selectedTrapIndex = null;
@@ -4115,6 +4204,12 @@ async function useCounter(index = null) {
     image: playerCounterImage(),
   });
   onlineDebug("trapCutinEnded", { source: "local", trapIndex: usedTrapIndex, trapName: trap?.name || "" });
+  writeOnlineActionLog("trap_ui_displayed", {
+    source: "local",
+    trapIndex: usedTrapIndex,
+    trapId: trap?.id || trap?.name || "",
+    trapName: trap?.name || "",
+  });
   playSound("counter");
   triggerSlipperEvent("onReveal", { side: "player", slipper: trap });
   if (trap?.effectId && trap.effectId !== "humidity_counter") {
@@ -4122,6 +4217,15 @@ async function useCounter(index = null) {
     showTrapResolutionNotice(playerResultName(), trap.name, trap.text || "読み合いが動いた。", "good");
     render();
     onlineDebug("trapEffectApplied", { source: "local", trapName: trap.name, effectId: trap.effectId });
+    writeOnlineActionLog("trap_effect_applied", {
+      source: "local",
+      trapIndex: usedTrapIndex,
+      trapId: trap?.id || trap?.name || "",
+      trapName: trap?.name || "",
+      effectId: trap?.effectId || "",
+      playerScore: state.playerScore,
+      cpuScore: state.cpuScore,
+    });
     sendCounterAction(trap);
     state.phaseTimeout = setTimeout(isOnlineMatch() && state.pendingOnlineTurnEnd ? resolvePendingOnlineTurnEnd : resolveCpuTurn, 1100);
     return;
@@ -4142,6 +4246,15 @@ async function useCounter(index = null) {
   }
   render();
   onlineDebug("trapEffectApplied", { source: "local", trapName: trap?.name || "", effectId: trap?.effectId || "humidity_counter" });
+  writeOnlineActionLog("trap_effect_applied", {
+    source: "local",
+    trapIndex: usedTrapIndex,
+    trapId: trap?.id || trap?.name || "",
+    trapName: trap?.name || "",
+    effectId: trap?.effectId || "humidity_counter",
+    playerScore: state.playerScore,
+    cpuScore: state.cpuScore,
+  });
   sendCounterAction(trap);
   state.phaseTimeout = setTimeout(isOnlineMatch() && state.pendingOnlineTurnEnd ? resolvePendingOnlineTurnEnd : resolveCpuTurn, 1100);
 }
@@ -4545,6 +4658,8 @@ async function beginNextRound(options = {}) {
 async function openSideboardTime(options = {}) {
   state.sideboardSeconds = SIDEBOARD_SECONDS;
   state.sideboardSwaps = 0;
+  state.sideboardOriginalEntrance = [...state.matchEntrance];
+  state.sideboardOriginalShoeRack = [...state.matchShoeRack];
   state.playerSideboardReady = false;
   state.cpuSideboardReady = false;
   pendingSideboardPick = null;
@@ -4607,15 +4722,49 @@ function renderSideboardTimer() {
   byId("sideboardTimer").textContent = `RACK ${formatClock(state.sideboardSeconds)} / MATCH ${formatClock(state.matchSeconds)}`;
 }
 
+function sideboardDraftSwapCount() {
+  const original = Array.isArray(state.sideboardOriginalEntrance) ? state.sideboardOriginalEntrance : [];
+  const current = Array.isArray(state.matchEntrance) ? state.matchEntrance : [];
+  const length = Math.max(original.length, current.length);
+  let changed = 0;
+  for (let i = 0; i < length; i += 1) {
+    if ((original[i] || "") !== (current[i] || "")) changed += 1;
+  }
+  return changed;
+}
+
+function resetSideboardDraft() {
+  if (state.playerSideboardReady) return;
+  state.matchEntrance = [...(state.sideboardOriginalEntrance || [])];
+  state.matchShoeRack = [...(state.sideboardOriginalShoeRack || [])];
+  state.sideboardSwaps = 0;
+  pendingSideboardPick = null;
+  state.sideboardDetail = null;
+  state.sideboardMessageOverride = "交換内容を開始時の状態へ戻しました。";
+  playSound("place");
+  renderSideboard();
+}
+
+function queueConfirmedSideboardEffects() {
+  const original = Array.isArray(state.sideboardOriginalEntrance) ? state.sideboardOriginalEntrance : [];
+  state.matchEntrance.forEach((name, entranceIndex) => {
+    if ((original[entranceIndex] || "") === (name || "")) return;
+    triggerSlipperEvent("onSideSwapIn", { side: "player", slipper: slipperByName(name), entranceIndex });
+  });
+}
+
 function renderSideboard() {
+  state.sideboardSwaps = sideboardDraftSwapCount();
   byId("sideboardEntranceCount").textContent = `${state.matchEntrance.length}/${MAX_ENTRANCE_SIZE}`;
   byId("sideboardRackCount").textContent = `${state.matchShoeRack.length}/${MAX_SHOE_RACK_SIZE}`;
   if (state.sideboardMessageOverride) {
     byId("sideboardMessage").textContent = state.sideboardMessageOverride;
     state.sideboardMessageOverride = "";
   } else if (!pendingSideboardPick) {
-    byId("sideboardMessage").textContent = `Shoe Rackとエントランスを交換できます。交換 ${state.sideboardSwaps}/3。`;
+    byId("sideboardMessage").textContent = `交換完了まで何度でも入れ替え可能です。最終差分 ${state.sideboardSwaps}/3。`;
   }
+  const resetButton = byId("sideboardResetBtn");
+  if (resetButton) resetButton.disabled = state.playerSideboardReady || state.sideboardSwaps <= 0;
   renderSwapList("sideboardEntrance", state.matchEntrance, "entrance");
   renderSwapList("sideboardRack", state.matchShoeRack, "shoeRack");
   renderSideboardDetail();
@@ -4638,7 +4787,7 @@ function renderSwapList(id, names, source) {
       }
     }
     item.className = `swap-item ${selected ? "selected" : ""} ${wouldDuplicate ? "invalid" : ""}`;
-    item.disabled = state.playerSideboardReady || state.sideboardSwaps >= MAX_SHOE_RACK_SIZE;
+    item.disabled = state.playerSideboardReady;
     const label = selected
       ? "選択中"
       : wouldDuplicate
@@ -4719,7 +4868,7 @@ function renderSideboardDetail() {
 let pendingSideboardPick = null;
 
 function selectSideboardItem(source, index) {
-  if (state.playerSideboardReady || state.sideboardSwaps >= MAX_SHOE_RACK_SIZE) return;
+  if (state.playerSideboardReady) return;
   if (!pendingSideboardPick) {
     pendingSideboardPick = { source, index };
     byId("sideboardMessage").textContent = `${source === "entrance" ? "エントランス" : "Shoe Rack"}から1足選択中。交換先を選んでください。`;
@@ -4746,11 +4895,10 @@ function selectSideboardItem(source, index) {
   }
   state.matchEntrance = nextEntrance;
   state.matchShoeRack = nextRack;
-  state.sideboardSwaps += 1;
-  triggerSlipperEvent("onSideSwapIn", { side: "player", slipper: slipperByName(rackName), entranceIndex });
+  state.sideboardSwaps = sideboardDraftSwapCount();
   pendingSideboardPick = null;
   playSound("place");
-  const message = `交換完了: ${entranceName} ⇔ ${rackName}。次戦のエントランスに反映されます。`;
+  const message = `仮交換: ${entranceName} ⇔ ${rackName}。交換完了で確定します。最終差分 ${state.sideboardSwaps}/3。`;
   state.sideboardMessageOverride = message;
   byId("sideboardMessage").textContent = message;
   log(message);
@@ -4760,8 +4908,16 @@ function selectSideboardItem(source, index) {
 
 function completeSideboard() {
   if (state.playerSideboardReady) return;
+  state.sideboardSwaps = sideboardDraftSwapCount();
+  if (state.sideboardSwaps > MAX_SHOE_RACK_SIZE) {
+    pendingSideboardPick = null;
+    state.sideboardMessageOverride = `最終差分が${state.sideboardSwaps}/3です。3足以内に戻すか、リセットしてください。`;
+    renderSideboard();
+    return;
+  }
   state.playerSideboardReady = true;
   pendingSideboardPick = null;
+  queueConfirmedSideboardEffects();
   if (isOnlineMatch()) {
     sendPlayerAction({
       type: "sideboardReady",
@@ -7045,6 +7201,7 @@ byId("mobilePlayerBtn").addEventListener("click", () => toggleMobileHand("player
 byId("mobileRematchBtn").addEventListener("click", startMatchFromButton);
 document.addEventListener("pointerdown", closeTransientPanelsOnOutside);
 byId("sideboardTitleBtn").addEventListener("click", returnToTitleFromSideboard);
+byId("sideboardResetBtn")?.addEventListener("click", resetSideboardDraft);
 byId("sideboardDoneBtn").addEventListener("click", completeSideboard);
 byId("createRoomBtn").addEventListener("click", createRoom);
 byId("roomCodeInput").addEventListener("input", () => renderRoomState());
